@@ -18,7 +18,7 @@ export default async function DashboardPage() {
     <div className="space-y-6">
       <Card className="space-y-2">
         <h1 className="text-2xl font-bold text-ink-900">Dashboard</h1>
-        <p className="text-sm text-ink-600">Keep one realistic project moving every week.</p>
+        <p className="text-sm text-ink-600">Keep your standout project moving.</p>
       </Card>
 
       <div className="grid gap-4 md:grid-cols-3">
