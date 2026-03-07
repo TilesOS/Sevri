@@ -121,7 +121,7 @@ export function OnboardingWizard() {
       <div>
         <p className="text-sm font-semibold text-ink-700">Onboarding</p>
         <h1 className="mt-1 text-2xl font-bold text-ink-900">Build your ProjectForge profile</h1>
-        <p className="mt-1 text-sm text-ink-600">We use this to generate one realistic project you can finish.</p>
+        <p className="mt-1 text-sm text-ink-600">We use this to generate a realistic project you can finish.</p>
       </div>
 
       <div className="h-2 w-full rounded-full bg-ink-100">

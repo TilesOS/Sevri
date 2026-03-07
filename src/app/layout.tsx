@@ -4,7 +4,7 @@ import "@/app/globals.css";
 
 export const metadata: Metadata = {
   title: "ProjectForge",
-  description: "Build one authentic project you can finish and showcase.",
+  description: "Build an authentic project you can finish and showcase.",
 };
 
 export default function RootLayout({
