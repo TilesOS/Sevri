@@ -58,8 +58,10 @@ export function RecommendationsClient({
     });
 
     if (!normalizeRes.ok) {
-      const body = (await normalizeRes.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "Failed to normalize profile.");
+      const body = (await normalizeRes.json().catch(() => null)) as
+        | { error?: string; details?: string }
+        | null;
+      setError(body?.details ?? body?.error ?? "Failed to normalize profile.");
       setIsGenerating(false);
       return;
     }
@@ -71,11 +73,11 @@ export function RecommendationsClient({
     });
 
     const recommendationsBody = (await recommendationsRes.json().catch(() => null)) as
-      | { recommendations?: RecommendationItem[]; error?: string }
+      | { recommendations?: RecommendationItem[]; error?: string; details?: string }
       | null;
 
     if (!recommendationsRes.ok || !recommendationsBody?.recommendations) {
-      setError(recommendationsBody?.error ?? "Failed to generate recommendations.");
+      setError(recommendationsBody?.details ?? recommendationsBody?.error ?? "Failed to generate recommendations.");
       setIsGenerating(false);
       return;
     }

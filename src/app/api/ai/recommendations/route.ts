@@ -9,6 +9,18 @@ import { canGenerateRecommendations } from "@/lib/usage/limits";
 import { trackEvent } from "@/lib/analytics/events";
 import { captureServerError } from "@/lib/sentry/server";
 
+function getErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown error";
+  }
+}
+
 export async function POST() {
   const { user, response } = await requireApiUser();
   if (!user) {
@@ -16,18 +28,25 @@ export async function POST() {
   }
 
   try {
-    const rateLimit = await enforceRateLimit({
-      userId: user.id,
-      endpoint: "recommendations",
-      maxRequests: 12,
-      windowMinutes: 60,
-    });
+    try {
+      const rateLimit = await enforceRateLimit({
+        userId: user.id,
+        endpoint: "recommendations",
+        maxRequests: 12,
+        windowMinutes: 60,
+      });
 
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
-        { status: 429 },
-      );
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
+          { status: 429 },
+        );
+      }
+    } catch (rateLimitError) {
+      captureServerError(rateLimitError, {
+        route: "ai/recommendations",
+        stage: "rate-limit",
+      });
     }
 
     const [plan, generatedCount] = await Promise.all([
@@ -94,14 +113,28 @@ export async function POST() {
 
     const recommendations = insertedRecommendations ?? [];
 
-    await trackEvent(user.id, "recommendations_generated", {
-      count: recommendations.length,
-      normalized_profile_id: normalizedProfile.id,
-    });
+    try {
+      await trackEvent(user.id, "recommendations_generated", {
+        count: recommendations.length,
+        normalized_profile_id: normalizedProfile.id,
+      });
+    } catch (trackError) {
+      captureServerError(trackError, {
+        route: "ai/recommendations",
+        stage: "post-generate-track",
+      });
+    }
 
     return NextResponse.json({ recommendations }, { status: 200 });
   } catch (error) {
     captureServerError(error, { route: "ai/recommendations" });
-    return NextResponse.json({ error: "Failed to generate recommendations" }, { status: 500 });
+    const details = getErrorDetails(error);
+    return NextResponse.json(
+      {
+        error: "Failed to generate recommendations",
+        details: process.env.NODE_ENV === "development" ? details : undefined,
+      },
+      { status: 500 },
+    );
   }
 }

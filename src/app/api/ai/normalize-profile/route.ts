@@ -5,6 +5,18 @@ import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { runProfileNormalization } from "@/lib/ai/pipelines";
 import { captureServerError } from "@/lib/sentry/server";
 
+function getErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  try {
+    return JSON.stringify(error);
+  } catch {
+    return "Unknown error";
+  }
+}
+
 export async function POST() {
   const { user, response } = await requireApiUser();
   if (!user) {
@@ -12,18 +24,25 @@ export async function POST() {
   }
 
   try {
-    const rateLimit = await enforceRateLimit({
-      userId: user.id,
-      endpoint: "normalize-profile",
-      maxRequests: 10,
-      windowMinutes: 60,
-    });
+    try {
+      const rateLimit = await enforceRateLimit({
+        userId: user.id,
+        endpoint: "normalize-profile",
+        maxRequests: 10,
+        windowMinutes: 60,
+      });
 
-    if (!rateLimit.allowed) {
-      return NextResponse.json(
-        { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
-        { status: 429 },
-      );
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
+          { status: 429 },
+        );
+      }
+    } catch (rateLimitError) {
+      captureServerError(rateLimitError, {
+        route: "ai/normalize-profile",
+        stage: "rate-limit",
+      });
     }
 
     const supabase = await createServerSupabaseClient();
@@ -64,6 +83,13 @@ export async function POST() {
     return NextResponse.json({ normalized_profile_id: data.id, ...normalized.parsed }, { status: 200 });
   } catch (error) {
     captureServerError(error, { route: "ai/normalize-profile" });
-    return NextResponse.json({ error: "Failed to normalize profile" }, { status: 500 });
+    const details = getErrorDetails(error);
+    return NextResponse.json(
+      {
+        error: "Failed to normalize profile",
+        details: process.env.NODE_ENV === "development" ? details : undefined,
+      },
+      { status: 500 },
+    );
   }
 }
