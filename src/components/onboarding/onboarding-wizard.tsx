@@ -67,7 +67,7 @@ export function OnboardingWizard() {
       favorite_subjects: "",
       coding_experience: "beginner",
       weekly_time_available: 6,
-      preferred_project_style: "web_app",
+      preferred_project_style: "",
       known_tools: "",
       target_schools_or_companies: "",
       preferred_difficulty: "beginner_intermediate",
@@ -104,8 +104,8 @@ export function OnboardingWizard() {
     });
 
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setError(body?.error ?? "Failed to save onboarding.");
+      const body = (await response.json().catch(() => null)) as { error?: string; details?: string } | null;
+      setError(body?.details ?? body?.error ?? "Failed to save onboarding.");
       setIsSubmitting(false);
       return;
     }
@@ -113,6 +113,8 @@ export function OnboardingWizard() {
     router.push("/recommendations");
     router.refresh();
   }
+
+  const submitFinalStep = form.handleSubmit(onSubmit);
 
   return (
     <Card className="space-y-6">
@@ -126,7 +128,7 @@ export function OnboardingWizard() {
         <div className="h-2 rounded-full bg-mint-500 transition-all" style={{ width: `${progress}%` }} />
       </div>
 
-      <form className="space-y-4" onSubmit={form.handleSubmit(onSubmit)}>
+      <form className="space-y-4" onSubmit={(event) => event.preventDefault()}>
         {step === 0 ? (
           <>
             <Field label="Name">
@@ -214,17 +216,17 @@ export function OnboardingWizard() {
             type="button"
             variant="secondary"
             onClick={() => setStep((prev) => Math.max(prev - 1, 0))}
-            disabled={step === 0}
+            disabled={step === 0 || isSubmitting}
           >
             Back
           </Button>
 
           {step < stepFields.length - 1 ? (
-            <Button type="button" onClick={nextStep}>
+            <Button type="button" onClick={nextStep} disabled={isSubmitting}>
               Next
             </Button>
           ) : (
-            <Button type="submit" disabled={isSubmitting}>
+            <Button type="button" onClick={submitFinalStep} disabled={isSubmitting}>
               {isSubmitting ? "Saving..." : "Finish onboarding"}
             </Button>
           )}
