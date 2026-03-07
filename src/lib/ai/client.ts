@@ -12,6 +12,10 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   maxRetries?: number;
 }
 
+function supportsTemperatureOverride(model: string) {
+  return !model.toLowerCase().startsWith("gpt-5");
+}
+
 export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   input: StructuredGenerationInput<TSchema>,
 ): Promise<{ parsed: z.infer<TSchema>; raw: unknown }> {
@@ -20,8 +24,8 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   for (let attempt = 0; attempt <= retries; attempt += 1) {
     const completion = await openai.chat.completions.create({
       model: env.OPENAI_MODEL,
-      temperature: 0.4,
       response_format: { type: "json_object" },
+      ...(supportsTemperatureOverride(env.OPENAI_MODEL) ? { temperature: 0.4 } : {}),
       messages: [
         { role: "system", content: input.systemPrompt },
         { role: "user", content: input.userPrompt },
