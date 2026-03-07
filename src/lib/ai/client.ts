@@ -16,6 +16,52 @@ function supportsTemperatureOverride(model: string) {
   return !model.toLowerCase().startsWith("gpt-5");
 }
 
+function parseJsonSafely(content: string): unknown {
+  try {
+    return JSON.parse(content);
+  } catch {
+    // Fallback for occasional code-fence wrappers.
+    const fenced = content.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
+    return JSON.parse(fenced);
+  }
+}
+
+function findSchemaMatch<TSchema extends z.ZodTypeAny>(
+  schema: TSchema,
+  value: unknown,
+  depth = 0,
+): z.infer<TSchema> | null {
+  const direct = schema.safeParse(value);
+  if (direct.success) {
+    return direct.data;
+  }
+
+  if (depth >= 3) {
+    return null;
+  }
+
+  if (Array.isArray(value)) {
+    for (const item of value) {
+      const nested = findSchemaMatch(schema, item, depth + 1);
+      if (nested) {
+        return nested;
+      }
+    }
+    return null;
+  }
+
+  if (value && typeof value === "object") {
+    for (const nestedValue of Object.values(value as Record<string, unknown>)) {
+      const nested = findSchemaMatch(schema, nestedValue, depth + 1);
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
+}
+
 export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   input: StructuredGenerationInput<TSchema>,
 ): Promise<{ parsed: z.infer<TSchema>; raw: unknown }> {
@@ -43,7 +89,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
 
     let parsedJson: unknown;
     try {
-      parsedJson = JSON.parse(content);
+      parsedJson = parseJsonSafely(content);
     } catch {
       if (attempt === retries) {
         throw new Error("Model returned non-JSON output");
@@ -51,16 +97,20 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       continue;
     }
 
-    const validated = input.schema.safeParse(parsedJson);
-    if (!validated.success) {
+    const matched = findSchemaMatch(input.schema, parsedJson);
+    if (!matched) {
       if (attempt === retries) {
-        throw new Error(`Schema validation failed: ${validated.error.message}`);
+        const directError = input.schema.safeParse(parsedJson);
+        if (!directError.success) {
+          throw new Error(`Schema validation failed: ${directError.error.message}`);
+        }
+        throw new Error("Schema validation failed");
       }
       continue;
     }
 
     return {
-      parsed: validated.data,
+      parsed: matched,
       raw: parsedJson,
     };
   }
