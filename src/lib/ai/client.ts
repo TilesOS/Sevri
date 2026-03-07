@@ -20,7 +20,6 @@ function parseJsonSafely(content: string): unknown {
   try {
     return JSON.parse(content);
   } catch {
-    // Fallback for occasional code-fence wrappers.
     const fenced = content.replace(/^```json\s*/i, "").replace(/```$/i, "").trim();
     return JSON.parse(fenced);
   }
@@ -62,58 +61,79 @@ function findSchemaMatch<TSchema extends z.ZodTypeAny>(
   return null;
 }
 
+function uniqueModels(primary: string, fallback: string): string[] {
+  const models: string[] = [];
+  for (const model of [primary, fallback]) {
+    const trimmed = model.trim();
+    if (!trimmed) {
+      continue;
+    }
+    if (!models.includes(trimmed)) {
+      models.push(trimmed);
+    }
+  }
+  return models;
+}
+
 export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   input: StructuredGenerationInput<TSchema>,
 ): Promise<{ parsed: z.infer<TSchema>; raw: unknown }> {
   const retries = input.maxRetries ?? 2;
+  const modelsToTry = uniqueModels(env.OPENAI_MODEL, env.OPENAI_FALLBACK_MODEL);
+  let lastError = "Structured generation failed";
 
-  for (let attempt = 0; attempt <= retries; attempt += 1) {
-    const completion = await openai.chat.completions.create({
-      model: env.OPENAI_MODEL,
-      response_format: { type: "json_object" },
-      ...(supportsTemperatureOverride(env.OPENAI_MODEL) ? { temperature: 0.4 } : {}),
-      messages: [
-        { role: "system", content: input.systemPrompt },
-        { role: "user", content: input.userPrompt },
-      ],
-    });
+  for (const model of modelsToTry) {
+    for (let attempt = 0; attempt <= retries; attempt += 1) {
+      const completion = await openai.chat.completions.create({
+        model,
+        response_format: { type: "json_object" },
+        ...(supportsTemperatureOverride(model) ? { temperature: 0.4 } : {}),
+        messages: [
+          { role: "system", content: input.systemPrompt },
+          { role: "user", content: input.userPrompt },
+        ],
+      });
 
-    const content = completion.choices[0]?.message?.content;
+      const content = completion.choices[0]?.message?.content;
 
-    if (!content) {
-      if (attempt === retries) {
-        throw new Error("Model returned empty content");
-      }
-      continue;
-    }
-
-    let parsedJson: unknown;
-    try {
-      parsedJson = parseJsonSafely(content);
-    } catch {
-      if (attempt === retries) {
-        throw new Error("Model returned non-JSON output");
-      }
-      continue;
-    }
-
-    const matched = findSchemaMatch(input.schema, parsedJson);
-    if (!matched) {
-      if (attempt === retries) {
-        const directError = input.schema.safeParse(parsedJson);
-        if (!directError.success) {
-          throw new Error(`Schema validation failed: ${directError.error.message}`);
+      if (!content) {
+        lastError = `${model}: Model returned empty content`;
+        if (attempt === retries) {
+          break;
         }
-        throw new Error("Schema validation failed");
+        continue;
       }
-      continue;
-    }
 
-    return {
-      parsed: matched,
-      raw: parsedJson,
-    };
+      let parsedJson: unknown;
+      try {
+        parsedJson = parseJsonSafely(content);
+      } catch {
+        lastError = `${model}: Model returned non-JSON output`;
+        if (attempt === retries) {
+          break;
+        }
+        continue;
+      }
+
+      const matched = findSchemaMatch(input.schema, parsedJson);
+      if (!matched) {
+        const direct = input.schema.safeParse(parsedJson);
+        lastError = direct.success
+          ? `${model}: Schema validation failed`
+          : `${model}: Schema validation failed: ${direct.error.message}`;
+
+        if (attempt === retries) {
+          break;
+        }
+        continue;
+      }
+
+      return {
+        parsed: matched,
+        raw: parsedJson,
+      };
+    }
   }
 
-  throw new Error("Structured generation failed");
+  throw new Error(lastError);
 }
