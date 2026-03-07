@@ -17,16 +17,36 @@ export async function POST(request: Request) {
     const payload = onboardingInputSchema.parse(json);
 
     const intake = await upsertOnboardingData(user.id, payload);
-    await trackEvent(user.id, "onboarding_completed", { intake_id: intake.id });
+
+    const postSaveTasks: Promise<unknown>[] = [
+      trackEvent(user.id, "onboarding_completed", { intake_id: intake.id }),
+    ];
 
     if (user.email) {
       const template = welcomeEmailTemplate(payload.full_name);
-      await sendEmail(user.email, template.subject, template.html);
+      postSaveTasks.push(sendEmail(user.email, template.subject, template.html));
     }
+
+    const taskResults = await Promise.allSettled(postSaveTasks);
+    taskResults.forEach((result) => {
+      if (result.status === "rejected") {
+        captureServerError(result.reason, {
+          route: "onboarding/submit",
+          stage: "post-save-task",
+        });
+      }
+    });
 
     return NextResponse.json({ intake_id: intake.id }, { status: 200 });
   } catch (error) {
     captureServerError(error, { route: "onboarding/submit" });
-    return NextResponse.json({ error: "Failed to submit onboarding" }, { status: 400 });
+    const details = error instanceof Error ? error.message : "Unknown error";
+    return NextResponse.json(
+      {
+        error: "Failed to submit onboarding",
+        details: process.env.NODE_ENV === "development" ? details : undefined,
+      },
+      { status: 400 },
+    );
   }
 }

@@ -127,12 +127,24 @@ export async function POST(request: Request) {
       throw new Error(milestoneError.message);
     }
 
-    await trackEvent(user.id, "roadmap_generated", { project_id: project.id, roadmap_id: roadmap.id, detailLevel });
+    const postGenerateTasks: Promise<unknown>[] = [
+      trackEvent(user.id, "roadmap_generated", { project_id: project.id, roadmap_id: roadmap.id, detailLevel }),
+    ];
 
     if (user.email) {
       const template = roadmapReadyTemplate(project.title);
-      await sendEmail(user.email, template.subject, template.html);
+      postGenerateTasks.push(sendEmail(user.email, template.subject, template.html));
     }
+
+    const taskResults = await Promise.allSettled(postGenerateTasks);
+    taskResults.forEach((result) => {
+      if (result.status === "rejected") {
+        captureServerError(result.reason, {
+          route: "ai/roadmap",
+          stage: "post-generate-task",
+        });
+      }
+    });
 
     return NextResponse.json({ roadmap_id: roadmap.id, detailLevel }, { status: 200 });
   } catch (error) {
