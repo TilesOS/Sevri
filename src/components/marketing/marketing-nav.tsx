@@ -3,6 +3,14 @@ import { Container } from "@/components/shared/container";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 
+const appLinks = [
+  { href: "/dashboard", label: "Dashboard" },
+  { href: "/onboarding", label: "Onboarding" },
+  { href: "/recommendations", label: "Recommendations" },
+  { href: "/billing", label: "Billing" },
+  { href: "/settings", label: "Settings" },
+] as const;
+
 export function MarketingNav() {
   return (
     <header className="border-b border-surface-border bg-surface-card/90 backdrop-blur">
@@ -13,10 +21,16 @@ export function MarketingNav() {
           </Link>
           <ThemeToggle />
         </div>
-        <nav className="flex items-center gap-3">
-          <Link href="/pricing" className="text-sm font-medium text-ink-700">
-            Pricing
-          </Link>
+
+        <div className="flex items-center gap-3">
+          <nav className="hidden items-center gap-4 text-sm font-medium text-ink-700 md:flex">
+            {appLinks.map((link) => (
+              <Link key={link.href} href={link.href}>
+                {link.label}
+              </Link>
+            ))}
+          </nav>
+
           <Link href="/sign-in" className="text-sm font-medium text-ink-700">
             Sign in
           </Link>
@@ -25,9 +39,8 @@ export function MarketingNav() {
               Start free
             </Button>
           </Link>
-        </nav>
+        </div>
       </Container>
     </header>
   );
 }
-
