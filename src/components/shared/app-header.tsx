@@ -20,7 +20,7 @@ export async function AppHeader() {
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
             <Link href="/dashboard" className="text-lg font-bold text-ink-900">
-              ProjectForge
+              Sevri
             </Link>
             <ThemeToggle />
           </div>
@@ -44,3 +44,4 @@ export async function AppHeader() {
     </header>
   );
 }
+

@@ -7,7 +7,7 @@ export default function SignUpPage() {
   return (
     <Card className="mx-auto w-full max-w-md space-y-6">
       <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-ink-900">Create your ProjectForge account</h1>
+        <h1 className="text-2xl font-bold text-ink-900">Create your Sevri account</h1>
         <p className="text-sm text-ink-600">Start with free onboarding and your first recommendation batch.</p>
       </div>
       <Suspense fallback={<p className="text-sm text-ink-600">Loading sign-up form...</p>}>

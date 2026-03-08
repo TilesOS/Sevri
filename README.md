@@ -1,6 +1,6 @@
-# ProjectForge MVP
+# Sevri MVP
 
-ProjectForge is a production-minded SaaS scaffold for helping students pick, scope, execute, and package one authentic software project.
+Sevri is a production-minded SaaS scaffold for helping students pick, scope, execute, and package one authentic software project.
 
 ## Stack
 

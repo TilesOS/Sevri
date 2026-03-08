@@ -7,7 +7,7 @@ export default function SuccessPage() {
     <div className="mx-auto max-w-2xl">
       <Card className="space-y-4 text-center">
         <h1 className="text-2xl font-bold text-ink-900">Upgrade complete</h1>
-        <p className="text-sm text-ink-700">Your ProjectForge Pro access will sync within a few seconds.</p>
+        <p className="text-sm text-ink-700">Your Sevri Pro access will sync within a few seconds.</p>
         <div className="flex justify-center gap-3">
           <Link href="/billing">
             <Button variant="secondary">Back to billing</Button>

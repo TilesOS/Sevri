@@ -120,7 +120,7 @@ export function OnboardingWizard() {
     <Card className="space-y-6">
       <div>
         <p className="text-sm font-semibold text-ink-700">Onboarding</p>
-        <h1 className="mt-1 text-2xl font-bold text-ink-900">Build your ProjectForge profile</h1>
+        <h1 className="mt-1 text-2xl font-bold text-ink-900">Build your Sevri profile</h1>
         <p className="mt-1 text-sm text-ink-600">We use this to generate a realistic project you can finish.</p>
       </div>
 
@@ -250,3 +250,4 @@ function Field({
     </label>
   );
 }
+

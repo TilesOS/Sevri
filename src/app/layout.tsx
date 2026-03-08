@@ -5,7 +5,7 @@ import { themeScript } from "@/components/theme/theme-utils";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
-  title: "ProjectForge",
+  title: "Sevri",
   description: "Build an authentic project you can finish and showcase.",
 };
 
@@ -25,3 +25,4 @@ export default function RootLayout({
     </html>
   );
 }
+

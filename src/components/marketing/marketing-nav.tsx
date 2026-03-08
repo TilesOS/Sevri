@@ -9,7 +9,7 @@ export function MarketingNav() {
       <Container className="flex h-16 items-center justify-between">
         <div className="flex items-center gap-3">
           <Link href="/" className="text-lg font-bold text-ink-900">
-            ProjectForge
+            Sevri
           </Link>
           <ThemeToggle />
         </div>
@@ -30,3 +30,4 @@ export function MarketingNav() {
     </header>
   );
 }
+

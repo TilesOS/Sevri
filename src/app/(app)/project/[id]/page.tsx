@@ -156,7 +156,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             <span className="text-xs text-ink-500">Upgrade to Pro for README export</span>
           )}
         </div>
-        <pre className="overflow-x-auto rounded-lg bg-ink-900 p-4 text-xs text-ink-100">{workspace.roadmap.readme_draft}</pre>
+        <pre className="overflow-x-auto rounded-lg border border-surface-border bg-surface-subtle p-4 text-xs text-ink-800">
+          {workspace.roadmap.readme_draft}
+        </pre>
       </Card>
     </div>
   );

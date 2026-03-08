@@ -31,7 +31,7 @@ export default function HomePage() {
               Build one authentic project that actually gets finished.
             </h1>
             <p className="text-lg text-ink-700">
-              ProjectForge helps ambitious students scope a realistic software project, execute with clarity, and package
+              Sevri helps ambitious students scope a realistic software project, execute with clarity, and package
               it for college applications and internships.
             </p>
             <div className="flex items-center gap-3">
@@ -79,3 +79,4 @@ export default function HomePage() {
     </div>
   );
 }
+

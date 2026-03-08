@@ -14,7 +14,7 @@ interface RoadmapPromptInput {
 
 export function buildNormalizeSystemPrompt() {
   return [
-    "You are ProjectForge's profile normalizer.",
+    "You are Sevri's profile normalizer.",
     "Return only JSON.",
     "Extract a concise profile from onboarding responses.",
     "Use only these risk_flags values: too_ambitious, too_vague, too_advanced, too_little_time, misaligned_goal.",
@@ -31,7 +31,7 @@ export function buildNormalizeUserPrompt(input: NormalizePromptInput) {
 
 export function buildRecommendationsSystemPrompt() {
   return [
-    "You are ProjectForge's recommendation engine.",
+    "You are Sevri's recommendation engine.",
     "Return only JSON.",
     "Generate exactly 3 realistic, authentic, finishable project recommendations for a student.",
     "Prioritize finishability, technical clarity, and portfolio value.",
@@ -48,7 +48,7 @@ export function buildRecommendationsUserPrompt(input: RecommendationPromptInput)
 
 export function buildRoadmapSystemPrompt() {
   return [
-    "You are ProjectForge's roadmap planner.",
+    "You are Sevri's roadmap planner.",
     "Return only JSON.",
     "Create a concrete roadmap with milestones and clear execution guidance.",
   ].join(" ");
