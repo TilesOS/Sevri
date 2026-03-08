@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Script from "next/script";
+import { themeScript } from "@/components/theme/theme-utils";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
@@ -13,8 +15,13 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body className="app-shell min-h-screen">{children}</body>
+    <html lang="en" suppressHydrationWarning>
+      <body className="app-shell min-h-screen">
+        <Script id="theme-init" strategy="beforeInteractive">
+          {themeScript}
+        </Script>
+        {children}
+      </body>
     </html>
   );
 }

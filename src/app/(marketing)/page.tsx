@@ -65,16 +65,16 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="rounded-2xl bg-ink-900 p-8 text-white">
-          <h2 className="text-2xl font-bold">Built for serious students</h2>
-          <p className="mt-2 max-w-2xl text-sm text-ink-100">
+        <Card className="rounded-2xl p-8">
+          <h2 className="text-2xl font-bold text-ink-900">Built for serious students</h2>
+          <p className="mt-2 max-w-2xl text-sm text-ink-700">
             Ideal for high school and early college builders aiming for college admissions, internships, and standout
             portfolios.
           </p>
           <Link href="/sign-up" className="mt-6 inline-block">
-            <Button variant="secondary">Get started now</Button>
+            <Button>Get started now</Button>
           </Link>
-        </section>
+        </Card>
       </Container>
     </div>
   );

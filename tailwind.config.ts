@@ -1,6 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -10,26 +11,32 @@ const config: Config = {
     extend: {
       colors: {
         ink: {
-          50: "#f6f8fb",
-          100: "#edf1f8",
-          200: "#d7dfee",
-          300: "#b4c3df",
-          400: "#89a1cb",
-          500: "#617db4",
-          600: "#4a6395",
-          700: "#3a4f76",
-          800: "#2f405f",
-          900: "#29374f",
+          50: "var(--ink-50)",
+          100: "var(--ink-100)",
+          200: "var(--ink-200)",
+          300: "var(--ink-300)",
+          400: "var(--ink-400)",
+          500: "var(--ink-500)",
+          600: "var(--ink-600)",
+          700: "var(--ink-700)",
+          800: "var(--ink-800)",
+          900: "var(--ink-900)",
         },
         mint: {
-          100: "#daf7ee",
-          300: "#7de0be",
-          500: "#2cb48a",
-          700: "#1d7e61",
+          100: "var(--mint-100)",
+          300: "var(--mint-300)",
+          500: "var(--mint-500)",
+          700: "var(--mint-700)",
+        },
+        surface: {
+          base: "var(--surface-base)",
+          card: "var(--surface-card)",
+          subtle: "var(--surface-subtle)",
+          border: "var(--surface-border)",
         },
       },
       boxShadow: {
-        soft: "0 8px 30px -12px rgba(20, 32, 56, 0.25)",
+        soft: "var(--shadow-soft)",
       },
       fontFamily: {
         sans: ["Sora", "Avenir Next", "Segoe UI", "sans-serif"],
