@@ -1,7 +1,7 @@
 export function welcomeEmailTemplate(fullName: string) {
   return {
     subject: "Welcome to Sevri",
-    html: `<p>Hey ${fullName},</p><p>Welcome to Sevri. Start by finishing onboarding so we can recommend a realistic project you can actually ship.</p>`,
+    html: `<p>Hey ${fullName},</p><p>Welcome to Sevri. Start by finishing onboarding so we can recommend a realistic software or research project path you can actually finish.</p>`,
   };
 }
 

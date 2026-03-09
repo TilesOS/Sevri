@@ -22,9 +22,10 @@ export async function POST(request: Request) {
     await trackEvent(user.id, "recommendation_selected", {
       recommendation_id: body.recommendation_id,
       project_id: project.id,
+      project_track: project.project_track,
     });
 
-    return NextResponse.json({ project_id: project.id }, { status: 200 });
+    return NextResponse.json({ project_id: project.id, project_track: project.project_track }, { status: 200 });
   } catch (error) {
     captureServerError(error, { route: "recommendations/select" });
     return NextResponse.json({ error: "Failed to select recommendation" }, { status: 400 });

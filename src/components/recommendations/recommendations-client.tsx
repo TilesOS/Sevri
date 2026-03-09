@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import type { Plan } from "@/types/domain";
+import type { Plan, ProjectTrack } from "@/types/domain";
 
 interface RecommendationItem {
   id: string;
+  project_track: ProjectTrack;
   title: string;
   summary: string;
   rationale: string;
@@ -20,15 +21,36 @@ interface RecommendationItem {
   impressiveness_score: number;
   finishability_score: number;
   authenticity_note: string;
+  track_payload_json?: Record<string, unknown>;
 }
 
 interface RecommendationsClientProps {
+  activeTrack: ProjectTrack;
   initialRecommendations: RecommendationItem[];
   plan: Plan;
   batchesUsed: number;
 }
 
+interface ResearchRecommendationPayload {
+  project_title_or_direction?: string;
+  research_question_or_hypothesis?: string;
+  methodology?: string;
+  scope_boundaries?: string;
+  final_deliverables?: string[];
+  portfolio_or_application_positioning?: string;
+  key_risks?: string[];
+}
+
+function asResearchPayload(value: unknown): ResearchRecommendationPayload {
+  if (!value || typeof value !== "object") {
+    return {};
+  }
+
+  return value as ResearchRecommendationPayload;
+}
+
 export function RecommendationsClient({
+  activeTrack,
   initialRecommendations,
   plan,
   batchesUsed,
@@ -58,9 +80,7 @@ export function RecommendationsClient({
     });
 
     if (!normalizeRes.ok) {
-      const body = (await normalizeRes.json().catch(() => null)) as
-        | { error?: string; details?: string }
-        | null;
+      const body = (await normalizeRes.json().catch(() => null)) as { error?: string; details?: string } | null;
       setError(body?.details ?? body?.error ?? "Failed to normalize profile.");
       setIsGenerating(false);
       return;
@@ -109,19 +129,32 @@ export function RecommendationsClient({
     router.refresh();
   }
 
+  const title = activeTrack === "research" ? "Your research project directions" : "Your project recommendations";
+  const subtitle =
+    activeTrack === "research"
+      ? "Choose one credible, finishable research direction with a grounded methodology and strong final deliverables."
+      : "Choose one finishable project that still looks impressive in applications and interviews.";
+  const generateLabel =
+    activeTrack === "research"
+      ? recommendations.length
+        ? "Regenerate research options"
+        : "Generate 3 research options"
+      : recommendations.length
+        ? "Regenerate"
+        : "Generate 3 projects";
+
   return (
     <div className="space-y-6">
       <Card className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-ink-900">Your project recommendations</h1>
-          <p className="text-sm text-ink-600">
-            Choose one finishable project that still looks impressive in applications and interviews.
-          </p>
+          <h1 className="text-2xl font-bold text-ink-900">{title}</h1>
+          <p className="text-sm text-ink-600">{subtitle}</p>
         </div>
         <div className="flex items-center gap-3">
           <Badge>{plan === "pro_monthly" ? "Pro" : "Free"}</Badge>
+          <Badge className="bg-mint-100 text-mint-700">{activeTrack === "research" ? "Research" : "Software"}</Badge>
           <Button onClick={handleGenerate} disabled={isGenerating || !canRegenerate}>
-            {isGenerating ? "Generating..." : recommendations.length ? "Regenerate" : "Generate 3 projects"}
+            {isGenerating ? "Generating..." : generateLabel}
           </Button>
         </div>
       </Card>
@@ -141,41 +174,73 @@ export function RecommendationsClient({
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
-        {recommendations.map((item) => (
-          <Card key={item.id} className="flex h-full flex-col gap-4">
-            <div className="space-y-2">
-              <h2 className="text-lg font-semibold text-ink-900">{item.title}</h2>
-              <p className="text-sm text-ink-700">{item.summary}</p>
-            </div>
-            <div className="space-y-1 text-sm text-ink-700">
-              <p>
-                <span className="font-semibold">Why it fits:</span> {item.rationale}
-              </p>
-              <p>
-                <span className="font-semibold">Difficulty:</span> {item.difficulty}
-              </p>
-              <p>
-                <span className="font-semibold">Timeline:</span> {item.estimated_weeks} weeks at {item.weekly_hours}h/week
-              </p>
-              <p>
-                <span className="font-semibold">Impressiveness:</span> {item.impressiveness_score}/10
-              </p>
-              <p>
-                <span className="font-semibold">Finishability:</span> {item.finishability_score}/10
-              </p>
-              <p>
-                <span className="font-semibold">Authenticity note:</span> {item.authenticity_note}
-              </p>
-            </div>
-            <div className="mt-auto space-y-2">
-              <p className="text-xs text-ink-600">Skills: {item.skills_demonstrated.join(", ")}</p>
-              <p className="text-xs text-ink-600">Tools: {item.tools_needed.join(", ")}</p>
-              <Button onClick={() => handleSelect(item.id)} disabled={Boolean(isSelectingId)} className="w-full">
-                {isSelectingId === item.id ? "Selecting..." : "Select this project"}
-              </Button>
-            </div>
-          </Card>
-        ))}
+        {recommendations.map((item) => {
+          const researchPayload = asResearchPayload(item.track_payload_json);
+          const isResearch = item.project_track === "research";
+
+          return (
+            <Card key={item.id} className="flex h-full flex-col gap-4">
+              <div className="space-y-2">
+                <h2 className="text-lg font-semibold text-ink-900">{item.title}</h2>
+                <p className="text-sm text-ink-700">{item.summary}</p>
+              </div>
+
+              <div className="space-y-1 text-sm text-ink-700">
+                <p>
+                  <span className="font-semibold">Why it fits:</span> {item.rationale}
+                </p>
+                <p>
+                  <span className="font-semibold">Difficulty:</span> {item.difficulty}
+                </p>
+                <p>
+                  <span className="font-semibold">Timeline:</span> {item.estimated_weeks} weeks at {item.weekly_hours}
+                  h/week
+                </p>
+                <p>
+                  <span className="font-semibold">Impressiveness:</span> {item.impressiveness_score}/10
+                </p>
+                <p>
+                  <span className="font-semibold">Finishability:</span> {item.finishability_score}/10
+                </p>
+                <p>
+                  <span className="font-semibold">Authenticity note:</span> {item.authenticity_note}
+                </p>
+              </div>
+
+              {isResearch ? (
+                <div className="space-y-2 rounded-lg border border-ink-200 bg-ink-50 p-3 text-xs text-ink-700">
+                  <p>
+                    <span className="font-semibold">Research question:</span>{" "}
+                    {researchPayload.research_question_or_hypothesis ?? "TBD during planning"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Methodology:</span> {researchPayload.methodology ?? "Method to be finalized"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Scope boundaries:</span>{" "}
+                    {researchPayload.scope_boundaries ?? "Narrow scope with realistic constraints"}
+                  </p>
+                  <p>
+                    <span className="font-semibold">Deliverables:</span>{" "}
+                    {(researchPayload.final_deliverables ?? []).join(", ") || "Paper, poster, or presentation"}
+                  </p>
+                </div>
+              ) : null}
+
+              <div className="mt-auto space-y-2">
+                <p className="text-xs text-ink-600">Skills: {item.skills_demonstrated.join(", ")}</p>
+                <p className="text-xs text-ink-600">Tools/Resources: {item.tools_needed.join(", ")}</p>
+                <Button onClick={() => handleSelect(item.id)} disabled={Boolean(isSelectingId)} className="w-full">
+                  {isSelectingId === item.id
+                    ? "Selecting..."
+                    : isResearch
+                      ? "Select this research direction"
+                      : "Select this project"}
+                </Button>
+              </div>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

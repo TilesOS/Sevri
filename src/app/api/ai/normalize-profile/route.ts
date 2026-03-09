@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { runProfileNormalization } from "@/lib/ai/pipelines";
 import { captureServerError } from "@/lib/sentry/server";
+import type { ProjectTrack } from "@/lib/validators/onboarding";
 
 function getErrorDetails(error: unknown) {
   if (error instanceof Error) {
@@ -15,6 +16,10 @@ function getErrorDetails(error: unknown) {
   } catch {
     return "Unknown error";
   }
+}
+
+function asProjectTrack(value: unknown): ProjectTrack {
+  return value === "research" ? "research" : "software";
 }
 
 export async function POST() {
@@ -48,7 +53,7 @@ export async function POST() {
     const supabase = await createServerSupabaseClient();
     const { data: intake, error: intakeError } = await supabase
       .from("intakes")
-      .select("id, raw_answers_json")
+      .select("id, raw_answers_json, project_track")
       .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
@@ -58,19 +63,24 @@ export async function POST() {
       return NextResponse.json({ error: "Complete onboarding first" }, { status: 400 });
     }
 
-    const normalized = await runProfileNormalization(
-      (intake.raw_answers_json as Record<string, unknown>) ?? {},
-    );
+    const projectTrack = asProjectTrack(intake.project_track);
+
+    const normalized = await runProfileNormalization({
+      projectTrack,
+      rawIntake: (intake.raw_answers_json as Record<string, unknown>) ?? {},
+    });
 
     const { data, error } = await supabase
       .from("normalized_profiles")
       .insert({
         user_id: user.id,
         intake_id: intake.id,
+        project_track: normalized.parsed.project_track,
         summary: normalized.parsed.summary,
         interpreted_interests: normalized.parsed.interpreted_interests,
         skill_assessment: normalized.parsed.skill_assessment,
         risk_flags: normalized.parsed.risk_flags,
+        track_payload_json: normalized.parsed.track_payload_json,
         raw_model_output_json: normalized.raw,
       })
       .select("id")

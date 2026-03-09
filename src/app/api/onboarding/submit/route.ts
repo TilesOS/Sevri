@@ -19,7 +19,7 @@ export async function POST(request: Request) {
     const intake = await upsertOnboardingData(user.id, payload);
 
     const postSaveTasks: Promise<unknown>[] = [
-      trackEvent(user.id, "onboarding_completed", { intake_id: intake.id }),
+      trackEvent(user.id, "onboarding_completed", { intake_id: intake.id, project_track: payload.project_track }),
     ];
 
     if (user.email) {
@@ -37,7 +37,7 @@ export async function POST(request: Request) {
       }
     });
 
-    return NextResponse.json({ intake_id: intake.id }, { status: 200 });
+    return NextResponse.json({ intake_id: intake.id, project_track: payload.project_track }, { status: 200 });
   } catch (error) {
     captureServerError(error, { route: "onboarding/submit" });
     const details = error instanceof Error ? error.message : "Unknown error";

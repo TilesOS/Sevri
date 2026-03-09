@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import type { ProjectTrack } from "@/types/domain";
 
-export function GenerateRoadmapButton({ projectId }: { projectId: string }) {
+export function GenerateRoadmapButton({ projectId, projectTrack = "software" }: { projectId: string; projectTrack?: ProjectTrack }) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -31,10 +32,13 @@ export function GenerateRoadmapButton({ projectId }: { projectId: string }) {
     setIsLoading(false);
   }
 
+  const loadingLabel = projectTrack === "research" ? "Generating research plan..." : "Generating roadmap...";
+  const idleLabel = projectTrack === "research" ? "Generate research plan" : "Generate roadmap";
+
   return (
     <div className="space-y-3">
       <Button onClick={generate} disabled={isLoading}>
-        {isLoading ? "Generating roadmap..." : "Generate roadmap"}
+        {isLoading ? loadingLabel : idleLabel}
       </Button>
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
     </div>

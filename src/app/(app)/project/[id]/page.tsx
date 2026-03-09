@@ -33,6 +33,10 @@ function asRepoItems(value: unknown): Array<{ path: string; purpose: string }> {
     .filter((item): item is { path: string; purpose: string } => item !== null);
 }
 
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : {};
+}
+
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getRequiredUser();
   const { id } = await params;
@@ -45,6 +49,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   }
 
   const plan = await getUserPlan(user.id);
+  const projectTrack = workspace.project.project_track === "research" ? "research" : "software";
 
   if (!workspace.roadmap) {
     return (
@@ -52,16 +57,21 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         <Card className="space-y-3">
           <Badge>{plan === "pro_monthly" ? "Pro" : "Free"}</Badge>
           <h1 className="text-2xl font-bold text-ink-900">{workspace.project.title}</h1>
-          <p className="text-sm text-ink-700">Generate your structured roadmap to start execution.</p>
-          <GenerateRoadmapButton projectId={workspace.project.id} />
+          <p className="text-sm text-ink-700">
+            {projectTrack === "research"
+              ? "Generate your structured research plan to start execution."
+              : "Generate your structured roadmap to start execution."}
+          </p>
+          <GenerateRoadmapButton projectId={workspace.project.id} projectTrack={projectTrack} />
         </Card>
       </div>
     );
   }
 
-  const raw = workspace.roadmap.raw_model_output_json as Record<string, unknown>;
-  const featureLadder = (raw.feature_ladder ?? {}) as Record<string, unknown>;
-  const explanationGuide = (raw.explanation_guide ?? workspace.roadmap.explanation_guide ?? {}) as Record<string, unknown>;
+  const raw = asRecord(workspace.roadmap.raw_model_output_json);
+  const featureLadder = asRecord(raw.feature_ladder ?? {});
+  const explanationGuide = asRecord(raw.explanation_guide ?? workspace.roadmap.explanation_guide ?? {});
+  const trackPayload = asRecord(workspace.roadmap.track_payload_json ?? raw.track_payload_json ?? {});
   const cutIfBehind = asStringArray(raw.cut_if_behind);
   const resumeBullets = asStringArray(explanationGuide.resume_bullets);
   const interviewTalkingPoints = asStringArray(explanationGuide.interview_talking_points);
@@ -70,6 +80,143 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const couldHave = asStringArray(featureLadder.could_have);
   const stretchGoals = asStringArray(workspace.roadmap.stretch_goals);
   const repoStructure = asRepoItems(workspace.roadmap.repo_structure);
+
+  if (projectTrack === "research") {
+    const stepByStep = asStringArray(trackPayload.step_by_step_plan);
+    const timeline = asStringArray(trackPayload.timeline_and_milestones);
+    const blockers = asStringArray(trackPayload.risks_and_blockers);
+    const deliverables = asStringArray(trackPayload.final_deliverables);
+
+    return (
+      <div className="space-y-6">
+        <Card className="space-y-2">
+          <div className="flex items-center gap-3">
+            <Badge>{plan === "pro_monthly" ? "Pro" : "Free"}</Badge>
+            <Badge className="bg-sky-100 text-sky-700">Research</Badge>
+            <Badge className="bg-mint-100 text-mint-700">{workspace.project.status}</Badge>
+          </div>
+          <h1 className="text-2xl font-bold text-ink-900">{workspace.project.title}</h1>
+          <p className="text-sm text-ink-700">{workspace.roadmap.overview}</p>
+        </Card>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="space-y-3">
+            <h2 className="text-lg font-semibold text-ink-900">Research Question / Hypothesis</h2>
+            <p className="text-sm text-ink-700">
+              {String(trackPayload.research_question_or_hypothesis ?? "Define a focused student-scale question.")}
+            </p>
+            <h3 className="text-sm font-semibold text-ink-900">Methodology</h3>
+            <p className="text-sm text-ink-700">{String(trackPayload.methodology ?? workspace.roadmap.mvp_scope)}</p>
+          </Card>
+
+          <Card className="space-y-3">
+            <h2 className="text-lg font-semibold text-ink-900">Scope Boundaries</h2>
+            <p className="text-sm text-ink-700">
+              {String(trackPayload.scope_boundaries ?? "Keep one question and one primary methodology.")}
+            </p>
+            <h3 className="text-sm font-semibold text-ink-900">Why this fits you</h3>
+            <p className="text-sm text-ink-700">
+              {String(trackPayload.why_this_fits ?? "This direction balances ambition with realistic constraints.")}
+            </p>
+          </Card>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="space-y-3">
+            <h2 className="text-lg font-semibold text-ink-900">Step-by-step Plan</h2>
+            <ul className="space-y-2 text-sm text-ink-700">
+              {stepByStep.length
+                ? stepByStep.map((step) => <li key={step}>- {step}</li>)
+                : workspace.milestones.map((milestone) => (
+                    <li key={milestone.id}>- {milestone.order_index + 1}. {milestone.title}</li>
+                  ))}
+            </ul>
+          </Card>
+
+          <Card className="space-y-3">
+            <h2 className="text-lg font-semibold text-ink-900">Timeline and Milestones</h2>
+            <ul className="space-y-2 text-sm text-ink-700">
+              {timeline.length ? timeline.map((item) => <li key={item}>- {item}</li>) : <li>- Use milestone checklist below.</li>}
+            </ul>
+            <h3 className="pt-2 text-sm font-semibold text-ink-900">Risks / Blockers</h3>
+            <ul className="space-y-2 text-sm text-ink-700">
+              {blockers.length ? blockers.map((item) => <li key={item}>- {item}</li>) : <li>- No blockers highlighted.</li>}
+            </ul>
+          </Card>
+        </div>
+
+        <MilestoneChecklist milestones={workspace.milestones} />
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="space-y-3">
+            <h2 className="text-lg font-semibold text-ink-900">Final Deliverables</h2>
+            <ul className="space-y-2 text-sm text-ink-700">
+              {deliverables.length
+                ? deliverables.map((item) => <li key={item}>- {item}</li>)
+                : <li>- Paper, poster, or presentation deliverable set.</li>}
+            </ul>
+            <h3 className="pt-2 text-sm font-semibold text-ink-900">Positioning Angle</h3>
+            <p className="text-sm text-ink-700">
+              {String(
+                trackPayload.portfolio_or_application_positioning ??
+                  "Present this as disciplined inquiry with clear scope, evidence, and limitations.",
+              )}
+            </p>
+          </Card>
+
+          <Card className="space-y-3">
+            <h2 className="text-lg font-semibold text-ink-900">How to Explain This Project</h2>
+            <p className="text-sm text-ink-700">{String(explanationGuide.elevator_pitch ?? "")}</p>
+            <h3 className="text-sm font-semibold text-ink-900">Resume bullets</h3>
+            <ul className="space-y-2 text-sm text-ink-700">
+              {resumeBullets.map((bullet) => (
+                <li key={bullet}>- {bullet}</li>
+              ))}
+            </ul>
+            <h3 className="text-sm font-semibold text-ink-900">Interview talking points</h3>
+            <ul className="space-y-2 text-sm text-ink-700">
+              {interviewTalkingPoints.map((point) => (
+                <li key={point}>- {point}</li>
+              ))}
+            </ul>
+          </Card>
+        </div>
+
+        <Card className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-semibold text-ink-900">Research Brief Starter</h2>
+            {hasReadmeExportAccess(plan) ? (
+              <a
+                href={`data:text/markdown;charset=utf-8,${encodeURIComponent(workspace.roadmap.readme_draft)}`}
+                download={`${workspace.project.title.toLowerCase().replace(/\s+/g, "-")}-research-brief.md`}
+                className="text-sm font-semibold text-ink-700"
+              >
+                Export .md
+              </a>
+            ) : (
+              <span className="text-xs text-ink-500">Upgrade to Pro for export</span>
+            )}
+          </div>
+          <pre className="overflow-x-auto rounded-lg border border-surface-border bg-surface-subtle p-4 text-xs text-ink-800">
+            {workspace.roadmap.readme_draft}
+          </pre>
+        </Card>
+
+        {repoStructure.length ? (
+          <Card className="space-y-3">
+            <h2 className="text-lg font-semibold text-ink-900">Suggested Research File Structure</h2>
+            <ul className="space-y-2 text-sm text-ink-700">
+              {repoStructure.map((item) => (
+                <li key={item.path}>
+                  <span className="font-mono text-xs text-ink-900">{item.path}</span>: {item.purpose}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ) : null}
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

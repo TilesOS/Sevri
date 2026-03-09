@@ -16,6 +16,7 @@ export interface Database {
           full_name: string;
           student_stage: string;
           target_outcome: string;
+          project_track: string;
           created_at: string;
           updated_at: string;
         };
@@ -25,6 +26,7 @@ export interface Database {
           full_name: string;
           student_stage: string;
           target_outcome: string;
+          project_track?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -33,30 +35,34 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          project_track: string;
           interests: string[];
           favorite_subjects: string[];
-          coding_experience: string;
+          coding_experience: string | null;
           weekly_time_available: number;
-          preferred_project_style: string;
+          preferred_project_style: string | null;
           known_tools: string[];
           target_schools_or_companies: string[];
-          preferred_difficulty: string;
+          preferred_difficulty: string | null;
           constraints: string | null;
+          track_payload_json: Json;
           raw_answers_json: Json;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
+          project_track?: string;
           interests: string[];
           favorite_subjects: string[];
-          coding_experience: string;
+          coding_experience?: string | null;
           weekly_time_available: number;
-          preferred_project_style: string;
-          known_tools: string[];
-          target_schools_or_companies: string[];
-          preferred_difficulty: string;
+          preferred_project_style?: string | null;
+          known_tools?: string[];
+          target_schools_or_companies?: string[];
+          preferred_difficulty?: string | null;
           constraints?: string | null;
+          track_payload_json?: Json;
           raw_answers_json: Json;
           created_at?: string;
         };
@@ -66,10 +72,12 @@ export interface Database {
           id: string;
           user_id: string;
           intake_id: string;
+          project_track: string;
           summary: string;
           interpreted_interests: string[];
           skill_assessment: string;
           risk_flags: string[];
+          track_payload_json: Json;
           raw_model_output_json: Json;
           created_at: string;
         };
@@ -77,10 +85,12 @@ export interface Database {
           id?: string;
           user_id: string;
           intake_id: string;
+          project_track?: string;
           summary: string;
           interpreted_interests: string[];
           skill_assessment: string;
           risk_flags: string[];
+          track_payload_json?: Json;
           raw_model_output_json: Json;
           created_at?: string;
         };
@@ -91,6 +101,7 @@ export interface Database {
           user_id: string;
           intake_id: string;
           normalized_profile_id: string;
+          project_track: string;
           title: string;
           summary: string;
           rationale: string;
@@ -102,6 +113,7 @@ export interface Database {
           impressiveness_score: number;
           finishability_score: number;
           authenticity_note: string;
+          track_payload_json: Json;
           raw_model_output_json: Json;
           created_at: string;
         };
@@ -110,6 +122,7 @@ export interface Database {
           user_id: string;
           intake_id: string;
           normalized_profile_id: string;
+          project_track?: string;
           title: string;
           summary: string;
           rationale: string;
@@ -121,6 +134,7 @@ export interface Database {
           impressiveness_score: number;
           finishability_score: number;
           authenticity_note: string;
+          track_payload_json?: Json;
           raw_model_output_json: Json;
           created_at?: string;
         };
@@ -130,6 +144,7 @@ export interface Database {
           id: string;
           user_id: string;
           recommendation_id: string;
+          project_track: string;
           title: string;
           status: string;
           selected_at: string;
@@ -140,6 +155,7 @@ export interface Database {
           id?: string;
           user_id: string;
           recommendation_id: string;
+          project_track?: string;
           title: string;
           status?: string;
           selected_at?: string;
@@ -151,12 +167,14 @@ export interface Database {
         Row: {
           id: string;
           project_id: string;
+          project_track: string;
           overview: string;
           mvp_scope: string;
           repo_structure: Json;
           readme_draft: string;
           stretch_goals: string[];
           explanation_guide: Json;
+          track_payload_json: Json;
           raw_model_output_json: Json;
           created_at: string;
           updated_at: string;
@@ -164,12 +182,14 @@ export interface Database {
         Insert: {
           id?: string;
           project_id: string;
+          project_track?: string;
           overview: string;
           mvp_scope: string;
           repo_structure: Json;
           readme_draft: string;
           stretch_goals: string[];
           explanation_guide: Json;
+          track_payload_json?: Json;
           raw_model_output_json: Json;
           created_at?: string;
           updated_at?: string;

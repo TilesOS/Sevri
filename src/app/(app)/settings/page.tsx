@@ -8,7 +8,7 @@ export default async function SettingsPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, student_stage, target_outcome")
+    .select("full_name, student_stage, target_outcome, project_track")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -24,6 +24,9 @@ export default async function SettingsPage() {
         <p className="text-sm text-ink-600">Name: {profile?.full_name ?? "Not set"}</p>
         <p className="text-sm text-ink-600">Student stage: {profile?.student_stage ?? "Not set"}</p>
         <p className="text-sm text-ink-600">Target outcome: {profile?.target_outcome ?? "Not set"}</p>
+        <p className="text-sm text-ink-600">
+          Active track: {profile?.project_track === "research" ? "Research" : "Software"}
+        </p>
       </Card>
     </div>
   );

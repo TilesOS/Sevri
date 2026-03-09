@@ -1,5 +1,7 @@
 export type Plan = "free" | "pro_monthly";
 
+export type ProjectTrack = "software" | "research";
+
 export type StudentStage =
   | "high_school_freshman"
   | "high_school_sophomore"
@@ -20,10 +22,13 @@ export type RiskFlag =
   | "too_vague"
   | "too_advanced"
   | "too_little_time"
-  | "misaligned_goal";
+  | "misaligned_goal"
+  | "insufficient_guidance"
+  | "resource_constraint";
 
 export interface Recommendation {
   id: string;
+  project_track: ProjectTrack;
   title: string;
   summary: string;
   rationale: string;
@@ -35,6 +40,7 @@ export interface Recommendation {
   impressiveness_score: number;
   finishability_score: number;
   authenticity_note: string;
+  track_payload_json?: Record<string, unknown>;
 }
 
 export interface Roadmap {
