@@ -13,17 +13,17 @@ const appLinks = [
 
 export function MarketingNav() {
   return (
-    <header className="border-b border-surface-border bg-surface-card/90 backdrop-blur">
-      <Container className="flex h-16 items-center justify-between">
+    <header className="border-b border-surface-border bg-surface-base/80 backdrop-blur-md">
+      <Container className="flex h-14 items-center justify-between">
         <div className="flex items-center gap-3">
-          <Link href="/" className="text-lg font-bold text-ink-900">
+          <Link href="/" className="font-serif text-lg font-semibold text-ink-900">
             Sevri
           </Link>
           <ThemeToggle />
         </div>
 
         <div className="flex items-center gap-3">
-          <nav className="hidden items-center gap-4 text-sm font-medium text-ink-700 md:flex">
+          <nav className="hidden items-center gap-5 text-sm font-medium text-ink-700 md:flex">
             {appLinks.map((link) => (
               <Link key={link.href} href={link.href}>
                 {link.label}

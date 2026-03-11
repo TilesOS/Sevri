@@ -160,16 +160,16 @@ export function RecommendationsClient({
       </Card>
 
       {!canRegenerate ? (
-        <Card className="border-amber-200 bg-amber-50">
-          <p className="text-sm text-amber-900">
+        <Card className="border-yellow-500/20 bg-yellow-500/10">
+          <p className="text-sm text-ink-800">
             Free plan limit reached. Upgrade on the billing page to unlock more recommendation refreshes.
           </p>
         </Card>
       ) : null}
 
       {error ? (
-        <Card className="border-red-200 bg-red-50">
-          <p className="text-sm text-red-700">{error}</p>
+        <Card className="border-red-500/20 bg-red-500/10">
+          <p className="text-sm text-red-400">{error}</p>
         </Card>
       ) : null}
 
@@ -208,7 +208,7 @@ export function RecommendationsClient({
               </div>
 
               {isResearch ? (
-                <div className="space-y-2 rounded-lg border border-ink-200 bg-ink-50 p-3 text-xs text-ink-700">
+                <div className="space-y-2 rounded-lg border border-surface-border bg-surface-subtle p-3 text-xs text-ink-700">
                   <p>
                     <span className="font-semibold">Research question:</span>{" "}
                     {researchPayload.research_question_or_hypothesis ?? "TBD during planning"}

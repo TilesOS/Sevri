@@ -236,7 +236,7 @@ export function OnboardingWizard() {
             </Field>
 
             <Field label="Student stage">
-              <select className="w-full rounded-md border border-ink-200 px-3 py-2" {...form.register("student_stage")}>
+              <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("student_stage")}>
                 <option value="high_school_freshman">High school freshman</option>
                 <option value="high_school_sophomore">High school sophomore</option>
                 <option value="high_school_junior">High school junior</option>
@@ -250,7 +250,7 @@ export function OnboardingWizard() {
             </Field>
 
             <Field label="Target outcome">
-              <select className="w-full rounded-md border border-ink-200 px-3 py-2" {...form.register("target_outcome")}>
+              <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("target_outcome")}>
                 <option value="college_apps">College applications</option>
                 <option value="internship">Internship</option>
                 <option value="portfolio">Portfolio</option>
@@ -280,7 +280,7 @@ export function OnboardingWizard() {
         {step === 2 && projectTrack === "software" ? (
           <>
             <Field label="Coding experience">
-              <select className="w-full rounded-md border border-ink-200 px-3 py-2" {...form.register("coding_experience")}>
+              <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("coding_experience")}>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
@@ -296,7 +296,7 @@ export function OnboardingWizard() {
               <Input {...form.register("target_schools_or_companies")} placeholder="MIT, Google, NASA" />
             </Field>
             <Field label="Preferred difficulty">
-              <select className="w-full rounded-md border border-ink-200 px-3 py-2" {...form.register("preferred_difficulty")}>
+              <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("preferred_difficulty")}>
                 <option value="beginner">Beginner</option>
                 <option value="beginner_intermediate">Beginner-Intermediate</option>
                 <option value="intermediate">Intermediate</option>
@@ -318,21 +318,21 @@ export function OnboardingWizard() {
               <Input {...form.register("preferred_research_domain")} placeholder="Biology, psychology, economics, CS theory" />
             </Field>
             <Field label="Research/statistics/writing experience">
-              <select className="w-full rounded-md border border-ink-200 px-3 py-2" {...form.register("research_experience")}>
+              <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("research_experience")}>
                 <option value="beginner">Beginner</option>
                 <option value="intermediate">Intermediate</option>
                 <option value="advanced">Advanced</option>
               </select>
             </Field>
             <Field label="Access to mentors/labs/datasets">
-              <select className="w-full rounded-md border border-ink-200 px-3 py-2" {...form.register("mentor_access")}>
+              <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("mentor_access")}>
                 <option value="none">No meaningful access</option>
                 <option value="limited">Some access</option>
                 <option value="strong">Strong access</option>
               </select>
             </Field>
             <Field label="Preferred project type">
-              <select className="w-full rounded-md border border-ink-200 px-3 py-2" {...form.register("methodology_preference")}>
+              <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("methodology_preference")}>
                 <option value="literature_review">Literature review</option>
                 <option value="experiment">Experiment</option>
                 <option value="data_analysis">Data analysis</option>
@@ -344,7 +344,7 @@ export function OnboardingWizard() {
               <Input {...form.register("research_tools_or_resources")} placeholder="Google Scholar, Excel, Python, school library" />
             </Field>
             <Field label="Target final deliverable">
-              <select className="w-full rounded-md border border-ink-200 px-3 py-2" {...form.register("target_research_deliverable")}>
+              <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("target_research_deliverable")}>
                 <option value="paper">Paper</option>
                 <option value="poster">Poster</option>
                 <option value="presentation">Presentation</option>
@@ -422,7 +422,7 @@ function TrackOption({
       type="button"
       onClick={onClick}
       className={`rounded-lg border p-4 text-left transition ${
-        isActive ? "border-mint-500 bg-mint-50" : "border-ink-200 bg-white hover:border-ink-300"
+        isActive ? "border-mint-500 bg-mint-100" : "border-surface-border bg-surface-card hover:border-ink-500"
       }`}
     >
       <p className="text-sm font-semibold text-ink-900">{title}</p>

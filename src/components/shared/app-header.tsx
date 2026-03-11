@@ -15,16 +15,16 @@ export async function AppHeader() {
     .maybeSingle();
 
   return (
-    <header className="sticky top-0 z-20 border-b border-surface-border bg-surface-card/95 backdrop-blur">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-6">
+    <header className="sticky top-0 z-20 border-b border-surface-border bg-surface-base/80 backdrop-blur-md">
+      <div className="mx-auto flex h-14 w-full max-w-6xl items-center justify-between px-6">
         <div className="flex items-center gap-6">
           <div className="flex items-center gap-3">
-            <Link href="/dashboard" className="text-lg font-bold text-ink-900">
+            <Link href="/dashboard" className="font-serif text-lg font-semibold text-ink-900">
               Sevri
             </Link>
             <ThemeToggle />
           </div>
-          <nav className="hidden gap-4 text-sm font-medium text-ink-700 md:flex">
+          <nav className="hidden gap-5 text-sm font-medium text-ink-700 md:flex">
             <Link href="/dashboard">Dashboard</Link>
             <Link href="/onboarding">Onboarding</Link>
             <Link href="/recommendations">Recommendations</Link>

@@ -39,8 +39,12 @@ const config: Config = {
         soft: "var(--shadow-soft)",
       },
       fontFamily: {
-        sans: ["Sora", "Avenir Next", "Segoe UI", "sans-serif"],
-        body: ["Manrope", "Segoe UI", "sans-serif"],
+        sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        serif: ["IBM Plex Serif", "Georgia", "Times New Roman", "serif"],
+        body: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+      },
+      borderWidth: {
+        thin: "0.8px",
       },
     },
   },

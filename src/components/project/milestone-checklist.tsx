@@ -34,7 +34,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
       <h2 className="text-lg font-semibold text-ink-900">Milestones</h2>
       <ul className="space-y-3">
         {milestones.map((milestone) => (
-          <li key={milestone.id} className="rounded-lg border border-ink-200 p-3">
+          <li key={milestone.id} className="rounded-lg border border-surface-border p-3">
             <label className="flex cursor-pointer items-start gap-3">
               <input
                 type="checkbox"

@@ -20,41 +20,31 @@ const steps = [
 
 export default function HomePage() {
   return (
-    <div className="py-16">
-      <Container className="space-y-16">
-        <section className="grid gap-8 lg:grid-cols-2 lg:items-center">
-          <div className="space-y-6">
-            <p className="inline-flex rounded-full bg-mint-100 px-3 py-1 text-xs font-semibold text-mint-700">
-              Structured project-to-portfolio coach
-            </p>
-            <h1 className="text-4xl font-bold leading-tight text-ink-900">
-              Build one authentic project path that actually gets finished.
-            </h1>
-            <p className="text-lg text-ink-700">
-              Sevri helps ambitious students scope and execute either a software project or a credible research project,
-              then package it for college applications, internships, and standout portfolios.
-            </p>
-            <div className="flex items-center gap-3">
-              <Link href="/sign-up">
-                <Button>Start for free</Button>
-              </Link>
-              <Link href="/pricing">
-                <Button variant="secondary">View pricing</Button>
-              </Link>
-            </div>
+    <div className="py-20">
+      <Container className="space-y-24">
+        <section className="mx-auto max-w-3xl space-y-8 text-center">
+          <p className="inline-flex rounded-full bg-mint-100 px-3 py-1 text-xs font-medium text-mint-700">
+            Structured project-to-portfolio coach
+          </p>
+          <h1 className="text-5xl font-medium leading-tight text-ink-900">
+            Build one authentic project path that actually gets finished.
+          </h1>
+          <p className="mx-auto max-w-2xl text-lg text-ink-700">
+            Sevri helps ambitious students scope and execute either a software project or a credible research project,
+            then package it for college applications, internships, and standout portfolios.
+          </p>
+          <div className="flex items-center justify-center gap-4">
+            <Link href="/sign-up">
+              <Button className="h-11 px-6 text-base">Start for free</Button>
+            </Link>
+            <Link href="/pricing">
+              <Button variant="secondary" className="h-11 px-6 text-base">View pricing</Button>
+            </Link>
           </div>
-          <Card className="space-y-3">
-            <h2 className="text-lg font-semibold text-ink-900">What makes this different</h2>
-            <ul className="space-y-2 text-sm text-ink-700">
-              <li>Track-specific guidance for software builds and research execution</li>
-              <li>Scope discipline with explicit &quot;cut if behind&quot; guidance</li>
-              <li>Portfolio-ready explanation prompts for interviews and applications</li>
-            </ul>
-          </Card>
         </section>
 
-        <section className="space-y-4">
-          <h2 className="text-2xl font-bold text-ink-900">How it works</h2>
+        <section className="space-y-6">
+          <h2 className="text-center text-2xl font-medium text-ink-900">How it works</h2>
           <div className="grid gap-4 md:grid-cols-3">
             {steps.map((step) => (
               <Card key={step.title}>
@@ -65,13 +55,22 @@ export default function HomePage() {
           </div>
         </section>
 
-        <Card className="rounded-2xl p-8">
-          <h2 className="text-2xl font-bold text-ink-900">Built for serious students</h2>
-          <p className="mt-2 max-w-2xl text-sm text-ink-700">
+        <Card className="space-y-3">
+          <h2 className="text-lg font-semibold text-ink-900">What makes this different</h2>
+          <ul className="space-y-2 text-sm text-ink-700">
+            <li>Track-specific guidance for software builds and research execution</li>
+            <li>Scope discipline with explicit &quot;cut if behind&quot; guidance</li>
+            <li>Portfolio-ready explanation prompts for interviews and applications</li>
+          </ul>
+        </Card>
+
+        <Card className="rounded-2xl p-8 text-center">
+          <h2 className="text-2xl font-medium text-ink-900">Built for serious students</h2>
+          <p className="mx-auto mt-2 max-w-2xl text-sm text-ink-700">
             Ideal for high school and early college students aiming for ambitious outcomes with realistic execution.
           </p>
           <Link href="/sign-up" className="mt-6 inline-block">
-            <Button>Get started now</Button>
+            <Button className="h-11 px-6">Get started now</Button>
           </Link>
         </Card>
       </Container>

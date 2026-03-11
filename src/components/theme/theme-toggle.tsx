@@ -10,11 +10,11 @@ function applyTheme(theme: ThemePreference) {
 }
 
 export function ThemeToggle() {
-  const [theme, setTheme] = useState<ThemePreference>("light");
+  const [theme, setTheme] = useState<ThemePreference>("dark");
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
-    let nextTheme = getSystemTheme();
+    let nextTheme: ThemePreference = "dark";
 
     try {
       const stored = localStorage.getItem(THEME_STORAGE_KEY);

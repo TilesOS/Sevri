@@ -22,8 +22,7 @@ export const themeScript = `(() => {
     }
   } catch {}
 
-  const systemDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-  apply(systemDark ? "dark" : "light");
+  apply("dark");
 })();`;
 
 export function getSystemTheme(): ThemePreference {

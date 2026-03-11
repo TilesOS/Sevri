@@ -22,7 +22,7 @@ export default function PricingPage() {
     <div className="py-16">
       <Container className="space-y-8">
         <div className="space-y-2 text-center">
-          <h1 className="text-3xl font-bold text-ink-900">Simple pricing for focused builders</h1>
+          <h1 className="text-3xl font-medium text-ink-900">Simple pricing for focused builders</h1>
           <p className="text-sm text-ink-600">Start free, upgrade when you want deeper planning and stronger packaging.</p>
         </div>
 
@@ -40,7 +40,7 @@ export default function PricingPage() {
             </Link>
           </Card>
 
-          <Card className="space-y-4 border-mint-300">
+          <Card className="space-y-4 border-mint-500">
             <h2 className="text-xl font-semibold">Pro</h2>
             <p className="text-sm text-ink-600">Monthly subscription via Stripe Checkout</p>
             <ul className="space-y-2 text-sm text-ink-700">

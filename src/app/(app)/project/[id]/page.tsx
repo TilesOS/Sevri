@@ -92,7 +92,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         <Card className="space-y-2">
           <div className="flex items-center gap-3">
             <Badge>{plan === "pro_monthly" ? "Pro" : "Free"}</Badge>
-            <Badge className="bg-sky-100 text-sky-700">Research</Badge>
+            <Badge className="bg-sky-500/15 text-sky-400">Research</Badge>
             <Badge className="bg-mint-100 text-mint-700">{workspace.project.status}</Badge>
           </div>
           <h1 className="text-2xl font-bold text-ink-900">{workspace.project.title}</h1>
