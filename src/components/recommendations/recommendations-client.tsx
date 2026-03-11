@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PLAN_LIMITS } from "@/lib/usage/limits";
 import type { Plan, ProjectTrack } from "@/types/domain";
 
 interface RecommendationItem {
@@ -66,7 +67,7 @@ export function RecommendationsClient({
       return true;
     }
 
-    return batchesUsed < 1;
+    return batchesUsed < PLAN_LIMITS[plan].recommendation_batches;
   }, [plan, batchesUsed]);
 
   async function handleGenerate() {
@@ -245,3 +246,5 @@ export function RecommendationsClient({
     </div>
   );
 }
+
+

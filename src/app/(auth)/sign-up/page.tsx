@@ -8,7 +8,7 @@ export default function SignUpPage() {
     <Card className="mx-auto w-full max-w-md space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-bold text-ink-900">Create your Sevri account</h1>
-        <p className="text-sm text-ink-600">Start with free onboarding and your first recommendation batch.</p>
+        <p className="text-sm text-ink-600">Start with free onboarding and two recommendation batches (software + research).</p>
       </div>
       <Suspense fallback={<p className="text-sm text-ink-600">Loading sign-up form...</p>}>
         <AuthForm mode="sign-up" />
@@ -19,3 +19,4 @@ export default function SignUpPage() {
     </Card>
   );
 }
+

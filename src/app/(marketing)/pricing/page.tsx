@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 
 const freeFeatures = [
   "Onboarding questionnaire",
-  "One recommendation generation batch (3 ideas)",
+  "Two recommendation generation batches (3 ideas each)",
   "Limited roadmap detail",
   "Milestone tracking",
 ];

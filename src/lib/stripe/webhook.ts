@@ -48,6 +48,36 @@ export function constructStripeEvent(body: string, signature: string | null) {
   return stripe.webhooks.constructEvent(body, signature, env.STRIPE_WEBHOOK_SECRET);
 }
 
+async function upsertFromCheckoutSession(session: Stripe.Checkout.Session, userId: string) {
+  const stripeCustomerId = typeof session.customer === "string" ? session.customer : null;
+  const stripeSubscriptionId = typeof session.subscription === "string" ? session.subscription : null;
+
+  if (stripeSubscriptionId) {
+    const subscription = await stripe.subscriptions.retrieve(stripeSubscriptionId);
+    await upsertSubscription({
+      userId,
+      plan: planFromSubscription(subscription),
+      status: subscription.status,
+      stripeCustomerId,
+      stripeSubscriptionId: subscription.id,
+      stripeCheckoutSessionId: session.id,
+      currentPeriodEnd: subscription.current_period_end
+        ? new Date(subscription.current_period_end * 1000).toISOString()
+        : null,
+    });
+
+    return;
+  }
+
+  await upsertSubscription({
+    userId,
+    plan: "free",
+    status: "checkout_completed",
+    stripeCustomerId,
+    stripeCheckoutSessionId: session.id,
+  });
+}
+
 export async function processStripeEvent(event: Stripe.Event) {
   switch (event.type) {
     case "checkout.session.completed": {
@@ -58,14 +88,7 @@ export async function processStripeEvent(event: Stripe.Event) {
         return;
       }
 
-      await upsertSubscription({
-        userId,
-        plan: "free",
-        status: "checkout_completed",
-        stripeCustomerId: typeof session.customer === "string" ? session.customer : null,
-        stripeCheckoutSessionId: session.id,
-      });
-
+      await upsertFromCheckoutSession(session, userId);
       await trackEvent(userId, "checkout_completed", { session_id: session.id });
       return;
     }

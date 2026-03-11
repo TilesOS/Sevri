@@ -2,7 +2,7 @@ import type { Plan } from "@/types/domain";
 
 export const PLAN_LIMITS = {
   free: {
-    recommendation_batches: 1,
+    recommendation_batches: 2,
     full_roadmap: false,
     readme_export: false,
     portfolio_packaging: false,
