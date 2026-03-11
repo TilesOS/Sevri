@@ -5,36 +5,88 @@ function asProjectTrack(value: unknown): ProjectTrack {
   return value === "research" ? "research" : "software";
 }
 
+function isMissingColumnError(error: unknown, table: string, column: string): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const candidate = error as { code?: string; message?: string };
+  const message = candidate.message ?? "";
+
+  return candidate.code === "42703" || message.includes(`column ${table}.${column} does not exist`);
+}
+
+function getTrackFromRawAnswers(rawAnswers: unknown): ProjectTrack | null {
+  if (!rawAnswers || typeof rawAnswers !== "object") {
+    return null;
+  }
+
+  const track = (rawAnswers as { project_track?: unknown }).project_track;
+  if (track === "software" || track === "research") {
+    return track;
+  }
+
+  return null;
+}
+
 export async function getLatestProjectTrack(userId: string): Promise<ProjectTrack> {
   const supabase = await createServerSupabaseClient();
 
-  const { data: intake, error: intakeError } = await supabase
+  const intakeResult = await supabase
     .from("intakes")
-    .select("project_track")
+    .select("project_track, raw_answers_json")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (intakeError) {
-    throw new Error(`Failed to fetch latest intake track: ${intakeError.message}`);
+  if (intakeResult.error && !isMissingColumnError(intakeResult.error, "intakes", "project_track")) {
+    throw new Error(`Failed to fetch latest intake track: ${intakeResult.error.message}`);
   }
 
-  if (intake?.project_track) {
-    return asProjectTrack(intake.project_track);
+  if (!intakeResult.error) {
+    if (intakeResult.data?.project_track) {
+      return asProjectTrack(intakeResult.data.project_track);
+    }
+
+    const fromRawAnswers = getTrackFromRawAnswers(intakeResult.data?.raw_answers_json);
+    if (fromRawAnswers) {
+      return fromRawAnswers;
+    }
+  } else {
+    const intakeFallbackResult = await supabase
+      .from("intakes")
+      .select("raw_answers_json")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (intakeFallbackResult.error) {
+      throw new Error(`Failed to fetch latest intake track fallback: ${intakeFallbackResult.error.message}`);
+    }
+
+    const fromRawAnswers = getTrackFromRawAnswers(intakeFallbackResult.data?.raw_answers_json);
+    if (fromRawAnswers) {
+      return fromRawAnswers;
+    }
   }
 
-  const { data: profile, error: profileError } = await supabase
+  const profileResult = await supabase
     .from("profiles")
     .select("project_track")
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (profileError) {
-    throw new Error(`Failed to fetch profile track: ${profileError.message}`);
+  if (profileResult.error && !isMissingColumnError(profileResult.error, "profiles", "project_track")) {
+    throw new Error(`Failed to fetch profile track: ${profileResult.error.message}`);
   }
 
-  return asProjectTrack(profile?.project_track);
+  if (!profileResult.error && profileResult.data?.project_track) {
+    return asProjectTrack(profileResult.data.project_track);
+  }
+
+  return "software";
 }
 
 export async function getLatestRecommendations(userId: string, track: ProjectTrack) {
