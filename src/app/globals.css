@@ -61,7 +61,7 @@
   --focus-ring: rgba(124, 58, 237, 0.45);
 
   --app-glow: none;
-  --shadow-soft: 0 0 0 0 transparent;
+  --shadow-soft: 0 0 0 1px rgba(124, 58, 237, 0.05), 0 8px 28px rgba(124, 58, 237, 0.11);
 
   --gradient-cta: radial-gradient(
     134.26% 244.64% at 42.92% -80.36%,
@@ -102,6 +102,11 @@ select {
 
 .app-shell {
   background: var(--surface-base);
+}
+
+.dark .app-shell {
+  background-image: linear-gradient(135deg, #1a1230 0%, #13111c 62%);
+  background-attachment: fixed;
 }
 
 :focus-visible {
