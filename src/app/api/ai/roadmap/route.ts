@@ -10,7 +10,7 @@ import { trackEvent } from "@/lib/analytics/events";
 import { captureServerError } from "@/lib/sentry/server";
 import { sendEmail } from "@/lib/email/resend";
 import { roadmapReadyTemplate } from "@/lib/email/templates";
-import type { NormalizedProfile } from "@/lib/ai/schemas";
+import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 
 const bodySchema = z.object({
   project_id: z.string().uuid(),
@@ -18,98 +18,6 @@ const bodySchema = z.object({
 
 function asProjectTrack(value: unknown): "software" | "research" {
   return value === "research" ? "research" : "software";
-}
-
-function asRiskFlags(value: unknown): Array<
-  | "too_ambitious"
-  | "too_vague"
-  | "too_advanced"
-  | "too_little_time"
-  | "misaligned_goal"
-  | "insufficient_guidance"
-  | "resource_constraint"
-> {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter(
-    (item): item is
-      | "too_ambitious"
-      | "too_vague"
-      | "too_advanced"
-      | "too_little_time"
-      | "misaligned_goal"
-      | "insufficient_guidance"
-      | "resource_constraint" =>
-      typeof item === "string" &&
-      [
-        "too_ambitious",
-        "too_vague",
-        "too_advanced",
-        "too_little_time",
-        "misaligned_goal",
-        "insufficient_guidance",
-        "resource_constraint",
-      ].includes(item),
-  );
-}
-
-function asNormalizedProfile(value: {
-  summary: string;
-  interpreted_interests: string[];
-  skill_assessment: string;
-  risk_flags: string[];
-  project_track: string;
-  track_payload_json: unknown;
-}): NormalizedProfile {
-  const projectTrack = asProjectTrack(value.project_track);
-
-  if (projectTrack === "research") {
-    const researchPayload = value.track_payload_json as Record<string, unknown> | null;
-
-    return {
-      project_track: "research",
-      summary: value.summary,
-      interpreted_interests: value.interpreted_interests,
-      skill_assessment: value.skill_assessment as "beginner" | "intermediate" | "advanced",
-      risk_flags: asRiskFlags(value.risk_flags),
-      track_payload_json: {
-        research_readiness:
-          typeof researchPayload?.research_readiness === "string"
-            ? researchPayload.research_readiness
-            : "Student should keep method scope narrow and practical.",
-        scope_guardrails:
-          Array.isArray(researchPayload?.scope_guardrails) && researchPayload.scope_guardrails.length >= 2
-            ? (researchPayload.scope_guardrails as string[])
-            : ["One question", "One primary method"],
-        mentor_resource_notes:
-          typeof researchPayload?.mentor_resource_notes === "string"
-            ? researchPayload.mentor_resource_notes
-            : "Use accessible resources and mentor checkpoints where possible.",
-      },
-    };
-  }
-
-  const softwarePayload = value.track_payload_json as Record<string, unknown> | null;
-
-  return {
-    project_track: "software",
-    summary: value.summary,
-    interpreted_interests: value.interpreted_interests,
-    skill_assessment: value.skill_assessment as "beginner" | "intermediate" | "advanced",
-    risk_flags: asRiskFlags(value.risk_flags),
-    track_payload_json: {
-      project_style_fit:
-        typeof softwarePayload?.project_style_fit === "string"
-          ? softwarePayload.project_style_fit
-          : "Focus on one strong software workflow with clear portfolio impact.",
-      scope_guardrails:
-        Array.isArray(softwarePayload?.scope_guardrails) && softwarePayload.scope_guardrails.length >= 2
-          ? (softwarePayload.scope_guardrails as string[])
-          : ["Keep MVP narrow", "Cut advanced features if timeline slips"],
-    },
-  };
 }
 
 export async function POST(request: Request) {
@@ -173,7 +81,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Normalized profile not found" }, { status: 400 });
     }
 
-    const profile = asNormalizedProfile({
+    const profile = coerceStoredNormalizedProfile({
       summary: normalizedProfile.summary,
       interpreted_interests: normalizedProfile.interpreted_interests,
       skill_assessment: normalizedProfile.skill_assessment,
@@ -260,4 +168,3 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Failed to generate roadmap" }, { status: 500 });
   }
 }
-

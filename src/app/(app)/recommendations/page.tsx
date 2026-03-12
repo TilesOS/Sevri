@@ -3,6 +3,7 @@ import {
   getLatestProjectTrack,
   getLatestRecommendations,
   getRecommendationGenerationCount,
+  getTrackAvailability,
 } from "@/lib/db/queries/recommendations";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { RecommendationsClient } from "@/components/recommendations/recommendations-client";
@@ -12,15 +13,26 @@ function asProjectTrack(value: unknown): ProjectTrack {
   return value === "research" ? "research" : "software";
 }
 
-export default async function RecommendationsPage() {
+function getRequestedTrack(value: string | undefined, fallback: ProjectTrack): ProjectTrack {
+  return value === "research" || value === "software" ? value : fallback;
+}
+
+export default async function RecommendationsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ track?: string }>;
+}) {
   const user = await getRequiredUser();
+  const resolvedSearchParams = await searchParams;
 
-  const activeTrack = await getLatestProjectTrack(user.id);
+  const defaultTrack = await getLatestProjectTrack(user.id);
+  const activeTrack = getRequestedTrack(resolvedSearchParams.track, defaultTrack);
 
-  const [recommendations, plan, batchesUsed] = await Promise.all([
+  const [recommendations, plan, batchesUsed, trackAvailability] = await Promise.all([
     getLatestRecommendations(user.id, activeTrack),
     getUserPlan(user.id),
     getRecommendationGenerationCount(user.id),
+    getTrackAvailability(user.id),
   ]);
 
   return (
@@ -34,6 +46,7 @@ export default async function RecommendationsPage() {
       }))}
       plan={plan}
       batchesUsed={batchesUsed}
+      trackAvailability={trackAvailability}
     />
   );
 }

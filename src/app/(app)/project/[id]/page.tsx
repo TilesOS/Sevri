@@ -80,6 +80,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const couldHave = asStringArray(featureLadder.could_have);
   const stretchGoals = asStringArray(workspace.roadmap.stretch_goals);
   const repoStructure = asRepoItems(workspace.roadmap.repo_structure);
+  const researchQuestion = String(
+    trackPayload.research_question ?? trackPayload.research_question_or_hypothesis ?? "Define a focused student-scale question.",
+  );
+  const evidencePlan = String(trackPayload.evidence_or_data_plan ?? "Use one accessible evidence source.");
+  const limitationNote = String(trackPayload.limitation_note ?? "State the main limitation clearly and early.");
+
 
   if (projectTrack === "research") {
     const stepByStep = asStringArray(trackPayload.step_by_step_plan);
@@ -101,12 +107,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="space-y-3">
-            <h2 className="text-lg font-semibold text-ink-900">Research Question / Hypothesis</h2>
+            <h2 className="text-lg font-semibold text-ink-900">Research Question / Focus</h2>
             <p className="text-sm text-ink-700">
-              {String(trackPayload.research_question_or_hypothesis ?? "Define a focused student-scale question.")}
+              {researchQuestion}
             </p>
             <h3 className="text-sm font-semibold text-ink-900">Methodology</h3>
             <p className="text-sm text-ink-700">{String(trackPayload.methodology ?? workspace.roadmap.mvp_scope)}</p>
+            <h3 className="text-sm font-semibold text-ink-900">Evidence Plan</h3>
+            <p className="text-sm text-ink-700">{evidencePlan}</p>
           </Card>
 
           <Card className="space-y-3">
@@ -118,6 +126,8 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             <p className="text-sm text-ink-700">
               {String(trackPayload.why_this_fits ?? "This direction balances ambition with realistic constraints.")}
             </p>
+            <h3 className="text-sm font-semibold text-ink-900">Main limitation</h3>
+            <p className="text-sm text-ink-700">{limitationNote}</p>
           </Card>
         </div>
 
@@ -323,3 +333,9 @@ function LadderBlock({ title, items }: { title: string; items: string[] }) {
     </div>
   );
 }
+
+
+
+
+
+

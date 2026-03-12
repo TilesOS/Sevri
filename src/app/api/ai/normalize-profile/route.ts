@@ -1,10 +1,16 @@
+import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { runProfileNormalization } from "@/lib/ai/pipelines";
 import { captureServerError } from "@/lib/sentry/server";
+import { getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import type { ProjectTrack } from "@/lib/validators/onboarding";
+
+const bodySchema = z.object({
+  project_track: z.enum(["software", "research"]).optional(),
+});
 
 function getErrorDetails(error: unknown) {
   if (error instanceof Error) {
@@ -22,13 +28,15 @@ function asProjectTrack(value: unknown): ProjectTrack {
   return value === "research" ? "research" : "software";
 }
 
-export async function POST() {
+export async function POST(request: Request) {
   const { user, response } = await requireApiUser();
   if (!user) {
     return response;
   }
 
   try {
+    const body = bodySchema.parse(await request.json().catch(() => ({})));
+
     try {
       const rateLimit = await enforceRateLimit({
         userId: user.id,
@@ -51,16 +59,19 @@ export async function POST() {
     }
 
     const supabase = await createServerSupabaseClient();
+    const requestedTrack = body.project_track ?? (await getLatestProjectTrack(user.id));
+
     const { data: intake, error: intakeError } = await supabase
       .from("intakes")
       .select("id, raw_answers_json, project_track")
       .eq("user_id", user.id)
+      .eq("project_track", requestedTrack)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (intakeError || !intake) {
-      return NextResponse.json({ error: "Complete onboarding first" }, { status: 400 });
+      return NextResponse.json({ error: `Complete ${requestedTrack} onboarding first` }, { status: 400 });
     }
 
     const projectTrack = asProjectTrack(intake.project_track);

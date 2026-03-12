@@ -10,6 +10,7 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   systemPrompt: string;
   userPrompt: string;
   maxRetries?: number;
+  validator?: (parsed: z.infer<TSchema>) => string[];
 }
 
 function supportsTemperatureOverride(model: string) {
@@ -75,6 +76,15 @@ function uniqueModels(primary: string, fallback: string): string[] {
   return models;
 }
 
+function buildRepairPrompt(feedback: string) {
+  return [
+    "The previous attempt failed validation.",
+    feedback,
+    "Regenerate the entire JSON from scratch and fix every issue.",
+    "Return only valid JSON.",
+  ].join("\n");
+}
+
 export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   input: StructuredGenerationInput<TSchema>,
 ): Promise<{ parsed: z.infer<TSchema>; raw: unknown }> {
@@ -83,21 +93,30 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   let lastError = "Structured generation failed";
 
   for (const model of modelsToTry) {
+    let repairFeedback: string | null = null;
+
     for (let attempt = 0; attempt <= retries; attempt += 1) {
+      const messages: Array<{ role: "system" | "user"; content: string }> = [
+        { role: "system", content: input.systemPrompt },
+        { role: "user", content: input.userPrompt },
+      ];
+
+      if (repairFeedback) {
+        messages.push({ role: "user", content: buildRepairPrompt(repairFeedback) });
+      }
+
       const completion = await openai.chat.completions.create({
         model,
         response_format: { type: "json_object" },
-        ...(supportsTemperatureOverride(model) ? { temperature: 0.4 } : {}),
-        messages: [
-          { role: "system", content: input.systemPrompt },
-          { role: "user", content: input.userPrompt },
-        ],
+        ...(supportsTemperatureOverride(model) ? { temperature: 0.35 } : {}),
+        messages,
       });
 
       const content = completion.choices[0]?.message?.content;
 
       if (!content) {
         lastError = `${model}: Model returned empty content`;
+        repairFeedback = lastError;
         if (attempt === retries) {
           break;
         }
@@ -109,6 +128,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         parsedJson = parseJsonSafely(content);
       } catch {
         lastError = `${model}: Model returned non-JSON output`;
+        repairFeedback = lastError;
         if (attempt === retries) {
           break;
         }
@@ -121,6 +141,18 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         lastError = direct.success
           ? `${model}: Schema validation failed`
           : `${model}: Schema validation failed: ${direct.error.message}`;
+        repairFeedback = lastError;
+
+        if (attempt === retries) {
+          break;
+        }
+        continue;
+      }
+
+      const validationIssues = input.validator ? input.validator(matched) : [];
+      if (validationIssues.length > 0) {
+        lastError = `${model}: Output quality validation failed: ${validationIssues.join(" | ")}`;
+        repairFeedback = validationIssues.map((issue) => `- ${issue}`).join("\n");
 
         if (attempt === retries) {
           break;

@@ -96,16 +96,49 @@ export async function getLatestRecommendations(userId: string, track: ProjectTra
     .from("project_recommendations")
     .select("*")
     .eq("user_id", userId)
+    .eq("project_track", track)
     .order("created_at", { ascending: false })
-    .limit(30);
+    .limit(3);
 
   if (error) {
     throw new Error(`Failed to fetch recommendations: ${error.message}`);
   }
 
-  return (data ?? [])
-    .filter((item) => asProjectTrack(item.project_track) === track)
-    .slice(0, 3);
+  return data ?? [];
+}
+
+export async function getTrackAvailability(userId: string) {
+  const supabase = await createServerSupabaseClient();
+
+  const [{ data: intakes, error: intakeError }, { data: recommendations, error: recommendationError }] = await Promise.all([
+    supabase.from("intakes").select("project_track").eq("user_id", userId),
+    supabase.from("project_recommendations").select("project_track").eq("user_id", userId),
+  ]);
+
+  if (intakeError) {
+    throw new Error(`Failed to fetch track intake availability: ${intakeError.message}`);
+  }
+
+  if (recommendationError) {
+    throw new Error(`Failed to fetch recommendation availability: ${recommendationError.message}`);
+  }
+
+  const result = {
+    software: { hasIntake: false, recommendationCount: 0 },
+    research: { hasIntake: false, recommendationCount: 0 },
+  };
+
+  (intakes ?? []).forEach((item) => {
+    const track = asProjectTrack(item.project_track);
+    result[track].hasIntake = true;
+  });
+
+  (recommendations ?? []).forEach((item) => {
+    const track = asProjectTrack(item.project_track);
+    result[track].recommendationCount += 1;
+  });
+
+  return result;
 }
 
 export async function getRecommendationGenerationCount(userId: string) {

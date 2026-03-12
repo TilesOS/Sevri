@@ -1,4 +1,6 @@
+import type { User } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { resolveStoredFullName } from "@/lib/auth/names";
 import {
   onboardingInputSchema,
   type OnboardingInput,
@@ -31,13 +33,29 @@ function getResearchTrackPayload(input: ResearchOnboardingInput) {
   };
 }
 
-export async function upsertOnboardingData(userId: string, input: OnboardingInput) {
+export async function upsertOnboardingData(user: User, input: OnboardingInput) {
   const supabase = await createServerSupabaseClient();
+
+  const { data: existingProfile, error: existingProfileError } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (existingProfileError) {
+    throw new Error(`Failed to load profile: ${existingProfileError.message}`);
+  }
+
+  const resolvedFullName = resolveStoredFullName({
+    profileFullName: existingProfile?.full_name,
+    userMetadata: user.user_metadata,
+    email: user.email,
+  });
 
   const { error: profileError } = await supabase.from("profiles").upsert(
     {
-      user_id: userId,
-      full_name: input.full_name,
+      user_id: user.id,
+      full_name: resolvedFullName,
       student_stage: input.student_stage,
       target_outcome: input.target_outcome,
       project_track: input.project_track,
@@ -52,7 +70,7 @@ export async function upsertOnboardingData(userId: string, input: OnboardingInpu
   const intakeInsert =
     input.project_track === "software"
       ? {
-          user_id: userId,
+          user_id: user.id,
           project_track: input.project_track,
           interests: input.interests,
           favorite_subjects: input.favorite_subjects,
@@ -67,7 +85,7 @@ export async function upsertOnboardingData(userId: string, input: OnboardingInpu
           raw_answers_json: input,
         }
       : {
-          user_id: userId,
+          user_id: user.id,
           project_track: input.project_track,
           interests: input.interests,
           favorite_subjects: input.favorite_subjects,

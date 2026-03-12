@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getRequiredUser } from "@/lib/auth/guard";
+import { resolveDisplayName } from "@/lib/auth/names";
 
 export async function AppHeader() {
   const user = await getRequiredUser();
@@ -12,6 +13,12 @@ export async function AppHeader() {
     .select("full_name")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  const displayName = resolveDisplayName({
+    profileFullName: profile?.full_name,
+    userMetadata: user.user_metadata,
+    email: user.email,
+  });
 
   return (
     <header className="sticky top-0 z-20 border-b border-surface-border bg-surface-base/80 backdrop-blur-md">
@@ -31,7 +38,7 @@ export async function AppHeader() {
         </nav>
 
         <div className="flex items-center gap-3">
-          <span className="hidden text-sm text-ink-600 md:inline">{profile?.full_name ?? user.email}</span>
+          <span className="hidden text-sm text-ink-600 md:inline">{displayName}</span>
           <form action="/auth/sign-out" method="post">
             <Button variant="secondary" className="h-9 px-3" type="submit">
               Sign out

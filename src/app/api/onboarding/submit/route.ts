@@ -5,6 +5,7 @@ import { trackEvent } from "@/lib/analytics/events";
 import { sendEmail } from "@/lib/email/resend";
 import { welcomeEmailTemplate } from "@/lib/email/templates";
 import { captureServerError } from "@/lib/sentry/server";
+import { resolveDisplayName } from "@/lib/auth/names";
 
 export async function POST(request: Request) {
   const { user, response } = await requireApiUser();
@@ -16,14 +17,19 @@ export async function POST(request: Request) {
     const json = await request.json();
     const payload = onboardingInputSchema.parse(json);
 
-    const intake = await upsertOnboardingData(user.id, payload);
+    const intake = await upsertOnboardingData(user, payload);
 
     const postSaveTasks: Promise<unknown>[] = [
       trackEvent(user.id, "onboarding_completed", { intake_id: intake.id, project_track: payload.project_track }),
     ];
 
     if (user.email) {
-      const template = welcomeEmailTemplate(payload.full_name);
+      const template = welcomeEmailTemplate(
+        resolveDisplayName({
+          userMetadata: user.user_metadata,
+          email: user.email,
+        }),
+      );
       postSaveTasks.push(sendEmail(user.email, template.subject, template.html));
     }
 

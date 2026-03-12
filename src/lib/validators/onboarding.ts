@@ -12,7 +12,6 @@ export const softwareDifficultySchema = z.enum([
 ]);
 
 const sharedOnboardingSchema = z.object({
-  full_name: z.string().min(2),
   student_stage: z.string().min(2),
   target_outcome: targetOutcomeSchema,
   interests: z.array(z.string().min(2)).min(1),

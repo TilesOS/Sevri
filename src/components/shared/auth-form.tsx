@@ -15,6 +15,7 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -41,10 +42,19 @@ export function AuthForm({ mode }: AuthFormProps) {
       return;
     }
 
+    if (!fullName.trim()) {
+      setError("Please enter your name.");
+      setIsLoading(false);
+      return;
+    }
+
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
+        data: {
+          full_name: fullName.trim(),
+        },
         emailRedirectTo: `${window.location.origin}/dashboard`,
       },
     });
@@ -61,6 +71,23 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      {mode === "sign-up" ? (
+        <div className="space-y-2">
+          <label htmlFor="full_name" className="text-sm font-medium text-ink-700">
+            Name
+          </label>
+          <Input
+            id="full_name"
+            type="text"
+            value={fullName}
+            onChange={(event) => setFullName(event.target.value)}
+            placeholder="Alex Johnson"
+            autoComplete="name"
+            required
+          />
+        </div>
+      ) : null}
+
       <div className="space-y-2">
         <label htmlFor="email" className="text-sm font-medium text-ink-700">
           Email

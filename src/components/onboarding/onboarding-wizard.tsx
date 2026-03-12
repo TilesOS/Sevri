@@ -14,7 +14,6 @@ import { onboardingInputSchema } from "@/lib/validators/onboarding";
 
 const wizardSchema = z.object({
   project_track: z.enum(["software", "research"]),
-  full_name: z.string().min(2),
   student_stage: z.string().min(2),
   target_outcome: z.enum(["college_apps", "internship", "portfolio", "learning"]),
   interests: z.string().min(2),
@@ -49,7 +48,7 @@ type WizardValues = z.infer<typeof wizardSchema>;
 type WizardField = keyof WizardValues;
 
 const sharedStepFields: WizardField[][] = [
-  ["project_track", "full_name", "student_stage", "target_outcome"],
+  ["project_track", "student_stage", "target_outcome"],
   ["interests", "favorite_subjects", "weekly_time_available"],
 ];
 
@@ -85,7 +84,6 @@ export function OnboardingWizard() {
     resolver: zodResolver(wizardSchema),
     defaultValues: {
       project_track: "software",
-      full_name: "",
       student_stage: "high_school_junior",
       target_outcome: "portfolio",
       interests: "",
@@ -142,7 +140,6 @@ export function OnboardingWizard() {
     try {
       const sharedPayload = {
         project_track: values.project_track,
-        full_name: values.full_name,
         student_stage: values.student_stage,
         target_outcome: values.target_outcome,
         interests: toList(values.interests),
@@ -230,10 +227,6 @@ export function OnboardingWizard() {
                 onClick={() => form.setValue("project_track", "research", { shouldValidate: true })}
               />
             </div>
-
-            <Field label="Name">
-              <Input {...form.register("full_name")} placeholder="Alex Johnson" />
-            </Field>
 
             <Field label="Student stage">
               <select className="w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900" {...form.register("student_stage")}>
@@ -430,5 +423,3 @@ function TrackOption({
     </button>
   );
 }
-
-
