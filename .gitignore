@@ -1,4 +1,5 @@
 node_modules
+.claude
 .next
 out
 .env
@@ -7,4 +8,3 @@ out
 coverage
 *.log
 *.tsbuildinfo
-.claude/
