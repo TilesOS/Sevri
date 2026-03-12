@@ -27,10 +27,10 @@ export default function HomePage() {
             Structured project-to-portfolio coach
           </p>
           <h1 className="text-5xl font-medium leading-tight text-ink-900">
-            Build one authentic project path that actually gets finished.
+            Build an authentic project path that actually gets finished.
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-ink-700">
-            Sevri helps ambitious students scope and execute either a software project or a credible research project,
+            Sevri helps ambitious students develop, map, and execute on an impressive software or research project,
             then package it for college applications, internships, and standout portfolios.
           </p>
           <div className="flex items-center justify-center gap-4">
