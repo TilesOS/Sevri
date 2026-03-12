@@ -7,4 +7,4 @@ out
 coverage
 *.log
 *.tsbuildinfo
-.claude
+.claude/
