@@ -43,7 +43,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        <div className="space-y-[30px]">
+        <div className="space-y-[50px]">
           <section className="space-y-6">
             <h2 className="text-center text-2xl font-medium text-ink-900">How it works</h2>
             <div className="grid gap-4 md:grid-cols-3">
