@@ -43,36 +43,38 @@ export default function HomePage() {
           </div>
         </section>
 
-        <section className="space-y-6">
-          <h2 className="text-center text-2xl font-medium text-ink-900">How it works</h2>
-          <div className="grid gap-4 md:grid-cols-3">
-            {steps.map((step) => (
-              <Card key={step.title}>
-                <h3 className="text-lg font-semibold text-ink-900">{step.title}</h3>
-                <p className="mt-2 text-sm text-ink-700">{step.body}</p>
-              </Card>
-            ))}
-          </div>
-        </section>
+        <div className="space-y-[30px]">
+          <section className="space-y-6">
+            <h2 className="text-center text-2xl font-medium text-ink-900">How it works</h2>
+            <div className="grid gap-4 md:grid-cols-3">
+              {steps.map((step) => (
+                <Card key={step.title}>
+                  <h3 className="text-lg font-semibold text-ink-900">{step.title}</h3>
+                  <p className="mt-2 text-sm text-ink-700">{step.body}</p>
+                </Card>
+              ))}
+            </div>
+          </section>
 
-        <Card className="space-y-3">
-          <h2 className="text-lg font-semibold text-ink-900">What makes this different</h2>
-          <ul className="space-y-2 text-sm text-ink-700">
-            <li>Track-specific guidance for software builds and research execution</li>
-            <li>Scope discipline with explicit &quot;cut if behind&quot; guidance</li>
-            <li>Portfolio-ready explanation prompts for interviews and applications</li>
-          </ul>
-        </Card>
+          <Card className="space-y-3">
+            <h2 className="text-lg font-semibold text-ink-900">What makes this different</h2>
+            <ul className="space-y-2 text-sm text-ink-700">
+              <li>Track-specific guidance for software builds and research execution</li>
+              <li>Scope discipline with explicit &quot;cut if behind&quot; guidance</li>
+              <li>Portfolio-ready explanation prompts for interviews and applications</li>
+            </ul>
+          </Card>
 
-        <Card className="rounded-2xl p-8 text-center">
-          <h2 className="text-2xl font-medium text-ink-900">Built for serious students</h2>
-          <p className="mx-auto mt-2 max-w-2xl text-sm text-ink-700">
-            Ideal for high school and early college students aiming for ambitious outcomes with realistic execution.
-          </p>
-          <Link href="/sign-up" className="mt-6 inline-block">
-            <Button className="h-11 px-6">Get started now</Button>
-          </Link>
-        </Card>
+          <Card className="rounded-2xl p-8 text-center">
+            <h2 className="text-2xl font-medium text-ink-900">Built for serious students</h2>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-ink-700">
+              Ideal for high school and early college students aiming for ambitious outcomes with realistic execution.
+            </p>
+            <Link href="/sign-up" className="mt-6 inline-block">
+              <Button className="h-11 px-6">Get started now</Button>
+            </Link>
+          </Card>
+        </div>
       </Container>
     </div>
   );
