@@ -70,15 +70,15 @@ export function BillingActions({ hasSubscription }: BillingActionsProps) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={startCheckout} disabled={loading !== null}>
-          {loading === "checkout" ? "Opening checkout..." : "Upgrade to Pro"}
+        <Button onClick={hasSubscription ? openPortal : startCheckout} disabled={loading !== null}>
+          {hasSubscription
+            ? loading === "portal"
+              ? "Opening portal..."
+              : "Manage subscription"
+            : loading === "checkout"
+              ? "Opening checkout..."
+              : "Upgrade to Pro"}
         </Button>
-
-        {hasSubscription ? (
-          <Button variant="secondary" onClick={openPortal} disabled={loading !== null}>
-            {loading === "portal" ? "Opening portal..." : "Manage subscription"}
-          </Button>
-        ) : null}
 
         <Button variant="secondary" onClick={syncBilling} disabled={loading !== null}>
           {loading === "sync" ? "Syncing..." : "Sync billing now"}
