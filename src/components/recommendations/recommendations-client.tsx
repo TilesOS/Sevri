@@ -197,7 +197,6 @@ export function RecommendationsClient({
 
         <div className="flex flex-wrap gap-3">
           {(["software", "research"] as ProjectTrack[]).map((track) => {
-            const availability = trackAvailability[track];
             const isActive = track === activeTrack;
 
             return (
@@ -210,7 +209,6 @@ export function RecommendationsClient({
                 }`}
               >
                 {track === "software" ? "Software" : "Research"}
-                {availability.hasIntake ? ` Ã¢â‚¬Â¢ ${availability.recommendationCount} recs` : " Ã¢â‚¬Â¢ onboarding needed"}
               </button>
             );
           })}
@@ -233,9 +231,12 @@ export function RecommendationsClient({
 
       {!hasTrackIntake ? (
         <Card className="space-y-3">
-          <h2 className="text-lg font-semibold text-ink-900">{activeTrack === "research" ? "Research track not set up yet" : "Software track not set up yet"}</h2>
+          <h2 className="text-lg font-semibold text-ink-900">
+            {activeTrack === "research" ? "Research track not set up yet" : "Software track not set up yet"}
+          </h2>
           <p className="text-sm text-ink-700">
-            Run onboarding again and choose the {activeTrack === "research" ? "Research Project" : "Software Project"} track to generate recommendations for it.
+            Run onboarding again and choose the {activeTrack === "research" ? "Research Project" : "Software Project"} track to
+            generate recommendations for it.
           </p>
           <div>
             <Button onClick={() => router.push("/onboarding")}>Open onboarding</Button>
@@ -292,13 +293,15 @@ export function RecommendationsClient({
                     {researchPayload.research_question ?? researchPayload.research_question_or_hypothesis ?? "TBD during planning"}
                   </p>
                   <p>
-                    <span className="font-semibold">Focus:</span> {researchPayload.hypothesis_or_focus ?? "Narrow the main comparison or measurable relationship"}
+                    <span className="font-semibold">Focus:</span>{" "}
+                    {researchPayload.hypothesis_or_focus ?? "Narrow the main comparison or measurable relationship"}
                   </p>
                   <p>
                     <span className="font-semibold">Methodology:</span> {researchPayload.methodology ?? "Method to be finalized"}
                   </p>
                   <p>
-                    <span className="font-semibold">Evidence plan:</span> {researchPayload.evidence_or_data_plan ?? "Accessible data or evidence source"}
+                    <span className="font-semibold">Evidence plan:</span>{" "}
+                    {researchPayload.evidence_or_data_plan ?? "Accessible data or evidence source"}
                   </p>
                   <p>
                     <span className="font-semibold">Scope boundaries:</span>{" "}
@@ -314,7 +317,8 @@ export function RecommendationsClient({
                     <span className="font-semibold">Problem:</span> {softwarePayload.problem_statement ?? "Solve one real domain problem"}
                   </p>
                   <p>
-                    <span className="font-semibold">Core workflow:</span> {softwarePayload.core_workflow ?? "One end-to-end workflow from input to useful output"}
+                    <span className="font-semibold">Core workflow:</span>{" "}
+                    {softwarePayload.core_workflow ?? "One end-to-end workflow from input to useful output"}
                   </p>
                   <p>
                     <span className="font-semibold">MVP boundary:</span> {softwarePayload.mvp_boundary ?? "Ship one narrow workflow first"}
@@ -343,4 +347,3 @@ export function RecommendationsClient({
     </div>
   );
 }
-
