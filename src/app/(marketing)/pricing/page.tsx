@@ -29,7 +29,7 @@ export default function PricingPage() {
         <div className="grid gap-6 md:grid-cols-2">
           <Card className="space-y-4">
             <h2 className="text-xl font-semibold">Free $0 / month</h2>
-            <p className="text-sm text-ink-600">Get a taste of Sevri's guidance</p>
+            <p className="text-sm text-ink-600">Get a taste of Sevri&rsquo;s guidance</p>
             <ul className="space-y-2 text-sm text-ink-700">
               {freeFeatures.map((feature) => (
                 <li key={feature}>- {feature}</li>
