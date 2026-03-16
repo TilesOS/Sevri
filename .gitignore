@@ -11,6 +11,5 @@ coverage
 *.tsbuildinfo
 to-do.txt
 .env.example1
-
 # Local Netlify folder
 .netlify
