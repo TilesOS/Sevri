@@ -4,7 +4,7 @@ node_modules
 out
 .env
 .env.secrets
-.env.local
+.env.localtesting
 .env.*.local
 coverage
 *.log
