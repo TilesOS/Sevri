@@ -9,3 +9,5 @@ coverage
 *.log
 *.tsbuildinfo
 to-do.txt
+# Local Netlify folder
+.netlify
