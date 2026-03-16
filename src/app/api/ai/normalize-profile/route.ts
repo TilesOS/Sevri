@@ -8,6 +8,8 @@ import { captureServerError } from "@/lib/sentry/server";
 import { getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import type { ProjectTrack } from "@/lib/validators/onboarding";
 
+export const runtime = "nodejs";
+
 const bodySchema = z.object({
   project_track: z.enum(["software", "research"]).optional(),
 });
@@ -29,14 +31,18 @@ function asProjectTrack(value: unknown): ProjectTrack {
 }
 
 export async function POST(request: Request) {
-  const { user, response } = await requireApiUser();
-  if (!user) {
-    return response;
-  }
-
+  let stage = "start";
   try {
+    stage = "auth";
+    const { user, response } = await requireApiUser();
+    if (!user) {
+      return response;
+    }
+
+    stage = "parse-request";
     const body = bodySchema.parse(await request.json().catch(() => ({})));
 
+    stage = "rate-limit";
     try {
       const rateLimit = await enforceRateLimit({
         userId: user.id,
@@ -52,15 +58,20 @@ export async function POST(request: Request) {
         );
       }
     } catch (rateLimitError) {
+      console.error("normalize-profile rate-limit failed", { stage, error: rateLimitError });
       captureServerError(rateLimitError, {
         route: "ai/normalize-profile",
         stage: "rate-limit",
       });
     }
 
+    stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();
+
+    stage = "resolve-project-track";
     const requestedTrack = body.project_track ?? (await getLatestProjectTrack(user.id));
 
+    stage = "fetch-intake";
     const { data: intake, error: intakeError } = await supabase
       .from("intakes")
       .select("id, raw_answers_json, project_track")
@@ -76,11 +87,13 @@ export async function POST(request: Request) {
 
     const projectTrack = asProjectTrack(intake.project_track);
 
+    stage = "run-normalization";
     const normalized = await runProfileNormalization({
       projectTrack,
       rawIntake: (intake.raw_answers_json as Record<string, unknown>) ?? {},
     });
 
+    stage = "insert-normalized-profile";
     const { data, error } = await supabase
       .from("normalized_profiles")
       .insert({
@@ -103,14 +116,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ normalized_profile_id: data.id, ...normalized.parsed }, { status: 200 });
   } catch (error) {
-    captureServerError(error, { route: "ai/normalize-profile" });
+    console.error("normalize-profile failed", { stage, error });
+    captureServerError(error, { route: "ai/normalize-profile", stage });
     const details = getErrorDetails(error);
+    const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
     return NextResponse.json(
       {
-        error: "Failed to normalize profile",
+        error: status === 400 ? "Invalid request payload" : "Failed to normalize profile",
+        stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },
-      { status: 500 },
+      { status },
     );
   }
 }

@@ -11,6 +11,8 @@ import { trackEvent } from "@/lib/analytics/events";
 import { captureServerError } from "@/lib/sentry/server";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 
+export const runtime = "nodejs";
+
 const bodySchema = z.object({
   project_track: z.enum(["software", "research"]).optional(),
 });
@@ -28,14 +30,18 @@ function getErrorDetails(error: unknown) {
 }
 
 export async function POST(request: Request) {
-  const { user, response } = await requireApiUser();
-  if (!user) {
-    return response;
-  }
-
+  let stage = "start";
   try {
+    stage = "auth";
+    const { user, response } = await requireApiUser();
+    if (!user) {
+      return response;
+    }
+
+    stage = "parse-request";
     const body = bodySchema.parse(await request.json().catch(() => ({})));
 
+    stage = "rate-limit";
     try {
       const rateLimit = await enforceRateLimit({
         userId: user.id,
@@ -51,12 +57,14 @@ export async function POST(request: Request) {
         );
       }
     } catch (rateLimitError) {
+      console.error("recommendations rate-limit failed", { stage, error: rateLimitError });
       captureServerError(rateLimitError, {
         route: "ai/recommendations",
         stage: "rate-limit",
       });
     }
 
+    stage = "load-plan-and-track";
     const [plan, generatedCount, defaultTrack] = await Promise.all([
       getUserPlan(user.id),
       getRecommendationGenerationCount(user.id),
@@ -71,8 +79,11 @@ export async function POST(request: Request) {
     }
 
     const activeTrack = body.project_track ?? defaultTrack;
+
+    stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();
 
+    stage = "fetch-normalized-profile";
     const { data: normalizedProfiles, error: profileError } = await supabase
       .from("normalized_profiles")
       .select("id, intake_id, summary, interpreted_interests, skill_assessment, risk_flags, project_track, track_payload_json")
@@ -86,6 +97,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Generate a ${activeTrack} normalized profile first` }, { status: 400 });
     }
 
+    stage = "generate-recommendations";
     const generated = await runRecommendationGeneration(
       coerceStoredNormalizedProfile({
         summary: normalizedProfiles.summary,
@@ -117,6 +129,7 @@ export async function POST(request: Request) {
       raw_model_output_json: recommendation,
     }));
 
+    stage = "insert-recommendations";
     const { data: insertedRecommendations, error: insertError } = await supabase
       .from("project_recommendations")
       .insert(payload)
@@ -128,6 +141,7 @@ export async function POST(request: Request) {
 
     const recommendations = insertedRecommendations ?? [];
 
+    stage = "post-generate-track";
     try {
       await trackEvent(user.id, "recommendations_generated", {
         count: recommendations.length,
@@ -135,6 +149,7 @@ export async function POST(request: Request) {
         project_track: activeTrack,
       });
     } catch (trackError) {
+      console.error("recommendations post-generate-track failed", { stage, error: trackError });
       captureServerError(trackError, {
         route: "ai/recommendations",
         stage: "post-generate-track",
@@ -143,14 +158,17 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ recommendations, project_track: activeTrack }, { status: 200 });
   } catch (error) {
-    captureServerError(error, { route: "ai/recommendations" });
+    console.error("recommendations failed", { stage, error });
+    captureServerError(error, { route: "ai/recommendations", stage });
     const details = getErrorDetails(error);
+    const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
     return NextResponse.json(
       {
-        error: "Failed to generate recommendations",
+        error: status === 400 ? "Invalid request payload" : "Failed to generate recommendations",
+        stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },
-      { status: 500 },
+      { status },
     );
   }
 }
