@@ -20,6 +20,8 @@ Sevri is a production-minded SaaS scaffold for helping students pick, scope, exe
 4. Apply Supabase migration: `supabase db push` (or run SQL manually)
 5. Configure Stripe webhook to `POST /api/billing/webhook`
 
+Do not set `NODE_ENV` in `.env.local` or in Netlify environment variables for this app. Let Next.js manage it during builds and runtime.
+
 ## Core flows
 
 - Auth: `/sign-up` -> `/dashboard`
