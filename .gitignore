@@ -3,12 +3,13 @@ node_modules
 .next
 out
 .env
-.env.local
+.env.secrets
 .env.*.local
 coverage
 *.log
 *.tsbuildinfo
 to-do.txt
 .env.example1
+
 # Local Netlify folder
 .netlify
