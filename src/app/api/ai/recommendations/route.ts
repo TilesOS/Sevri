@@ -3,13 +3,14 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
-import { runRecommendationGeneration } from "@/lib/ai/pipelines";
+import { buildGenerationContext } from "@/lib/ai/generation-context";
+import { getRouteGenerationMetadata, getWeeklyHoursForStorage, runOptionsGeneration } from "@/lib/ai/pipelines";
+import { getGenerationVersion } from "@/lib/ai/client";
 import { getRecommendationGenerationCount, getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { canGenerateRecommendations } from "@/lib/usage/limits";
 import { trackEvent } from "@/lib/analytics/events";
 import { captureServerError } from "@/lib/sentry/server";
-import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 
 export const runtime = "nodejs";
 
@@ -29,8 +30,32 @@ function getErrorDetails(error: unknown) {
   }
 }
 
+function finishabilityScore(riskFlags: string[]) {
+  let score = 9;
+
+  if (riskFlags.includes("too_little_time")) {
+    score -= 2;
+  }
+
+  if (riskFlags.includes("too_ambitious")) {
+    score -= 1;
+  }
+
+  if (riskFlags.includes("too_advanced")) {
+    score -= 1;
+  }
+
+  return Math.max(6, score);
+}
+
+function impressivenessScore(projectTrack: "software" | "research") {
+  return projectTrack === "research" ? 8 : 7;
+}
+
 export async function POST(request: Request) {
+  const routeStartedAt = performance.now();
   let stage = "start";
+
   try {
     stage = "auth";
     const { user, response } = await requireApiUser();
@@ -83,50 +108,78 @@ export async function POST(request: Request) {
     stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();
 
-    stage = "fetch-normalized-profile";
-    const { data: normalizedProfiles, error: profileError } = await supabase
-      .from("normalized_profiles")
-      .select("id, intake_id, summary, interpreted_interests, skill_assessment, risk_flags, project_track, track_payload_json")
+    stage = "fetch-intake";
+    const { data: intake, error: intakeError } = await supabase
+      .from("intakes")
+      .select("id, raw_answers_json, project_track")
       .eq("user_id", user.id)
       .eq("project_track", activeTrack)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
-    if (profileError || !normalizedProfiles) {
-      return NextResponse.json({ error: `Generate a ${activeTrack} normalized profile first` }, { status: 400 });
+    if (intakeError || !intake) {
+      return NextResponse.json({ error: `Complete ${activeTrack} onboarding first` }, { status: 400 });
     }
 
-    stage = "generate-recommendations";
-    const generated = await runRecommendationGeneration(
-      coerceStoredNormalizedProfile({
-        summary: normalizedProfiles.summary,
-        interpreted_interests: normalizedProfiles.interpreted_interests,
-        skill_assessment: normalizedProfiles.skill_assessment,
-        risk_flags: normalizedProfiles.risk_flags,
-        project_track: normalizedProfiles.project_track,
-        track_payload_json: normalizedProfiles.track_payload_json,
-      }),
-    );
+    stage = "build-context";
+    const context = buildGenerationContext({
+      projectTrack: intake.project_track === "research" ? "research" : "software",
+      rawIntake: (intake.raw_answers_json as Record<string, unknown>) ?? {},
+    });
+
+    stage = "store-context-snapshot";
+    const { data: contextSnapshot, error: snapshotError } = await supabase
+      .from("normalized_profiles")
+      .insert({
+        user_id: user.id,
+        intake_id: intake.id,
+        project_track: context.project_track,
+        summary: context.summary,
+        interpreted_interests: context.interpreted_interests,
+        skill_assessment: context.skill_assessment,
+        risk_flags: context.risk_flags,
+        track_payload_json: context.track_payload_json,
+        raw_model_output_json: {
+          source: "deterministic-context",
+          generation_version: getGenerationVersion(),
+          context,
+        },
+      })
+      .select("id")
+      .single();
+
+    if (snapshotError) {
+      throw new Error(snapshotError.message);
+    }
+
+    stage = "generate-options";
+    const generated = await runOptionsGeneration(context);
+    const weeklyHours = getWeeklyHoursForStorage(context);
+    const optionImpressiveness = impressivenessScore(context.project_track);
+    const optionFinishability = finishabilityScore(context.risk_flags);
 
     const payload = generated.parsed.recommendations.map((recommendation) => ({
       user_id: user.id,
-      intake_id: normalizedProfiles.intake_id,
-      normalized_profile_id: normalizedProfiles.id,
+      intake_id: intake.id,
+      normalized_profile_id: contextSnapshot.id,
       project_track: recommendation.project_track,
       title: recommendation.title,
       summary: recommendation.summary,
-      rationale: recommendation.rationale,
+      rationale: recommendation.why_it_fits,
       difficulty: recommendation.difficulty,
       estimated_weeks: recommendation.estimated_weeks,
-      weekly_hours: recommendation.weekly_hours,
-      skills_demonstrated: recommendation.skills_demonstrated,
-      tools_needed: recommendation.tools_needed,
-      impressiveness_score: recommendation.impressiveness_score,
-      finishability_score: recommendation.finishability_score,
-      authenticity_note: recommendation.authenticity_note,
+      weekly_hours: weeklyHours,
+      skills_demonstrated: [],
+      tools_needed: [],
+      impressiveness_score: optionImpressiveness,
+      finishability_score: optionFinishability,
+      authenticity_note: context.summary,
       track_payload_json: recommendation.track_payload_json,
-      raw_model_output_json: recommendation,
+      raw_model_output_json: {
+        recommendation,
+        metrics: generated.metrics,
+      },
     }));
 
     stage = "insert-recommendations";
@@ -139,24 +192,43 @@ export async function POST(request: Request) {
       throw new Error(insertError.message);
     }
 
-    const recommendations = insertedRecommendations ?? [];
+    const routeMetadata = getRouteGenerationMetadata({
+      metrics: generated.metrics,
+      routeTotalMs: performance.now() - routeStartedAt,
+      cacheHit: false,
+    });
 
-    stage = "post-generate-track";
-    try {
-      await trackEvent(user.id, "recommendations_generated", {
-        count: recommendations.length,
-        normalized_profile_id: normalizedProfiles.id,
-        project_track: activeTrack,
-      });
-    } catch (trackError) {
-      console.error("recommendations post-generate-track failed", { stage, error: trackError });
+    stage = "track-options-generated";
+    void trackEvent(user.id, "recommendations_generated", {
+      count: insertedRecommendations?.length ?? 0,
+      normalized_profile_id: contextSnapshot.id,
+      project_track: activeTrack,
+      ...routeMetadata,
+    }).catch((trackError) => {
+      console.error("recommendations track failed", { stage, error: trackError });
       captureServerError(trackError, {
         route: "ai/recommendations",
-        stage: "post-generate-track",
+        stage: "track-options-generated",
       });
-    }
+    });
 
-    return NextResponse.json({ recommendations, project_track: activeTrack }, { status: 200 });
+    return NextResponse.json(
+      {
+        project_track: activeTrack,
+        recommendations: (insertedRecommendations ?? []).map((recommendation) => ({
+          id: recommendation.id,
+          project_track: recommendation.project_track === "research" ? "research" : "software",
+          title: recommendation.title,
+          summary: recommendation.summary,
+          why_it_fits: recommendation.rationale,
+          difficulty: recommendation.difficulty,
+          estimated_weeks: recommendation.estimated_weeks,
+          track_payload_json: recommendation.track_payload_json,
+        })),
+        timings: routeMetadata,
+      },
+      { status: 200 },
+    );
   } catch (error) {
     console.error("recommendations failed", { stage, error });
     captureServerError(error, { route: "ai/recommendations", stage });

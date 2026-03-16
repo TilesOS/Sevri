@@ -13,15 +13,9 @@ interface RecommendationItem {
   project_track: ProjectTrack;
   title: string;
   summary: string;
-  rationale: string;
+  why_it_fits: string;
   difficulty: string;
   estimated_weeks: number;
-  weekly_hours: number;
-  skills_demonstrated: string[];
-  tools_needed: string[];
-  impressiveness_score: number;
-  finishability_score: number;
-  authenticity_note: string;
   track_payload_json?: Record<string, unknown>;
 }
 
@@ -36,40 +30,6 @@ interface RecommendationsClientProps {
   plan: Plan;
   batchesUsed: number;
   trackAvailability: TrackAvailability;
-}
-
-interface SoftwareRecommendationPayload {
-  target_user?: string;
-  problem_statement?: string;
-  core_workflow?: string;
-  mvp_boundary?: string;
-  validation_plan?: string;
-}
-
-interface ResearchRecommendationPayload {
-  research_question?: string;
-  research_question_or_hypothesis?: string;
-  hypothesis_or_focus?: string;
-  methodology?: string;
-  evidence_or_data_plan?: string;
-  scope_boundaries?: string;
-  limitation_note?: string;
-}
-
-function asSoftwarePayload(value: unknown): SoftwareRecommendationPayload {
-  if (!value || typeof value !== "object") {
-    return {};
-  }
-
-  return value as SoftwareRecommendationPayload;
-}
-
-function asResearchPayload(value: unknown): ResearchRecommendationPayload {
-  if (!value || typeof value !== "object") {
-    return {};
-  }
-
-  return value as ResearchRecommendationPayload;
 }
 
 export function RecommendationsClient({
@@ -99,36 +59,23 @@ export function RecommendationsClient({
     setError(null);
     setIsGenerating(true);
 
-    const normalizeRes = await fetch("/api/ai/normalize-profile", {
+    const response = await fetch("/api/ai/recommendations", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ project_track: activeTrack }),
     });
 
-    if (!normalizeRes.ok) {
-      const body = (await normalizeRes.json().catch(() => null)) as { error?: string; details?: string } | null;
-      setError(body?.details ?? body?.error ?? "Failed to normalize profile.");
-      setIsGenerating(false);
-      return;
-    }
-
-    const recommendationsRes = await fetch("/api/ai/recommendations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_track: activeTrack }),
-    });
-
-    const recommendationsBody = (await recommendationsRes.json().catch(() => null)) as
+    const body = (await response.json().catch(() => null)) as
       | { recommendations?: RecommendationItem[]; error?: string; details?: string }
       | null;
 
-    if (!recommendationsRes.ok || !recommendationsBody?.recommendations) {
-      setError(recommendationsBody?.details ?? recommendationsBody?.error ?? "Failed to generate recommendations.");
+    if (!response.ok || !body?.recommendations) {
+      setError(body?.details ?? body?.error ?? "Failed to generate recommendations.");
       setIsGenerating(false);
       return;
     }
 
-    setRecommendations(recommendationsBody.recommendations);
+    setRecommendations(body.recommendations);
     setIsGenerating(false);
     router.refresh();
   }
@@ -165,18 +112,18 @@ export function RecommendationsClient({
     router.push(`/recommendations?track=${track}`);
   }
 
-  const title = activeTrack === "research" ? "Your research project directions" : "Your software project directions";
+  const title = activeTrack === "research" ? "Choose your research direction" : "Choose your software project";
   const subtitle =
     activeTrack === "research"
-      ? "Choose one question-centered research direction with a credible method, evidence plan, and believable scope."
-      : "Choose one domain-grounded software build with a real user, real workflow, and a believable MVP.";
+      ? "Pick one concrete direction now. Sevri will build the roadmap overview after you choose."
+      : "Pick one concrete build now. Sevri will create the execution roadmap right after selection.";
   const generateLabel =
     activeTrack === "research"
       ? recommendations.length
-        ? "Regenerate research options"
+        ? "Refresh research options"
         : "Generate 3 research options"
       : recommendations.length
-        ? "Regenerate software options"
+        ? "Refresh software options"
         : "Generate 3 software options";
 
   return (
@@ -244,100 +191,50 @@ export function RecommendationsClient({
         </Card>
       ) : recommendations.length === 0 ? (
         <Card className="space-y-3">
-          <h2 className="text-lg font-semibold text-ink-900">No saved recommendations for this track yet</h2>
+          <h2 className="text-lg font-semibold text-ink-900">No saved options for this track yet</h2>
           <p className="text-sm text-ink-700">
-            Generate a fresh batch and Sevri will keep the output anchored to this track&apos;s latest onboarding profile.
+            Generate a fresh batch and Sevri will return 3 concise, track-specific options for you to choose from.
           </p>
         </Card>
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-3">
         {recommendations.map((item) => {
-          const softwarePayload = asSoftwarePayload(item.track_payload_json);
-          const researchPayload = asResearchPayload(item.track_payload_json);
           const isResearch = item.project_track === "research";
 
           return (
-            <Card key={item.id} className="flex h-full flex-col gap-4">
-              <div className="space-y-2">
-                <h2 className="text-lg font-semibold text-ink-900">{item.title}</h2>
-                <p className="text-sm text-ink-700">{item.summary}</p>
+            <Card key={item.id} className="flex h-full flex-col gap-5">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-3">
+                  <Badge className={isResearch ? "bg-sky-500/15 text-sky-400" : ""}>
+                    {isResearch ? "Research" : "Software"}
+                  </Badge>
+                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-ink-500">{item.difficulty}</span>
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-lg font-semibold text-ink-900">{item.title}</h2>
+                  <p className="text-sm text-ink-700">{item.summary}</p>
+                </div>
               </div>
 
-              <div className="space-y-1 text-sm text-ink-700">
-                <p>
-                  <span className="font-semibold">Why it fits:</span> {item.rationale}
-                </p>
-                <p>
-                  <span className="font-semibold">Difficulty:</span> {item.difficulty}
-                </p>
-                <p>
-                  <span className="font-semibold">Timeline:</span> {item.estimated_weeks} weeks at {item.weekly_hours}
-                  h/week
-                </p>
-                <p>
-                  <span className="font-semibold">Impressiveness:</span> {item.impressiveness_score}/10
-                </p>
-                <p>
-                  <span className="font-semibold">Finishability:</span> {item.finishability_score}/10
-                </p>
-                <p>
-                  <span className="font-semibold">Authenticity note:</span> {item.authenticity_note}
-                </p>
+              <div className="space-y-3 rounded-xl border border-surface-border bg-surface-subtle p-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">Why It Fits</p>
+                  <p className="text-sm text-ink-800">{item.why_it_fits}</p>
+                </div>
+                <div className="flex items-center justify-between gap-3 text-sm text-ink-700">
+                  <span>Estimated timeline</span>
+                  <span className="font-semibold text-ink-900">{item.estimated_weeks} weeks</span>
+                </div>
               </div>
 
-              {isResearch ? (
-                <div className="space-y-2 rounded-lg border border-surface-border bg-surface-subtle p-3 text-xs text-ink-700">
-                  <p>
-                    <span className="font-semibold">Research question:</span>{" "}
-                    {researchPayload.research_question ?? researchPayload.research_question_or_hypothesis ?? "TBD during planning"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Focus:</span>{" "}
-                    {researchPayload.hypothesis_or_focus ?? "Narrow the main comparison or measurable relationship"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Methodology:</span> {researchPayload.methodology ?? "Method to be finalized"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Evidence plan:</span>{" "}
-                    {researchPayload.evidence_or_data_plan ?? "Accessible data or evidence source"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Scope boundaries:</span>{" "}
-                    {researchPayload.scope_boundaries ?? "Keep one question and one evidence source"}
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-2 rounded-lg border border-surface-border bg-surface-subtle p-3 text-xs text-ink-700">
-                  <p>
-                    <span className="font-semibold">Target user:</span> {softwarePayload.target_user ?? "A clearly defined niche user"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Problem:</span> {softwarePayload.problem_statement ?? "Solve one real domain problem"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Core workflow:</span>{" "}
-                    {softwarePayload.core_workflow ?? "One end-to-end workflow from input to useful output"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">MVP boundary:</span> {softwarePayload.mvp_boundary ?? "Ship one narrow workflow first"}
-                  </p>
-                  <p>
-                    <span className="font-semibold">Validation:</span> {softwarePayload.validation_plan ?? "Test the workflow on realistic cases"}
-                  </p>
-                </div>
-              )}
-
-              <div className="mt-auto space-y-2">
-                <p className="text-xs text-ink-600">Skills: {item.skills_demonstrated.join(", ")}</p>
-                <p className="text-xs text-ink-600">Tools/Resources: {item.tools_needed.join(", ")}</p>
+              <div className="mt-auto">
                 <Button onClick={() => handleSelect(item.id)} disabled={Boolean(isSelectingId)} className="w-full">
                   {isSelectingId === item.id
                     ? "Selecting..."
                     : isResearch
-                      ? "Save this research project"
-                      : "Save this software project"}
+                      ? "Choose this research direction"
+                      : "Choose this software project"}
                 </Button>
               </div>
             </Card>

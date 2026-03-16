@@ -31,41 +31,35 @@ export interface Recommendation {
   project_track: ProjectTrack;
   title: string;
   summary: string;
-  rationale: string;
+  why_it_fits: string;
   difficulty: Difficulty;
   estimated_weeks: number;
-  weekly_hours: number;
-  skills_demonstrated: string[];
-  tools_needed: string[];
-  impressiveness_score: number;
-  finishability_score: number;
-  authenticity_note: string;
   track_payload_json?: Record<string, unknown>;
 }
 
 export interface Roadmap {
-  overview: string;
-  mvp_scope: string;
-  feature_ladder: {
-    must_have: string[];
-    should_have: string[];
-    could_have: string[];
-  };
-  milestones: Array<{
+  project_title: string;
+  short_overview: string;
+  steps: Array<{
     order_index: number;
     title: string;
-    description: string;
+    objective: string;
+    deliverable: string;
+    rough_time_estimate: string;
   }>;
-  repo_structure: Array<{
-    path: string;
-    purpose: string;
-  }>;
-  readme_draft: string;
-  cut_if_behind: string[];
-  stretch_goals: string[];
-  explanation_guide: {
-    elevator_pitch: string;
-    resume_bullets: string[];
-    interview_talking_points: string[];
+}
+
+export interface StepGuidance {
+  what_to_do_now: string;
+  checklist: string[];
+  deliverables: string[];
+  pitfalls: string[];
+  tools_resources: string[];
+  done_when: string[];
+  encouragement: string;
+  email_version: {
+    subject: string;
+    preview: string;
+    body: string;
   };
 }

@@ -32,8 +32,8 @@ export function GenerateRoadmapButton({ projectId, projectTrack = "software" }: 
     setIsLoading(false);
   }
 
-  const loadingLabel = projectTrack === "research" ? "Generating research plan..." : "Generating roadmap...";
-  const idleLabel = projectTrack === "research" ? "Generate research plan" : "Generate roadmap";
+  const loadingLabel = projectTrack === "research" ? "Generating roadmap overview..." : "Generating roadmap overview...";
+  const idleLabel = projectTrack === "research" ? "Generate roadmap overview" : "Generate roadmap overview";
 
   return (
     <div className="space-y-3">

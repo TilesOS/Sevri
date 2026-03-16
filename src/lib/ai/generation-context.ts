@@ -1,0 +1,535 @@
+import {
+  ResearchGenerationContextSchema,
+  SoftwareGenerationContextSchema,
+  type GenerationContext,
+  type ProjectTrack,
+} from "@/lib/ai/schemas";
+
+type RiskFlag =
+  | "too_ambitious"
+  | "too_vague"
+  | "too_advanced"
+  | "too_little_time"
+  | "misaligned_goal"
+  | "insufficient_guidance"
+  | "resource_constraint";
+
+type DomainFamily = "hardware" | "photonics" | "security" | "ai" | "systems" | "science" | "general";
+
+const LOW_SIGNAL_PHRASES = new Set([
+  "software",
+  "software engineering",
+  "engineering",
+  "technology",
+  "tech",
+  "research",
+  "project",
+  "science",
+  "computer science",
+]);
+
+const LOW_SIGNAL_TOKENS = new Set([
+  "a",
+  "an",
+  "and",
+  "app",
+  "application",
+  "college",
+  "data",
+  "engineering",
+  "for",
+  "in",
+  "internship",
+  "learning",
+  "of",
+  "portfolio",
+  "project",
+  "research",
+  "science",
+  "software",
+  "student",
+  "students",
+  "system",
+  "technology",
+  "the",
+  "tool",
+  "workflow",
+]);
+
+function normalizePhrase(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function uniqueTrimmed(values: string[]) {
+  return Array.from(new Set(values.map((value) => normalizePhrase(value)).filter(Boolean)));
+}
+
+function toStringArray(value: unknown): string[] {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => normalizePhrase(item))
+      .filter(Boolean);
+  }
+
+  if (typeof value === "string") {
+    return value
+      .split(",")
+      .map((item) => normalizePhrase(item))
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function asString(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+}
+
+function extractAnchorCandidates(rawIntake: Record<string, unknown>) {
+  const candidates = uniqueTrimmed([
+    ...toStringArray(rawIntake.interests),
+    ...toStringArray(rawIntake.favorite_subjects),
+    ...toStringArray(rawIntake.preferred_project_style),
+    ...toStringArray(rawIntake.preferred_research_domain),
+    ...toStringArray(rawIntake.known_tools),
+    ...toStringArray(rawIntake.research_tools_or_resources),
+    ...toStringArray(rawIntake.additional_context),
+  ]);
+
+  const filtered = candidates.filter((item) => !LOW_SIGNAL_PHRASES.has(item.toLowerCase()));
+  return (filtered.length ? filtered : candidates).slice(0, 6);
+}
+
+function extractAnchorKeywords(anchors: string[]) {
+  return Array.from(
+    new Set(
+      anchors
+        .flatMap((anchor) => anchor.toLowerCase().split(/[^a-z0-9+]+/))
+        .filter((token) => token.length >= 2 && !LOW_SIGNAL_TOKENS.has(token)),
+    ),
+  );
+}
+
+function detectDomainFamily(anchors: string[]): DomainFamily {
+  const combined = anchors.join(" ").toLowerCase();
+
+  if (/(chip|microarchitecture|computer architecture|fpga|embedded|digital logic|verilog|cpu|cache|rtl)/.test(combined)) {
+    return "hardware";
+  }
+
+  if (/(photon|waveguide|optics|optical|laser|resonator)/.test(combined)) {
+    return "photonics";
+  }
+
+  if (/(security|malware|threat|forensic|encryption|auth|cyber)/.test(combined)) {
+    return "security";
+  }
+
+  if (/(ai|ml|machine learning|llm|nlp|computer vision|neural)/.test(combined)) {
+    return "ai";
+  }
+
+  if (/(distributed|network|cloud|compiler|systems|operating system|database|infra)/.test(combined)) {
+    return "systems";
+  }
+
+  if (/(biology|chemistry|physics|health|climate|energy|genomics|public health|economics|finance)/.test(combined)) {
+    return "science";
+  }
+
+  return "general";
+}
+
+function getWeeklyHours(rawIntake: Record<string, unknown>) {
+  const value = Number(rawIntake.weekly_time_available ?? 0);
+  return Number.isFinite(value) && value > 0 ? value : 6;
+}
+
+function coerceSkillAssessment(value: unknown): "beginner" | "intermediate" | "advanced" {
+  const raw = String(value ?? "").toLowerCase();
+
+  if (raw.includes("advanced")) {
+    return "advanced";
+  }
+
+  if (raw.includes("intermediate")) {
+    return "intermediate";
+  }
+
+  return "beginner";
+}
+
+function buildGoalSignal(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack) {
+  const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
+  const targets = toStringArray(rawIntake.target_schools_or_companies).slice(0, 2);
+  const deliverable = String(rawIntake.target_research_deliverable ?? "portfolio entry").replace(/_/g, " ");
+
+  if (projectTrack === "research") {
+    return targets.length > 0
+      ? `Deliver a credible research artifact for ${targetOutcome} goals that feels discussable around ${targets.join(" and ")}.`
+      : `Deliver a credible research artifact for ${targetOutcome} goals with a polished ${deliverable}.`;
+  }
+
+  return targets.length > 0
+    ? `Ship a concrete software project that feels believable for ${targetOutcome} goals and strong enough to discuss with ${targets.join(" and ")}.`
+    : `Ship a concrete software project that is easy to demo and defend for ${targetOutcome} goals.`;
+}
+
+function buildResourceSnapshot(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack, skill: "beginner" | "intermediate" | "advanced") {
+  const weeklyHours = getWeeklyHours(rawIntake);
+  const constraints = asString(rawIntake.constraints, "").trim();
+  const tools = projectTrack === "research" ? toStringArray(rawIntake.research_tools_or_resources) : toStringArray(rawIntake.known_tools);
+  const mentorAccess = String(rawIntake.mentor_access ?? "limited");
+  const parts = [`${weeklyHours}h/week`, `${skill} experience`];
+
+  if (tools.length > 0) {
+    parts.push(`tools: ${tools.slice(0, 4).join(", ")}`);
+  }
+
+  if (projectTrack === "research") {
+    parts.push(`mentor access: ${mentorAccess}`);
+  }
+
+  if (constraints) {
+    parts.push(`constraints: ${constraints}`);
+  }
+
+  return `${parts.join("; ")}.`;
+}
+
+function buildConstraintsSummary(rawIntake: Record<string, unknown>) {
+  const constraints = asString(rawIntake.constraints, "").trim();
+  const additional = asString(rawIntake.additional_context, "").trim();
+
+  if (constraints && additional) {
+    return `${constraints} ${additional}`.slice(0, 220);
+  }
+
+  if (constraints || additional) {
+    return (constraints || additional).slice(0, 220);
+  }
+
+  return "No major constraints were stated.";
+}
+
+function buildSoftwareFocusSignal(rawIntake: Record<string, unknown>, anchors: string[]) {
+  const preferredStyle = asString(rawIntake.preferred_project_style, "focused tool");
+  const schools = toStringArray(rawIntake.target_schools_or_companies);
+
+  if (schools.length > 0) {
+    return `Aim for a ${preferredStyle} in ${anchors[0] ?? "the user's domain"} that looks credible to ${schools.slice(0, 2).join(" and ")}.`;
+  }
+
+  return `Aim for a ${preferredStyle} in ${anchors[0] ?? "the user's domain"} with one sharp user workflow.`;
+}
+
+function buildResearchFocusSignal(rawIntake: Record<string, unknown>, anchors: string[]) {
+  const domain = asString(rawIntake.preferred_research_domain, anchors[0] ?? "the chosen domain");
+  const deliverable = String(rawIntake.target_research_deliverable ?? "portfolio_entry").replace(/_/g, " ");
+
+  return `Keep the research question narrow inside ${domain} and oriented toward a believable ${deliverable}.`;
+}
+
+function getRiskFlags(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack, anchors: string[]) {
+  const skill = coerceSkillAssessment(projectTrack === "research" ? rawIntake.research_experience : rawIntake.coding_experience);
+  const preferredDifficulty = String(rawIntake.preferred_difficulty ?? "").toLowerCase();
+  const weeklyHours = getWeeklyHours(rawIntake);
+  const mentorAccess = String(rawIntake.mentor_access ?? "limited").toLowerCase();
+  const riskFlags = new Set<RiskFlag>();
+
+  if (anchors.length === 0) {
+    riskFlags.add("too_vague");
+  }
+
+  if (weeklyHours <= 3) {
+    riskFlags.add("too_little_time");
+  }
+
+  if (projectTrack === "software") {
+    if (skill === "beginner" && preferredDifficulty.includes("advanced")) {
+      riskFlags.add("too_advanced");
+    }
+
+    if (weeklyHours <= 4 && (preferredDifficulty.includes("intermediate") || preferredDifficulty.includes("advanced"))) {
+      riskFlags.add("too_ambitious");
+    }
+  } else {
+    if (mentorAccess === "none") {
+      riskFlags.add("insufficient_guidance");
+    }
+
+    if (asString(rawIntake.data_or_resource_access, "").trim().length === 0) {
+      riskFlags.add("resource_constraint");
+    }
+  }
+
+  return Array.from(riskFlags);
+}
+
+function buildSoftwareProblemLenses(family: DomainFamily) {
+  if (family === "hardware") {
+    return [
+      "Translate domain tradeoffs into a comparison tool or simulator.",
+      "Prefer a workflow with observable outputs over a broad platform.",
+    ];
+  }
+
+  if (family === "photonics") {
+    return [
+      "Turn a modeling or sweep workflow into a usable analysis surface.",
+      "Keep the project focused on one comparison path and one visual output.",
+    ];
+  }
+
+  return [
+    "Solve a domain-specific workflow pain point for one clear user.",
+    "Prefer tools with visible before-and-after value.",
+  ];
+}
+
+function buildSoftwareContext(rawIntake: Record<string, unknown>) {
+  const anchors = extractAnchorCandidates(rawIntake);
+  const interpretedInterests = anchors.length ? anchors : ["software engineering"];
+  const family = detectDomainFamily(interpretedInterests);
+  const skill = coerceSkillAssessment(rawIntake.coding_experience);
+  const riskFlags = getRiskFlags(rawIntake, "software", interpretedInterests);
+  const weeklyHours = getWeeklyHours(rawIntake);
+  const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
+
+  return SoftwareGenerationContextSchema.parse({
+    project_track: "software",
+    summary: `The strongest software anchors are ${interpretedInterests.slice(0, 3).join(", ")}. Keep the project narrow, domain-grounded, and demoable.`,
+    interpreted_interests: interpretedInterests,
+    skill_assessment: skill,
+    risk_flags: riskFlags,
+    track_payload_json: {
+      domain_brief: `${interpretedInterests.join(", ")} are the core domain anchors. Stay in that domain and avoid generic default app ideas.`,
+      anchor_interests: interpretedInterests,
+      goal_signal: buildGoalSignal(rawIntake, "software"),
+      resource_snapshot: buildResourceSnapshot(rawIntake, "software", skill),
+      scope_guardrails: [
+        "Center the MVP on one user and one end-to-end workflow.",
+        "Cut integrations or automation that do not improve the first demo.",
+      ],
+      focus_signal: buildSoftwareFocusSignal(rawIntake, interpretedInterests),
+      target_outcome: targetOutcome,
+      constraints_summary: buildConstraintsSummary(rawIntake),
+      weekly_hours: weeklyHours,
+      project_style_fit: asString(rawIntake.preferred_project_style, "focused software tool"),
+      problem_lenses: buildSoftwareProblemLenses(family),
+      delivery_bias:
+        skill === "beginner"
+          ? "Favor a narrow tool with one useful output."
+          : "Favor a scoped product with one defensible workflow and a strong demo path.",
+    },
+  });
+}
+
+function buildResearchContext(rawIntake: Record<string, unknown>) {
+  const anchors = extractAnchorCandidates(rawIntake);
+  const interpretedInterests = anchors.length ? anchors : ["applied research"];
+  const skill = coerceSkillAssessment(rawIntake.research_experience);
+  const riskFlags = getRiskFlags(rawIntake, "research", interpretedInterests);
+  const weeklyHours = getWeeklyHours(rawIntake);
+  const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
+  const methodPreference = String(rawIntake.methodology_preference ?? "data_analysis").replace(/_/g, " ");
+
+  return ResearchGenerationContextSchema.parse({
+    project_track: "research",
+    summary: `The strongest research anchors are ${interpretedInterests.slice(0, 3).join(", ")}. Keep the question believable, evidence-based, and tightly scoped.`,
+    interpreted_interests: interpretedInterests,
+    skill_assessment: skill,
+    risk_flags: riskFlags,
+    track_payload_json: {
+      domain_brief: `${interpretedInterests.join(", ")} are the core domain anchors. Keep the project inside that domain with one narrow question and one believable evidence path.`,
+      anchor_interests: interpretedInterests,
+      goal_signal: buildGoalSignal(rawIntake, "research"),
+      resource_snapshot: buildResourceSnapshot(rawIntake, "research", skill),
+      scope_guardrails: [
+        "Choose one primary question and one primary evidence source.",
+        "State the limitation note early so the project stays believable.",
+      ],
+      focus_signal: buildResearchFocusSignal(rawIntake, interpretedInterests),
+      target_outcome: targetOutcome,
+      constraints_summary: buildConstraintsSummary(rawIntake),
+      weekly_hours: weeklyHours,
+      research_readiness:
+        skill === "advanced"
+          ? "The student can handle a moderately technical method if the scope stays narrow."
+          : "Keep the method simple enough that the student can defend each step clearly.",
+      mentor_resource_notes: `Preferred method is ${methodPreference}. Use mentor time for feasibility and interpretation checks when available.`,
+      viable_methodologies:
+        methodPreference === "experiment"
+          ? ["small controlled experiment", "simulation-backed comparison"]
+          : methodPreference === "survey based"
+            ? ["focused survey", "survey with lightweight secondary analysis"]
+            : ["secondary data analysis", "focused literature review"],
+    },
+  });
+}
+
+export function buildGenerationContext(input: {
+  projectTrack: ProjectTrack;
+  rawIntake: Record<string, unknown>;
+}): GenerationContext {
+  return input.projectTrack === "research" ? buildResearchContext(input.rawIntake) : buildSoftwareContext(input.rawIntake);
+}
+
+interface StoredGenerationContextRow {
+  summary: string;
+  interpreted_interests: string[];
+  skill_assessment: string;
+  risk_flags: string[];
+  project_track: string;
+  track_payload_json: unknown;
+}
+
+function asStringArray(value: unknown) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
+}
+
+function asRiskFlags(value: unknown): RiskFlag[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  const validFlags: RiskFlag[] = [
+    "too_ambitious",
+    "too_vague",
+    "too_advanced",
+    "too_little_time",
+    "misaligned_goal",
+    "insufficient_guidance",
+    "resource_constraint",
+  ];
+
+  return value.filter((item): item is RiskFlag => typeof item === "string" && validFlags.includes(item as RiskFlag));
+}
+
+function asProjectTrack(value: unknown): ProjectTrack {
+  return value === "research" ? "research" : "software";
+}
+
+function asNumber(value: unknown, fallback: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
+export function coerceStoredGenerationContext(row: StoredGenerationContextRow): GenerationContext {
+  const projectTrack = asProjectTrack(row.project_track);
+  const interpretedInterests = row.interpreted_interests?.length
+    ? row.interpreted_interests
+    : [projectTrack === "research" ? "applied research" : "software engineering"];
+  const rawPayload = row.track_payload_json && typeof row.track_payload_json === "object"
+    ? (row.track_payload_json as Record<string, unknown>)
+    : {};
+
+  if (projectTrack === "research") {
+    return ResearchGenerationContextSchema.parse({
+      project_track: "research",
+      summary: asString(row.summary, `Research anchors: ${interpretedInterests.slice(0, 3).join(", ")}.`),
+      interpreted_interests: interpretedInterests,
+      skill_assessment: coerceSkillAssessment(row.skill_assessment),
+      risk_flags: asRiskFlags(row.risk_flags),
+      track_payload_json: {
+        domain_brief: asString(rawPayload.domain_brief, `${interpretedInterests.join(", ")} are the core domain anchors.`),
+        anchor_interests: asStringArray(rawPayload.anchor_interests).length ? asStringArray(rawPayload.anchor_interests) : interpretedInterests,
+        goal_signal: asString(rawPayload.goal_signal, "Deliver a credible research artifact."),
+        resource_snapshot: asString(rawPayload.resource_snapshot, "Use realistic student resources and time."),
+        scope_guardrails: asStringArray(rawPayload.scope_guardrails).length
+          ? asStringArray(rawPayload.scope_guardrails)
+          : ["Choose one question", "Choose one evidence source"],
+        focus_signal: asString(rawPayload.focus_signal, "Keep the question narrow and believable."),
+        target_outcome: asString(rawPayload.target_outcome, "portfolio"),
+        constraints_summary: asString(rawPayload.constraints_summary, "No major constraints were stated."),
+        weekly_hours: asNumber(rawPayload.weekly_hours, 6),
+        research_readiness: asString(rawPayload.research_readiness, "Keep the methodology simple and defensible."),
+        mentor_resource_notes: asString(rawPayload.mentor_resource_notes, "Use mentor review when available."),
+        viable_methodologies: asStringArray(rawPayload.viable_methodologies).length
+          ? asStringArray(rawPayload.viable_methodologies)
+          : ["secondary data analysis", "focused literature review"],
+      },
+    });
+  }
+
+  return SoftwareGenerationContextSchema.parse({
+    project_track: "software",
+    summary: asString(row.summary, `Software anchors: ${interpretedInterests.slice(0, 3).join(", ")}.`),
+    interpreted_interests: interpretedInterests,
+    skill_assessment: coerceSkillAssessment(row.skill_assessment),
+    risk_flags: asRiskFlags(row.risk_flags),
+    track_payload_json: {
+      domain_brief: asString(rawPayload.domain_brief, `${interpretedInterests.join(", ")} are the core domain anchors.`),
+      anchor_interests: asStringArray(rawPayload.anchor_interests).length ? asStringArray(rawPayload.anchor_interests) : interpretedInterests,
+      goal_signal: asString(rawPayload.goal_signal, "Ship a concrete software project."),
+      resource_snapshot: asString(rawPayload.resource_snapshot, "Use realistic student time and tools."),
+      scope_guardrails: asStringArray(rawPayload.scope_guardrails).length
+        ? asStringArray(rawPayload.scope_guardrails)
+        : ["Keep the MVP narrow", "Cut optional integrations"],
+      focus_signal: asString(rawPayload.focus_signal, "Focus on one user workflow."),
+      target_outcome: asString(rawPayload.target_outcome, "portfolio"),
+      constraints_summary: asString(rawPayload.constraints_summary, "No major constraints were stated."),
+      weekly_hours: asNumber(rawPayload.weekly_hours, 6),
+      project_style_fit: asString(rawPayload.project_style_fit, "focused software tool"),
+      problem_lenses: asStringArray(rawPayload.problem_lenses).length
+        ? asStringArray(rawPayload.problem_lenses)
+        : ["Solve a real workflow pain point", "Prefer visible before-and-after value"],
+      delivery_bias: asString(rawPayload.delivery_bias, "Favor a scoped, demoable tool."),
+    },
+  });
+}
+
+export function estimateWeeklyHoursFromContext(context: GenerationContext) {
+  return context.track_payload_json.weekly_hours;
+}
+
+export function estimateWeeksFromContext(context: GenerationContext) {
+  let weeks = context.skill_assessment === "advanced" ? 8 : context.skill_assessment === "intermediate" ? 7 : 6;
+
+  if (context.risk_flags.includes("too_little_time")) {
+    weeks += 1;
+  }
+
+  if (context.risk_flags.includes("too_ambitious")) {
+    weeks += 1;
+  }
+
+  return Math.min(12, weeks);
+}
+
+export function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "") || "project";
+}
+
+export function titleCase(value: string) {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+export function getPrimaryAnchor(context: GenerationContext) {
+  return titleCase(context.interpreted_interests[0] ?? "Domain");
+}
+
+export function getDomainFamilyFromContext(context: GenerationContext) {
+  return detectDomainFamily(context.track_payload_json.anchor_interests);
+}
+
+export function hasGrounding(text: string, anchors: string[]) {
+  const normalized = text.toLowerCase();
+  if (anchors.some((anchor) => normalized.includes(anchor.toLowerCase()))) {
+    return true;
+  }
+
+  return extractAnchorKeywords(anchors).some((token) => normalized.includes(token));
+}

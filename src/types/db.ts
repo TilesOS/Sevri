@@ -202,6 +202,9 @@ export interface Database {
           order_index: number;
           title: string;
           description: string;
+          objective: string | null;
+          deliverable: string | null;
+          rough_time_estimate: string | null;
           completed: boolean;
           completed_at: string | null;
           created_at: string;
@@ -212,9 +215,34 @@ export interface Database {
           order_index: number;
           title: string;
           description: string;
+          objective?: string | null;
+          deliverable?: string | null;
+          rough_time_estimate?: string | null;
           completed?: boolean;
           completed_at?: string | null;
           created_at?: string;
+        };
+      };
+      milestone_guidance: {
+        Row: {
+          id: string;
+          milestone_id: string;
+          guidance_json: Json;
+          email_payload_json: Json;
+          raw_model_output_json: Json;
+          generation_version: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          milestone_id: string;
+          guidance_json: Json;
+          email_payload_json: Json;
+          raw_model_output_json: Json;
+          generation_version: string;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       subscriptions: {

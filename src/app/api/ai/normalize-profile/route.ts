@@ -3,9 +3,10 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
-import { runProfileNormalization } from "@/lib/ai/pipelines";
+import { buildGenerationContext } from "@/lib/ai/generation-context";
 import { captureServerError } from "@/lib/sentry/server";
 import { getLatestProjectTrack } from "@/lib/db/queries/recommendations";
+import { getGenerationVersion } from "@/lib/ai/client";
 import type { ProjectTrack } from "@/lib/validators/onboarding";
 
 export const runtime = "nodejs";
@@ -87,25 +88,29 @@ export async function POST(request: Request) {
 
     const projectTrack = asProjectTrack(intake.project_track);
 
-    stage = "run-normalization";
-    const normalized = await runProfileNormalization({
+    stage = "build-context";
+    const normalized = buildGenerationContext({
       projectTrack,
       rawIntake: (intake.raw_answers_json as Record<string, unknown>) ?? {},
     });
 
-    stage = "insert-normalized-profile";
+    stage = "insert-context";
     const { data, error } = await supabase
       .from("normalized_profiles")
       .insert({
         user_id: user.id,
         intake_id: intake.id,
-        project_track: normalized.parsed.project_track,
-        summary: normalized.parsed.summary,
-        interpreted_interests: normalized.parsed.interpreted_interests,
-        skill_assessment: normalized.parsed.skill_assessment,
-        risk_flags: normalized.parsed.risk_flags,
-        track_payload_json: normalized.parsed.track_payload_json,
-        raw_model_output_json: normalized.raw,
+        project_track: normalized.project_track,
+        summary: normalized.summary,
+        interpreted_interests: normalized.interpreted_interests,
+        skill_assessment: normalized.skill_assessment,
+        risk_flags: normalized.risk_flags,
+        track_payload_json: normalized.track_payload_json,
+        raw_model_output_json: {
+          source: "deterministic-context",
+          generation_version: getGenerationVersion(),
+          context: normalized,
+        },
       })
       .select("id")
       .single();
@@ -114,7 +119,7 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
-    return NextResponse.json({ normalized_profile_id: data.id, ...normalized.parsed }, { status: 200 });
+    return NextResponse.json({ normalized_profile_id: data.id, ...normalized }, { status: 200 });
   } catch (error) {
     console.error("normalize-profile failed", { stage, error });
     captureServerError(error, { route: "ai/normalize-profile", stage });
@@ -122,7 +127,7 @@ export async function POST(request: Request) {
     const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
     return NextResponse.json(
       {
-        error: status === 400 ? "Invalid request payload" : "Failed to normalize profile",
+        error: status === 400 ? "Invalid request payload" : "Failed to build generation context",
         stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },

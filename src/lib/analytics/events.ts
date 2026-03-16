@@ -6,6 +6,7 @@ export type AppEvent =
   | "recommendations_generated"
   | "recommendation_selected"
   | "roadmap_generated"
+  | "milestone_guidance_generated"
   | "upgrade_clicked"
   | "checkout_completed";
 

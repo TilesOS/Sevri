@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "benchmark:ai": "node -r tsconfig-paths/register node_modules/jiti/bin/jiti.js scripts/benchmark-generation.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.0",

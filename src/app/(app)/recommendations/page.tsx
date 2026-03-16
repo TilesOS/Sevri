@@ -41,8 +41,7 @@ export default async function RecommendationsPage({
       initialRecommendations={recommendations.map((item) => ({
         ...item,
         project_track: asProjectTrack(item.project_track),
-        skills_demonstrated: item.skills_demonstrated ?? [],
-        tools_needed: item.tools_needed ?? [],
+        why_it_fits: item.rationale,
       }))}
       plan={plan}
       batchesUsed={batchesUsed}
