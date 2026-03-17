@@ -30,8 +30,8 @@ export default function HomePage() {
             Build an authentic project path that actually gets finished.
           </h1>
           <p className="mx-auto max-w-2xl text-lg text-ink-700">
-            Sevri helps ambitious students develop, plan, and execute impressive software and research projects,
-            then package them for college applications, internships, and standout portfolios.
+            Sevri helps driven students create software and research projects that speak louder than
+            any bullet point on a college app, resume, or portfolio.
           </p>
           <div className="flex items-center justify-center gap-4">
             <Link href="/sign-up">
@@ -66,7 +66,7 @@ export default function HomePage() {
           </Card>
 
           <Card className="rounded-2xl p-8 text-center">
-            <h2 className="text-2xl font-medium text-ink-900">Built for serious students</h2>
+            <h2 className="text-2xl font-medium text-ink-900">Built for students who build, not brag</h2>
             <p className="mx-auto mt-2 max-w-2xl text-sm text-ink-700">
               Ideal for high school and early college students aiming for ambitious outcomes with realistic execution.
             </p>
