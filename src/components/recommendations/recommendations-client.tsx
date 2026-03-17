@@ -160,7 +160,7 @@ export function RecommendationsClient({
         {error ?? (isGenerating ? "Generating recommendations." : isSelectingId ? "Selecting recommendation." : "")}
       </div>
 
-      <Card tone="contrast" className="border-contrast-line">
+      <Card tone="contrast" elevation="none" className="border-contrast-line">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <PageHeader
@@ -184,15 +184,15 @@ export function RecommendationsClient({
         </div>
 
         <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <Card tone="contrast" className="border-contrast-line bg-paper/5">
+          <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
             <p className="editorial-kicker text-paper/55">Plan</p>
             <p className="mt-3 text-3xl font-semibold text-paper">{getPlanLabel(plan)}</p>
           </Card>
-          <Card tone="contrast" className="border-contrast-line bg-paper/5">
+          <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
             <p className="editorial-kicker text-paper/55">Batches used</p>
             <p className="mt-3 text-3xl font-semibold text-paper">{batchesUsed}</p>
           </Card>
-          <Card tone="contrast" className="border-contrast-line bg-paper/5">
+          <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
             <p className="editorial-kicker text-paper/55">Track readiness</p>
             <p className="mt-3 text-lg font-semibold text-paper">{hasTrackIntake ? "Ready to compare" : "Setup needed"}</p>
           </Card>
@@ -226,7 +226,7 @@ export function RecommendationsClient({
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
       {!hasTrackIntake ? (
-        <Card className="space-y-4">
+        <Card className="space-y-4" elevation="none">
           <h2 className="text-2xl font-semibold text-ink">
             {activeTrack === "research" ? "Set up your research track first." : "Set up your software track first."}
           </h2>
@@ -240,7 +240,7 @@ export function RecommendationsClient({
           </div>
         </Card>
       ) : recommendations.length === 0 ? (
-        <Card className="space-y-4">
+        <Card className="space-y-4" elevation="none">
           <h2 className="text-2xl font-semibold text-ink">No saved options for this track yet.</h2>
           <p className="text-sm leading-6 text-ink-soft">
             Generate a fresh comparison board and Sevri will return three distinct directions built from your current context.
@@ -291,14 +291,14 @@ export function RecommendationsClient({
 
                   <div className="mt-6 grid gap-3">
                     {details.map((detail) => (
-                      <div key={detail.label} className="rounded-xl border border-line bg-surface/35 p-4">
+                      <div key={detail.label} className="rounded-xl border border-line bg-surface/55 p-4">
                         <p className="editorial-kicker">{detail.label}</p>
                         <p className="mt-2 text-sm leading-6 text-ink">{detail.value}</p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-6 space-y-4 rounded-xl border border-line bg-paper p-4">
+                  <div className="mt-6 space-y-4 rounded-xl border border-line bg-surface/45 p-4">
                     <div className="grid grid-cols-2 gap-4">
                       <Metric label="Estimated timeline" value={`${item.estimated_weeks} weeks`} />
                       <Metric
@@ -333,7 +333,7 @@ export function RecommendationsClient({
                       <p className="editorial-kicker">Skills demonstrated</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {item.skills_demonstrated.slice(0, 4).map((skill) => (
-                          <span key={skill} className="rounded-full bg-surface px-3 py-1 text-xs font-semibold text-ink-soft">
+                          <span key={skill} className="rounded-full bg-surface-strong px-3 py-1 text-xs font-semibold text-ink-soft">
                             {skill}
                           </span>
                         ))}

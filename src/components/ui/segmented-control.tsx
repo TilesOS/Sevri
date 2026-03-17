@@ -38,7 +38,7 @@ export function SegmentedControl<T extends string>({
               className={cn(
                 "rounded-xl border px-4 py-4 text-left transition",
                 isActive
-                  ? "border-line-strong bg-paper shadow-soft"
+                  ? "border-line-strong bg-paper"
                   : "border-line bg-paper/60 hover:border-line-strong hover:bg-paper",
               )}
             >

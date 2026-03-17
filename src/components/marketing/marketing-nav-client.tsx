@@ -27,13 +27,13 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
   const secondaryLabel = isAuthenticated ? "Project ideas" : "Sign in";
 
   return (
-    <header className="sticky top-0 z-40 border-b border-contrast-line bg-contrast/95 text-paper backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-black text-white">
       <Container className="relative flex h-20 items-center justify-between gap-6">
         <div className="flex items-center gap-4">
-          <Button href="/" variant="ghost" className="h-auto rounded-full px-0 text-left text-paper hover:bg-transparent">
+          <Button href="/" variant="ghost" className="h-auto rounded-full px-0 text-left text-white hover:bg-transparent">
             <span className="flex flex-col">
               <span className="font-display text-2xl leading-none">Sevri</span>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-paper/60">
+              <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/60">
                 Premium workspace
               </span>
             </span>
@@ -52,7 +52,7 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <Button href={secondaryHref} variant="ghost" size="sm" className="text-paper hover:bg-paper/8">
+          <Button href={secondaryHref} variant="ghost" size="sm" className="text-white hover:bg-white/10">
             {secondaryLabel}
           </Button>
           <Button href={ctaHref} size="sm" className="rounded-full px-5">
@@ -62,7 +62,7 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
 
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-contrast-line text-paper md:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/12 text-white transition hover:bg-white/5 md:hidden"
           aria-label={isOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={isOpen}
           onClick={() => setIsOpen((current) => !current)}
@@ -81,7 +81,7 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.2 }}
-              className="absolute inset-x-5 top-[5.5rem] rounded-2xl border border-contrast-line bg-contrast-soft p-5 shadow-lifted md:hidden"
+              className="absolute inset-x-5 top-[5.5rem] rounded-2xl border border-white/12 bg-black p-5 shadow-soft md:hidden"
             >
               <div className="space-y-3">
                 {publicLinks.map((link) => (
@@ -91,8 +91,8 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
                     variant="ghost"
                     fullWidth
                     className={cn(
-                      "justify-start text-paper hover:bg-paper/10",
-                      pathname === link.href && "bg-paper/10",
+                      "justify-start text-white hover:bg-white/10",
+                      pathname === link.href && "bg-white/12",
                     )}
                     onClick={() => setIsOpen(false)}
                   >
@@ -100,8 +100,8 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
                   </Button>
                 ))}
               </div>
-              <div className="mt-5 space-y-3 border-t border-contrast-line pt-5">
-                <Button href={secondaryHref} variant="ghost" fullWidth className="text-paper hover:bg-paper/10" onClick={() => setIsOpen(false)}>
+              <div className="mt-5 space-y-3 border-t border-white/12 pt-5">
+                <Button href={secondaryHref} variant="ghost" fullWidth className="text-white hover:bg-white/10" onClick={() => setIsOpen(false)}>
                   {secondaryLabel}
                 </Button>
                 <Button href={ctaHref} fullWidth className="rounded-full" onClick={() => setIsOpen(false)}>
@@ -123,8 +123,8 @@ function NavLink({ href, label, isActive }: { href: string; label: string; isAct
       variant="ghost"
       size="sm"
       className={cn(
-        "rounded-full px-4 text-paper hover:bg-paper/8 hover:text-paper",
-        isActive ? "bg-paper/10 text-paper" : "text-paper/72",
+        "rounded-full px-4 text-white hover:bg-white/10 hover:text-white",
+        isActive ? "bg-white/12 text-white" : "text-white/72",
       )}
     >
       {label}

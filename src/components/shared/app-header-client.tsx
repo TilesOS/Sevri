@@ -20,12 +20,12 @@ export function AppHeaderClient({ displayName }: { displayName: string }) {
   const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-contrast-line bg-contrast/95 text-paper backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-black text-white">
       <Container className="relative flex h-20 items-center justify-between gap-6">
-        <Button href="/dashboard" variant="ghost" className="h-auto rounded-full px-0 text-left text-paper hover:bg-transparent">
+        <Button href="/dashboard" variant="ghost" className="h-auto rounded-full px-0 text-left text-white hover:bg-transparent">
           <span className="flex flex-col">
             <span className="font-display text-2xl leading-none">Sevri</span>
-            <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-paper/60">
+            <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/60">
               Your workspace
             </span>
           </span>
@@ -39,8 +39,8 @@ export function AppHeaderClient({ displayName }: { displayName: string }) {
               variant="ghost"
               size="sm"
               className={cn(
-                "rounded-full px-4 text-paper hover:bg-paper/8 hover:text-paper",
-                pathname.startsWith(link.href) ? "bg-paper/10 text-paper" : "text-paper/72",
+                "rounded-full px-4 text-white hover:bg-white/10 hover:text-white",
+                pathname.startsWith(link.href) ? "bg-white/12 text-white" : "text-white/72",
               )}
             >
               {link.label}
@@ -49,9 +49,14 @@ export function AppHeaderClient({ displayName }: { displayName: string }) {
         </nav>
 
         <div className="hidden items-center gap-3 md:flex">
-          <div className="rounded-full border border-contrast-line px-4 py-2 text-sm text-paper/72">{displayName}</div>
+          <div className="rounded-full border border-white/12 bg-white/[0.04] px-4 py-2 text-sm text-white/72">{displayName}</div>
           <form action="/auth/sign-out" method="post">
-            <Button type="submit" variant="outline" size="sm" className="border-contrast-line bg-paper/5 text-paper hover:bg-paper/10">
+            <Button
+              type="submit"
+              variant="outline"
+              size="sm"
+              className="border-white/15 bg-white/[0.04] text-white hover:border-white/25 hover:bg-white/10"
+            >
               Sign out
             </Button>
           </form>
@@ -59,7 +64,7 @@ export function AppHeaderClient({ displayName }: { displayName: string }) {
 
         <button
           type="button"
-          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-contrast-line text-paper md:hidden"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-white/12 text-white transition hover:bg-white/5 md:hidden"
           aria-label={isOpen ? "Close workspace navigation" : "Open workspace navigation"}
           aria-expanded={isOpen}
           onClick={() => setIsOpen((current) => !current)}
@@ -78,9 +83,9 @@ export function AppHeaderClient({ displayName }: { displayName: string }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -12 }}
               transition={{ duration: 0.2 }}
-              className="absolute inset-x-5 top-[5.5rem] rounded-2xl border border-contrast-line bg-contrast-soft p-5 shadow-lifted md:hidden"
+              className="absolute inset-x-5 top-[5.5rem] rounded-2xl border border-white/12 bg-black p-5 shadow-soft md:hidden"
             >
-              <div className="rounded-xl border border-contrast-line/70 bg-paper/6 px-4 py-3 text-sm text-paper/72">
+              <div className="rounded-xl border border-white/12 bg-white/[0.04] px-4 py-3 text-sm text-white/72">
                 Signed in as {displayName}
               </div>
               <div className="mt-4 space-y-3">
@@ -91,8 +96,8 @@ export function AppHeaderClient({ displayName }: { displayName: string }) {
                     variant="ghost"
                     fullWidth
                     className={cn(
-                      "justify-start text-paper hover:bg-paper/10",
-                      pathname.startsWith(link.href) && "bg-paper/10",
+                      "justify-start text-white hover:bg-white/10",
+                      pathname.startsWith(link.href) && "bg-white/12",
                     )}
                     onClick={() => setIsOpen(false)}
                   >
@@ -100,8 +105,13 @@ export function AppHeaderClient({ displayName }: { displayName: string }) {
                   </Button>
                 ))}
               </div>
-              <form action="/auth/sign-out" method="post" className="mt-5 border-t border-contrast-line pt-5">
-                <Button type="submit" variant="outline" fullWidth className="border-contrast-line bg-paper/5 text-paper hover:bg-paper/10">
+              <form action="/auth/sign-out" method="post" className="mt-5 border-t border-white/12 pt-5">
+                <Button
+                  type="submit"
+                  variant="outline"
+                  fullWidth
+                  className="border-white/15 bg-white/[0.04] text-white hover:border-white/25 hover:bg-white/10"
+                >
                   Sign out
                 </Button>
               </form>

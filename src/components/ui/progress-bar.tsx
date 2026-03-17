@@ -27,7 +27,7 @@ export function ProgressBar({ value, max = 100, label, helperText, className }: 
         </div>
       ) : null}
       <div
-        className="h-3 overflow-hidden rounded-full bg-paper"
+        className="h-3 overflow-hidden rounded-full bg-surface"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={max}

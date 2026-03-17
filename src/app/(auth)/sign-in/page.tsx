@@ -14,7 +14,7 @@ export default function SignInPage() {
           Your roadmap, saved projects, and recommendation boards are waiting inside your workspace.
         </p>
       </div>
-      <Suspense fallback={<p className="text-sm text-ink-600">Loading sign-in form...</p>}>
+      <Suspense fallback={<p className="text-sm text-ink-soft">Loading sign-in form...</p>}>
         <AuthForm mode="sign-in" />
       </Suspense>
       <p className="text-sm text-ink-soft">

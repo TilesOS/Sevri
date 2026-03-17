@@ -6,12 +6,12 @@ type BadgeTone = "neutral" | "accent" | "software" | "research" | "success" | "w
 const toneClassName: Record<BadgeTone, string> = {
   neutral: "bg-surface text-ink-soft",
   accent: "bg-accent text-accent-ink",
-  software: "bg-accent-soft text-ink",
+  software: "bg-accent-soft text-accent-ink",
   research: "bg-terracotta-soft text-terracotta",
   success: "bg-emerald-100 text-emerald-700",
-  warning: "bg-surface-butter text-ink",
+  warning: "bg-surface-butter text-ink-soft",
   danger: "bg-red-100 text-red-700",
-  contrast: "bg-paper/10 text-paper",
+  contrast: "bg-white/10 text-white",
 };
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {

@@ -7,9 +7,9 @@ type CardElevation = "none" | "soft" | "lifted";
 
 const toneClassName: Record<CardTone, string> = {
   default: "border-line bg-paper text-ink",
-  subtle: "border-line bg-surface/60 text-ink",
+  subtle: "border-line bg-surface/70 text-ink",
   blush: "border-terracotta/20 bg-surface-blush text-ink",
-  butter: "border-[#ddc575] bg-surface-butter text-ink",
+  butter: "border-line bg-surface-butter text-ink",
   contrast: "border-contrast-line bg-contrast text-paper",
 };
 

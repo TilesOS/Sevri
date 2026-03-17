@@ -14,7 +14,7 @@ export default function SignUpPage() {
           Start with guided onboarding and two recommendation batches while you decide which direction deserves your best work.
         </p>
       </div>
-      <Suspense fallback={<p className="text-sm text-ink-600">Loading sign-up form...</p>}>
+      <Suspense fallback={<p className="text-sm text-ink-soft">Loading sign-up form...</p>}>
         <AuthForm mode="sign-up" />
       </Suspense>
       <p className="text-sm text-ink-soft">
