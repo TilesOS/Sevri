@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 interface BillingActionsProps {
@@ -69,8 +70,12 @@ export function BillingActions({ hasSubscription }: BillingActionsProps) {
 
   return (
     <div className="space-y-4">
+      <div aria-live="polite" className="sr-only">
+        {info ?? error ?? (loading ? "Updating billing state." : "")}
+      </div>
+
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={hasSubscription ? openPortal : startCheckout} disabled={loading !== null}>
+        <Button onClick={hasSubscription ? openPortal : startCheckout} disabled={loading !== null} className="rounded-full px-6">
           {hasSubscription
             ? loading === "portal"
               ? "Opening portal..."
@@ -80,13 +85,13 @@ export function BillingActions({ hasSubscription }: BillingActionsProps) {
               : "Upgrade to Pro"}
         </Button>
 
-        <Button variant="secondary" onClick={syncBilling} disabled={loading !== null}>
+        <Button variant="outline" onClick={syncBilling} disabled={loading !== null} className="rounded-full">
           {loading === "sync" ? "Syncing..." : "Sync billing now"}
         </Button>
       </div>
 
-      {info ? <p className="text-sm text-mint-700">{info}</p> : null}
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {info ? <Alert tone="success">{info}</Alert> : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
     </div>
   );
 }

@@ -1,12 +1,15 @@
 "use client";
 
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   projectTrackOptions,
   settingsProfileSchema,
@@ -19,9 +22,6 @@ interface SettingsFormProps {
   email: string;
   initialValues: SettingsProfileInput;
 }
-
-const selectClassName =
-  "w-full rounded-lg border border-surface-border bg-surface-card px-3 py-2 text-sm text-ink-900";
 
 export function SettingsForm({ email, initialValues }: SettingsFormProps) {
   const router = useRouter();
@@ -64,92 +64,77 @@ export function SettingsForm({ email, initialValues }: SettingsFormProps) {
   return (
     <Card className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-ink-900">Profile details</h2>
-        <p className="mt-1 text-sm text-ink-600">
+        <h2 className="text-lg font-semibold text-ink">Profile details</h2>
+        <p className="mt-1 text-sm text-ink-soft">
           Update the defaults Sevri uses for your account, recommendations, and project direction.
         </p>
       </div>
 
       <form className="space-y-6" onSubmit={handleSubmit(onSubmit)}>
+        <div aria-live="polite" className="sr-only">
+          {info ?? error ?? (isSubmitting ? "Saving settings." : "")}
+        </div>
+
         <div className="grid gap-4 md:grid-cols-2">
-          <Field
+          <FormField
             label="Email"
             hint="Email is shown here for reference. This page currently saves your profile preferences and name."
           >
-            <Input value={email} disabled className="bg-surface-subtle text-ink-600" />
-          </Field>
+            <Input value={email} disabled />
+          </FormField>
 
-          <Field label="Name" error={errors.full_name?.message}>
+          <FormField label="Name" error={errors.full_name?.message}>
             <Input {...register("full_name")} placeholder="Alex Johnson" autoComplete="name" />
-          </Field>
+          </FormField>
 
-          <Field label="Student stage" error={errors.student_stage?.message}>
-            <select className={selectClassName} {...register("student_stage")}>
+          <FormField label="Student stage" error={errors.student_stage?.message}>
+            <Select {...register("student_stage")} hasError={Boolean(errors.student_stage?.message)}>
               {studentStageOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
-          </Field>
+            </Select>
+          </FormField>
 
-          <Field label="Target outcome" error={errors.target_outcome?.message}>
-            <select className={selectClassName} {...register("target_outcome")}>
+          <FormField label="Target outcome" error={errors.target_outcome?.message}>
+            <Select {...register("target_outcome")} hasError={Boolean(errors.target_outcome?.message)}>
               {targetOutcomeOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
-          </Field>
+            </Select>
+          </FormField>
 
-          <Field
+          <FormField
             label="Default track"
             error={errors.project_track?.message}
             hint="This sets which project path Sevri should treat as your default for future recommendation runs."
           >
-            <select className={selectClassName} {...register("project_track")}>
+            <Select {...register("project_track")} hasError={Boolean(errors.project_track?.message)}>
               {projectTrackOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
-            </select>
-          </Field>
+            </Select>
+          </FormField>
         </div>
 
-        {info ? <p className="text-sm text-mint-700">{info}</p> : null}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {info ? <Alert tone="success">{info}</Alert> : null}
+        {error ? <Alert tone="danger">{error}</Alert> : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={!isDirty || isSubmitting}>
+          <Button type="submit" disabled={!isDirty || isSubmitting} className="rounded-full px-6">
             {isSubmitting ? "Saving..." : "Save changes"}
           </Button>
 
-          <p className="text-sm text-ink-600">{isDirty ? "You have unsaved changes." : "Your settings are up to date."}</p>
+          <p className="text-sm text-ink-soft">
+            {isDirty ? "You have unsaved changes." : "Your settings are up to date."}
+          </p>
         </div>
       </form>
     </Card>
-  );
-}
-
-function Field({
-  label,
-  hint,
-  error,
-  children,
-}: {
-  label: string;
-  hint?: string;
-  error?: string;
-  children: ReactNode;
-}) {
-  return (
-    <label className="block space-y-2 text-sm font-medium text-ink-700">
-      <span>{label}</span>
-      {children}
-      {hint ? <span className="block text-xs font-normal text-ink-600">{hint}</span> : null}
-      {error ? <span className="block text-xs font-normal text-red-600">{error}</span> : null}
-    </label>
   );
 }

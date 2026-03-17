@@ -1,9 +1,10 @@
 import { getRequiredUser } from "@/lib/auth/guard";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { Card } from "@/components/ui/card";
 import { resolveStoredFullName } from "@/lib/auth/names";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { settingsProfileSchema, type SettingsProfileInput } from "@/lib/validators/settings";
+import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 
 export default async function SettingsPage() {
   const user = await getRequiredUser();
@@ -40,13 +41,25 @@ export default async function SettingsPage() {
   const settingsValues = initialSettings.success ? initialSettings.data : fallbackSettings;
 
   return (
-    <div className="space-y-6">
-      <Card className="space-y-2">
-        <h1 className="text-2xl font-bold text-ink-900">Settings</h1>
-        <p className="text-sm text-ink-700">Update the profile details Sevri uses across your workspace.</p>
-      </Card>
+    <div className="space-y-8">
+      <PageHeader
+        eyebrow="Settings"
+        title="Keep your workspace defaults honest."
+        description="These details shape the context Sevri uses across onboarding, recommendations, and the rest of your project workspace."
+      />
 
-      <SettingsForm email={user.email ?? ""} initialValues={settingsValues} />
+      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <SettingsForm email={user.email ?? ""} initialValues={settingsValues} />
+        <Card tone="butter" className="space-y-4">
+          <p className="editorial-kicker">What these defaults affect</p>
+          <h2 className="text-3xl font-semibold text-ink">A better starting point every time you return.</h2>
+          <ul className="space-y-3 text-sm leading-6 text-ink-soft">
+            <li>Recommended track selection when you return to the ideas board.</li>
+            <li>Profile context that helps Sevri keep outputs aligned with your current goals.</li>
+            <li>More consistent software and research guidance across the workspace.</li>
+          </ul>
+        </Card>
+      </div>
     </div>
   );
 }

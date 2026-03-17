@@ -1,27 +1,35 @@
-import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Container } from "@/components/shared/container";
+import { PageHeader } from "@/components/ui/page-header";
+import { Section } from "@/components/ui/section";
 
 export default function TermsPage() {
   return (
-    <div className="py-16">
-      <Container className="space-y-6">
-        <Card className="space-y-6">
-          <div className="space-y-2">
-            <p className="text-sm font-semibold uppercase tracking-widest text-ink-500">Legal</p>
-            <h1 className="text-3xl font-semibold text-ink-900">Terms of Service</h1>
-          </div>
-          <p className="text-ink-700">
-            Using Sevri means agreeing to our focused project coaching model, staying respectful in collaborations, and
-            honoring the usage limits described on the pricing page. The product is provided as-is with the intent of
-            helping determined students finish real work.
+    <Section className="pt-14 sm:pt-20">
+      <PageHeader
+        eyebrow="Legal"
+        title="Terms of Service"
+        description="These terms will be expanded before launch; this page currently outlines the intent behind the product."
+      />
+      <Card className="max-w-4xl">
+        <div className="space-y-5 text-sm leading-7 text-ink-soft">
+          <p>
+            Sevri is designed to help students choose, scope, and finish meaningful software or
+            research projects. Using the product means agreeing to the workspace rules, plan limits,
+            and normal expectations around respectful account use.
           </p>
-          <p className="text-sm text-ink-500">This is a temporary placeholder until a complete legal draft is available.</p>
-          <Link href="/" className="text-sm font-medium text-mint-700 hover:text-mint-500">
-            Return to home
-          </Link>
-        </Card>
-      </Container>
-    </div>
+          <p>
+            The experience is provided as a coaching and planning tool. A complete legal draft will
+            replace this summary before launch, but the core promise will stay the same: clear
+            guidance in exchange for responsible product use.
+          </p>
+        </div>
+        <div className="mt-8">
+          <Button href="/" variant="outline" className="rounded-full">
+            Return home
+          </Button>
+        </div>
+      </Card>
+    </Section>
   );
 }

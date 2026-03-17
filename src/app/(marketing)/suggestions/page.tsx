@@ -1,28 +1,33 @@
-import Link from "next/link";
-import { Container } from "@/components/shared/container";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
+import { Section } from "@/components/ui/section";
 
 export default function SuggestionsPage() {
   return (
-    <div className="py-16">
-      <Container className="space-y-6">
-        <Card className="space-y-6">
-          <div className="space-y-2">
-            <p className="text-sm font-semibold uppercase tracking-widest text-ink-500">Feedback</p>
-            <h1 className="text-3xl font-semibold text-ink-900">Suggestions</h1>
-          </div>
-          <p className="text-ink-700">
-            This page will become Sevri&apos;s public home for feature requests, curriculum feedback, and product ideas.
-            For now, it serves as a placeholder route linked from the global footer.
+    <Section className="pt-14 sm:pt-20">
+      <PageHeader
+        eyebrow="Feedback"
+        title="Suggestions"
+        description="This route is designed to become Sevri's public home for feature ideas, product feedback, and curriculum suggestions."
+      />
+      <Card className="max-w-4xl">
+        <div className="space-y-5 text-sm leading-7 text-ink-soft">
+          <p>
+            The eventual version of this page will collect requests around onboarding, recommendation
+            quality, roadmap guidance, and the broader student project workflow.
           </p>
-          <p className="text-sm text-ink-500">
-            We&apos;ll replace this copy with a real intake flow once suggestions are ready to collect.
+          <p>
+            For now, the important part is that the page feels like part of the product system instead
+            of a placeholder. The future intake form can slot into this template cleanly.
           </p>
-          <Link href="/" className="text-sm font-medium text-mint-700 hover:text-mint-500">
-            Return to home
-          </Link>
-        </Card>
-      </Container>
-    </div>
+        </div>
+        <div className="mt-8">
+          <Button href="/" variant="outline" className="rounded-full">
+            Return home
+          </Button>
+        </div>
+      </Card>
+    </Section>
   );
 }

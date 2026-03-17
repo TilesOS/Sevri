@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { ProjectTrack } from "@/types/domain";
 
@@ -37,10 +38,13 @@ export function GenerateRoadmapButton({ projectId, projectTrack = "software" }: 
 
   return (
     <div className="space-y-3">
-      <Button onClick={generate} disabled={isLoading}>
+      <div aria-live="polite" className="sr-only">
+        {error ?? (isLoading ? "Generating roadmap overview." : "")}
+      </div>
+      <Button onClick={generate} disabled={isLoading} className="rounded-full px-6">
         {isLoading ? loadingLabel : idleLabel}
       </Button>
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
     </div>
   );
 }

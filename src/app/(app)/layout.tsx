@@ -1,11 +1,14 @@
 import type { ReactNode } from "react";
 import { AppHeader } from "@/components/shared/app-header";
+import { Container } from "@/components/shared/container";
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <AppHeader />
-      <main className="mx-auto w-full max-w-6xl px-6 py-8">{children}</main>
+      <main className="pb-14 pt-8 sm:pb-20 sm:pt-10">
+        <Container>{children}</Container>
+      </main>
     </>
   );
 }

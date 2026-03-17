@@ -1,29 +1,34 @@
-import Link from "next/link";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Container } from "@/components/shared/container";
+import { PageHeader } from "@/components/ui/page-header";
+import { Section } from "@/components/ui/section";
 
 export default function PrivacyPage() {
   return (
-    <div className="py-16">
-      <Container className="space-y-6">
-        <Card className="space-y-6">
-          <div className="space-y-2">
-            <p className="text-sm font-semibold uppercase tracking-widest text-ink-500">Legal</p>
-            <h1 className="text-3xl font-semibold text-ink-900">Privacy Policy</h1>
-          </div>
-          <p className="text-ink-700">
-            Sevri collects only the data necessary to power your project journey and keeps it encrypted at rest. We never
-            share personally identifiable information without your explicit consent, and you can always review or delete
-            your profile data from the settings page.
+    <Section className="pt-14 sm:pt-20">
+      <PageHeader
+        eyebrow="Legal"
+        title="Privacy Policy"
+        description="Sevri stores only the information needed to power your workspace, recommendation flow, and account management."
+      />
+      <Card className="max-w-4xl">
+        <div className="space-y-5 text-sm leading-7 text-ink-soft">
+          <p>
+            Your profile details, onboarding responses, and project workspace data are used to generate
+            better recommendations and keep your roadmap coherent across sessions.
           </p>
-          <p className="text-sm text-ink-500">
-            This placeholder copy summarizes the privacy mindset for now; update it when a full policy is ready to ship.
+          <p>
+            Sevri does not sell personal information or expose private account data without consent.
+            You can review or update saved profile details from settings, and this public page will be
+            replaced with a full legal draft before launch.
           </p>
-          <Link href="/" className="text-sm font-medium text-mint-700 hover:text-mint-500">
-            Return to home
-          </Link>
-        </Card>
-      </Container>
-    </div>
+        </div>
+        <div className="mt-8">
+          <Button href="/" variant="outline" className="rounded-full">
+            Return home
+          </Button>
+        </div>
+      </Card>
+    </Section>
   );
 }

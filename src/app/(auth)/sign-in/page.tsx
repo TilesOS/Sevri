@@ -1,20 +1,27 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { AuthForm } from "@/components/shared/auth-form";
 
 export default function SignInPage() {
   return (
-    <Card className="mx-auto w-full max-w-md space-y-6">
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold text-ink-900">Welcome back</h1>
-        <p className="text-sm text-ink-600">Sign in to continue your project journey.</p>
+    <Card className="mx-auto w-full max-w-xl space-y-6" padding="lg">
+      <Badge tone="neutral">Welcome back</Badge>
+      <div className="space-y-2">
+        <h1 className="font-display text-4xl leading-none text-ink">Pick up where you left off.</h1>
+        <p className="text-sm leading-6 text-ink-soft">
+          Your roadmap, saved projects, and recommendation boards are waiting inside your workspace.
+        </p>
       </div>
       <Suspense fallback={<p className="text-sm text-ink-600">Loading sign-in form...</p>}>
         <AuthForm mode="sign-in" />
       </Suspense>
-      <p className="text-sm text-ink-600">
-        No account yet? <Link href="/sign-up">Create one</Link>
+      <p className="text-sm text-ink-soft">
+        No account yet?{" "}
+        <Link href="/sign-up" className="font-semibold text-terracotta hover:text-terracotta/80">
+          Create one
+        </Link>
       </p>
     </Card>
   );

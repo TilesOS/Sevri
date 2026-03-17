@@ -1,11 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
+import { PLAN_LIMITS } from "@/lib/usage/limits";
+import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { PLAN_LIMITS } from "@/lib/usage/limits";
+import { PageHeader } from "@/components/ui/page-header";
+import { SegmentedControl } from "@/components/ui/segmented-control";
 import type { Plan, ProjectTrack } from "@/types/domain";
 
 interface RecommendationItem {
@@ -16,6 +21,12 @@ interface RecommendationItem {
   why_it_fits: string;
   difficulty: string;
   estimated_weeks: number;
+  weekly_hours?: number;
+  skills_demonstrated?: string[];
+  tools_needed?: string[];
+  impressiveness_score?: number;
+  finishability_score?: number;
+  authenticity_note?: string;
   track_payload_json?: Record<string, unknown>;
 }
 
@@ -31,6 +42,20 @@ interface RecommendationsClientProps {
   batchesUsed: number;
   trackAvailability: TrackAvailability;
 }
+
+const difficultyOrder: Record<string, number> = {
+  beginner: 1,
+  beginner_intermediate: 2,
+  intermediate: 3,
+  intermediate_advanced: 4,
+};
+
+const difficultyLabel: Record<string, string> = {
+  beginner: "Beginner",
+  beginner_intermediate: "Beginner-Intermediate",
+  intermediate: "Intermediate",
+  intermediate_advanced: "Intermediate-Advanced",
+};
 
 export function RecommendationsClient({
   activeTrack,
@@ -54,6 +79,8 @@ export function RecommendationsClient({
   }, [plan, batchesUsed]);
 
   const hasTrackIntake = trackAvailability[activeTrack].hasIntake;
+  const ribbons = useMemo(() => deriveRibbons(recommendations), [recommendations]);
+  const trackTheme = trackThemes[activeTrack];
 
   async function handleGenerate() {
     setError(null);
@@ -112,135 +139,329 @@ export function RecommendationsClient({
     router.push(`/recommendations?track=${track}`);
   }
 
-  const title = activeTrack === "research" ? "Choose your research direction" : "Choose your software project";
+  const title =
+    activeTrack === "research" ? "Compare your research directions." : "Compare your software directions.";
   const subtitle =
     activeTrack === "research"
-      ? "Pick one concrete direction now. Sevri will build the roadmap overview after you choose."
-      : "Pick one concrete build now. Sevri will create the execution roadmap right after selection.";
+      ? "The strongest choice is not the flashiest question. It is the one with a believable method, evidence plan, and finish line."
+      : "The strongest choice is not the biggest build. It is the one with a clear user, clear problem, and a version you can actually ship.";
   const generateLabel =
     activeTrack === "research"
       ? recommendations.length
-        ? "Refresh research options"
-        : "Generate 3 research options"
+        ? "Refresh research board"
+        : "Generate research board"
       : recommendations.length
-        ? "Refresh software options"
-        : "Generate 3 software options";
+        ? "Refresh software board"
+        : "Generate software board";
 
   return (
-    <div className="space-y-6">
-      <Card className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-ink-900">{title}</h1>
-            <p className="text-sm text-ink-600">{subtitle}</p>
+    <div className="space-y-8">
+      <div aria-live="polite" className="sr-only">
+        {error ?? (isGenerating ? "Generating recommendations." : isSelectingId ? "Selecting recommendation." : "")}
+      </div>
+
+      <Card tone="contrast" className="border-contrast-line">
+        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-3xl">
+            <PageHeader
+              eyebrow="Recommendation board"
+              title={title}
+              description={subtitle}
+              className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
+            />
           </div>
-          <div className="flex items-center gap-3">
-            <Badge>{plan === "pro_monthly" ? "Pro" : "Free"}</Badge>
-            <Button onClick={handleGenerate} disabled={isGenerating || !canRegenerate || !hasTrackIntake}>
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
+            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
+            <Button
+              onClick={handleGenerate}
+              disabled={isGenerating || !canRegenerate || !hasTrackIntake}
+              className="rounded-full px-6"
+            >
               {isGenerating ? "Generating..." : generateLabel}
             </Button>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-3">
-          {(["software", "research"] as ProjectTrack[]).map((track) => {
-            const isActive = track === activeTrack;
-
-            return (
-              <button
-                key={track}
-                type="button"
-                onClick={() => switchTrack(track)}
-                className={`rounded-full border px-4 py-2 text-sm transition ${
-                  isActive ? "border-mint-500 bg-mint-100 text-ink-900" : "border-surface-border bg-surface-card text-ink-700"
-                }`}
-              >
-                {track === "software" ? "Software" : "Research"}
-              </button>
-            );
-          })}
+        <div className="mt-6 grid gap-4 sm:grid-cols-3">
+          <Card tone="contrast" className="border-contrast-line bg-paper/5">
+            <p className="editorial-kicker text-paper/55">Plan</p>
+            <p className="mt-3 text-3xl font-semibold text-paper">{getPlanLabel(plan)}</p>
+          </Card>
+          <Card tone="contrast" className="border-contrast-line bg-paper/5">
+            <p className="editorial-kicker text-paper/55">Batches used</p>
+            <p className="mt-3 text-3xl font-semibold text-paper">{batchesUsed}</p>
+          </Card>
+          <Card tone="contrast" className="border-contrast-line bg-paper/5">
+            <p className="editorial-kicker text-paper/55">Track readiness</p>
+            <p className="mt-3 text-lg font-semibold text-paper">{hasTrackIntake ? "Ready to compare" : "Setup needed"}</p>
+          </Card>
         </div>
       </Card>
 
+      <SegmentedControl
+        label="Switch track"
+        value={activeTrack}
+        onChange={switchTrack}
+        options={[
+          {
+            value: "software",
+            label: "Software",
+            description: "Compare user, problem, and core workflow.",
+          },
+          {
+            value: "research",
+            label: "Research",
+            description: "Compare question, method, and evidence plan.",
+          },
+        ]}
+      />
+
       {!canRegenerate ? (
-        <Card className="border-yellow-500/20 bg-yellow-500/10">
-          <p className="text-sm text-ink-800">
-            Free plan limit reached. Upgrade on the billing page to unlock more recommendation refreshes.
-          </p>
-        </Card>
+        <Alert tone="warning" heading="Free plan limit reached">
+          Upgrade on the billing page to unlock more recommendation refreshes and keep iterating on the right direction.
+        </Alert>
       ) : null}
 
-      {error ? (
-        <Card className="border-red-500/20 bg-red-500/10">
-          <p className="text-sm text-red-400">{error}</p>
-        </Card>
-      ) : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
       {!hasTrackIntake ? (
-        <Card className="space-y-3">
-          <h2 className="text-lg font-semibold text-ink-900">
-            {activeTrack === "research" ? "Research track not set up yet" : "Software track not set up yet"}
+        <Card className="space-y-4">
+          <h2 className="text-2xl font-semibold text-ink">
+            {activeTrack === "research" ? "Set up your research track first." : "Set up your software track first."}
           </h2>
-          <p className="text-sm text-ink-700">
-            Run onboarding again and choose the {activeTrack === "research" ? "Research Project" : "Software Project"} track to
-            generate recommendations for it.
+          <p className="text-sm leading-6 text-ink-soft">
+            Run onboarding again and choose the {activeTrack === "research" ? "Research Project" : "Software Project"} track to generate recommendations for it.
           </p>
           <div>
-            <Button onClick={() => router.push("/onboarding")}>Open onboarding</Button>
+            <Button href="/onboarding" className="rounded-full px-6">
+              Open onboarding
+            </Button>
           </div>
         </Card>
       ) : recommendations.length === 0 ? (
-        <Card className="space-y-3">
-          <h2 className="text-lg font-semibold text-ink-900">No saved options for this track yet</h2>
-          <p className="text-sm text-ink-700">
-            Generate a fresh batch and Sevri will return 3 concise, track-specific options for you to choose from.
+        <Card className="space-y-4">
+          <h2 className="text-2xl font-semibold text-ink">No saved options for this track yet.</h2>
+          <p className="text-sm leading-6 text-ink-soft">
+            Generate a fresh comparison board and Sevri will return three distinct directions built from your current context.
           </p>
         </Card>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        {recommendations.map((item) => {
-          const isResearch = item.project_track === "research";
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          key={`${activeTrack}-${recommendations.map((item) => item.id).join(",") || "empty"}`}
+          initial={{ opacity: 0, y: 18 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -18 }}
+          transition={{ duration: 0.28, ease: "easeOut" }}
+          className="grid gap-4 xl:grid-cols-3"
+        >
+          {recommendations.map((item, index) => {
+            const ribbon = ribbons[item.id];
+            const details =
+              item.project_track === "research"
+                ? getResearchDetails(item.track_payload_json)
+                : getSoftwareDetails(item.track_payload_json);
 
-          return (
-            <Card key={item.id} className="flex h-full flex-col gap-5">
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-3">
-                  <Badge className={isResearch ? "bg-sky-500/15 text-sky-400" : ""}>
-                    {isResearch ? "Research" : "Software"}
-                  </Badge>
-                  <span className="text-xs font-medium uppercase tracking-[0.16em] text-ink-500">{item.difficulty}</span>
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-lg font-semibold text-ink-900">{item.title}</h2>
-                  <p className="text-sm text-ink-700">{item.summary}</p>
-                </div>
-              </div>
+            return (
+              <motion.div
+                key={item.id}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.28, delay: index * 0.06, ease: "easeOut" }}
+              >
+                <Card className="flex h-full flex-col">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge tone={item.project_track === "research" ? "research" : "software"}>
+                        {item.project_track === "research" ? "Research" : "Software"}
+                      </Badge>
+                      {ribbon ? <Badge tone="accent">{ribbon}</Badge> : null}
+                    </div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted">
+                      {difficultyLabel[item.difficulty] ?? item.difficulty}
+                    </p>
+                  </div>
 
-              <div className="space-y-3 rounded-xl border border-surface-border bg-surface-subtle p-4">
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">Why It Fits</p>
-                  <p className="text-sm text-ink-800">{item.why_it_fits}</p>
-                </div>
-                <div className="flex items-center justify-between gap-3 text-sm text-ink-700">
-                  <span>Estimated timeline</span>
-                  <span className="font-semibold text-ink-900">{item.estimated_weeks} weeks</span>
-                </div>
-              </div>
+                  <div className="mt-5 space-y-3">
+                    <h2 className="text-2xl font-semibold text-ink">{item.title}</h2>
+                    <p className="text-sm leading-6 text-ink-soft">{item.summary}</p>
+                  </div>
 
-              <div className="mt-auto">
-                <Button onClick={() => handleSelect(item.id)} disabled={Boolean(isSelectingId)} className="w-full">
-                  {isSelectingId === item.id
-                    ? "Selecting..."
-                    : isResearch
-                      ? "Choose this research direction"
-                      : "Choose this software project"}
-                </Button>
-              </div>
-            </Card>
-          );
-        })}
-      </div>
+                  <div className="mt-6 grid gap-3">
+                    {details.map((detail) => (
+                      <div key={detail.label} className="rounded-xl border border-line bg-surface/35 p-4">
+                        <p className="editorial-kicker">{detail.label}</p>
+                        <p className="mt-2 text-sm leading-6 text-ink">{detail.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 space-y-4 rounded-xl border border-line bg-paper p-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <Metric label="Estimated timeline" value={`${item.estimated_weeks} weeks`} />
+                      <Metric
+                        label="Weekly load"
+                        value={item.weekly_hours ? `${item.weekly_hours} hrs` : "Flexible"}
+                      />
+                      <Metric
+                        label="Finishability"
+                        value={formatScore(item.finishability_score)}
+                      />
+                      <Metric
+                        label="Impressiveness"
+                        value={formatScore(item.impressiveness_score)}
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <p className="editorial-kicker">Why it fits</p>
+                      <p className="text-sm leading-6 text-ink-soft">{item.why_it_fits}</p>
+                    </div>
+
+                    {item.authenticity_note ? (
+                      <div className="space-y-2">
+                        <p className="editorial-kicker">Authenticity note</p>
+                        <p className="text-sm leading-6 text-ink-soft">{item.authenticity_note}</p>
+                      </div>
+                    ) : null}
+                  </div>
+
+                  {item.skills_demonstrated && item.skills_demonstrated.length ? (
+                    <div className="mt-6">
+                      <p className="editorial-kicker">Skills demonstrated</p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {item.skills_demonstrated.slice(0, 4).map((skill) => (
+                          <span key={skill} className="rounded-full bg-surface px-3 py-1 text-xs font-semibold text-ink-soft">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="mt-auto pt-8">
+                    <Button
+                      onClick={() => handleSelect(item.id)}
+                      disabled={Boolean(isSelectingId)}
+                      fullWidth
+                      className="rounded-full"
+                    >
+                      {isSelectingId === item.id
+                        ? "Selecting..."
+                        : item.project_track === "research"
+                          ? "Choose this research direction"
+                          : "Choose this software project"}
+                    </Button>
+                  </div>
+                </Card>
+              </motion.div>
+            );
+          })}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
+}
+
+function Metric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <p className="editorial-kicker">{label}</p>
+      <p className="mt-2 text-sm font-semibold text-ink">{value}</p>
+    </div>
+  );
+}
+
+function formatScore(value?: number) {
+  if (typeof value !== "number") {
+    return "Not scored";
+  }
+
+  return `${value}/10`;
+}
+
+function getSoftwareDetails(payload?: Record<string, unknown>) {
+  return [
+    {
+      label: "Target user",
+      value: getString(payload?.target_user, "A real person with a clear problem to solve."),
+    },
+    {
+      label: "Problem statement",
+      value: getString(payload?.problem_statement, "The problem definition will be clarified once you choose this direction."),
+    },
+    {
+      label: "Core workflow",
+      value: getString(payload?.core_workflow, "The first version of the workflow will stay intentionally narrow."),
+    },
+  ];
+}
+
+function getResearchDetails(payload?: Record<string, unknown>) {
+  return [
+    {
+      label: "Research question",
+      value: getString(payload?.research_question, "A focused question will be refined after you choose this direction."),
+    },
+    {
+      label: "Methodology",
+      value: getString(payload?.methodology, "A method will be chosen to match your current access and time."),
+    },
+    {
+      label: "Evidence plan",
+      value: getString(payload?.evidence_plan, "The plan will be shaped around evidence you can realistically gather."),
+    },
+  ];
+}
+
+function getString(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+}
+
+function deriveRibbons(items: RecommendationItem[]) {
+  const ribbons: Record<string, string> = {};
+
+  if (items.length === 0) {
+    return ribbons;
+  }
+
+  const quickest = [...items].sort((a, b) => a.estimated_weeks - b.estimated_weeks)[0];
+  ribbons[quickest.id] = "Quickest to ship";
+
+  const remaining = items.filter((item) => item.id !== quickest.id);
+  const ambitiousCandidate =
+    [...remaining].sort((a, b) => {
+      const difficultyDelta = (difficultyOrder[b.difficulty] ?? 0) - (difficultyOrder[a.difficulty] ?? 0);
+      if (difficultyDelta !== 0) {
+        return difficultyDelta;
+      }
+      return b.estimated_weeks - a.estimated_weeks;
+    })[0] ?? quickest;
+
+  if (!ribbons[ambitiousCandidate.id]) {
+    ribbons[ambitiousCandidate.id] = "Most ambitious";
+  }
+
+  const balancedCandidate =
+    items.find((item) => !ribbons[item.id]) ??
+    [...items].sort((a, b) => {
+      const weeksDelta =
+        Math.abs(a.estimated_weeks - averageWeeks(items)) - Math.abs(b.estimated_weeks - averageWeeks(items));
+      if (weeksDelta !== 0) {
+        return weeksDelta;
+      }
+      return (difficultyOrder[a.difficulty] ?? 0) - (difficultyOrder[b.difficulty] ?? 0);
+    })[0];
+
+  if (balancedCandidate && !ribbons[balancedCandidate.id]) {
+    ribbons[balancedCandidate.id] = "Balanced pick";
+  }
+
+  return ribbons;
+}
+
+function averageWeeks(items: RecommendationItem[]) {
+  return items.reduce((total, item) => total + item.estimated_weeks, 0) / items.length;
 }

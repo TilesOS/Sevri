@@ -2,9 +2,13 @@
 
 import type { ReactNode } from "react";
 import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
+import { Alert } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import type { StepGuidance } from "@/types/domain";
 
 interface Milestone {
@@ -25,15 +29,24 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
   const [guidanceById, setGuidanceById] = useState<Record<string, StepGuidance>>({});
   const [guidancePendingId, setGuidancePendingId] = useState<string | null>(null);
   const [guidanceErrorById, setGuidanceErrorById] = useState<Record<string, string>>({});
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   async function toggleMilestone(milestone: Milestone) {
     setPendingId(milestone.id);
+    setToggleError(null);
 
-    await fetch(`/api/milestones/${milestone.id}`, {
+    const response = await fetch(`/api/milestones/${milestone.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: !milestone.completed }),
     });
+
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      setToggleError(body?.error ?? "Failed to update milestone.");
+      setPendingId(null);
+      return;
+    }
 
     setPendingId(null);
     router.refresh();
@@ -80,13 +93,23 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
   }
 
   return (
-    <Card className="space-y-4">
+    <Card className="space-y-5">
+      <div aria-live="polite" className="sr-only">
+        {toggleError ??
+          Object.values(guidanceErrorById).find(Boolean) ??
+          (guidancePendingId ? "Loading milestone guidance." : pendingId ? "Updating milestone." : "")}
+      </div>
+
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-ink-900">Roadmap Steps</h2>
-          <p className="text-sm text-ink-600">Open any step to generate detailed guidance only when you need it.</p>
+          <h2 className="text-2xl font-semibold text-ink">Milestones</h2>
+          <p className="text-sm leading-6 text-ink-soft">
+            Open any milestone when you need premium guidance. Deliverables and pitfalls stay visible so scope drift feels obvious.
+          </p>
         </div>
       </div>
+
+      {toggleError ? <Alert tone="danger">{toggleError}</Alert> : null}
 
       <ul className="space-y-4">
         {milestones.map((milestone) => {
@@ -96,109 +119,113 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
           const guidanceError = guidanceErrorById[milestone.id];
 
           return (
-            <li key={milestone.id} className="rounded-2xl border border-surface-border bg-surface-subtle p-4">
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                <div className="space-y-3">
-                  <label className="flex cursor-pointer items-start gap-3">
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4"
-                      checked={milestone.completed}
-                      onChange={() => toggleMilestone(milestone)}
-                      disabled={pendingId === milestone.id}
-                    />
-                    <div className="space-y-1">
-                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">
-                        Step {milestone.order_index + 1}
-                      </p>
-                      <p className="text-lg font-semibold text-ink-900">{milestone.title}</p>
-                    </div>
-                  </label>
+            <li key={milestone.id}>
+              <Card className="space-y-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="space-y-4">
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-5 w-5 rounded border-line accent-accent"
+                        checked={milestone.completed}
+                        onChange={() => toggleMilestone(milestone)}
+                        disabled={pendingId === milestone.id}
+                      />
+                      <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge tone={milestone.completed ? "success" : "neutral"}>
+                            Step {milestone.order_index + 1}
+                          </Badge>
+                          <Badge tone="warning">{milestone.rough_time_estimate ?? "About 1 week"}</Badge>
+                        </div>
+                        <p className="text-xl font-semibold text-ink">{milestone.title}</p>
+                      </div>
+                    </label>
 
-                  <div className="space-y-2 pl-7 text-sm text-ink-700">
-                    <p>{milestone.objective ?? milestone.description}</p>
-                    <div className="flex flex-wrap gap-3 text-xs text-ink-600">
-                      <span>Deliverable: {milestone.deliverable ?? "Concrete step output"}</span>
-                      <span>Time: {milestone.rough_time_estimate ?? "About 1 week"}</span>
+                    <div className="space-y-3 pl-8 text-sm text-ink-soft">
+                      <p>{milestone.objective ?? milestone.description}</p>
+                      <div className="rounded-xl border border-line bg-surface/40 p-4">
+                        <p className="editorial-kicker">Deliverable</p>
+                        <p className="mt-2 text-sm font-semibold text-ink">{milestone.deliverable ?? "Concrete step output"}</p>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="flex flex-wrap gap-2 lg:justify-end">
-                  <Button type="button" variant="secondary" onClick={() => toggleExpanded(milestone.id)} disabled={isGuidancePending}>
-                    {isExpanded ? "Hide guidance" : isGuidancePending ? "Loading guidance..." : "Open guidance"}
-                  </Button>
-                  {isExpanded ? (
+                  <div className="flex flex-wrap gap-2 lg:justify-end">
                     <Button
                       type="button"
-                      onClick={() => void fetchGuidance(milestone.id, true)}
+                      variant="outline"
+                      onClick={() => toggleExpanded(milestone.id)}
                       disabled={isGuidancePending}
+                      className="rounded-full"
                     >
-                      {isGuidancePending ? "Refreshing..." : "Refresh guidance"}
+                      {isExpanded ? "Hide guidance" : isGuidancePending ? "Loading..." : "Open guidance"}
                     </Button>
+                    {isExpanded ? (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => void fetchGuidance(milestone.id, true)}
+                        disabled={isGuidancePending}
+                        className="rounded-full"
+                      >
+                        {isGuidancePending ? "Refreshing..." : "Refresh guidance"}
+                      </Button>
+                    ) : null}
+                  </div>
+                </div>
+
+                {guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
+
+                <AnimatePresence initial={false}>
+                  {isExpanded && guidance ? (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.24, ease: "easeOut" }}
+                      className="overflow-hidden"
+                    >
+                      <div className="space-y-4 border-t border-line pt-5">
+                        <Card tone="subtle">
+                          <p className="editorial-kicker">What to do now</p>
+                          <p className="mt-3 text-sm leading-6 text-ink-soft">{guidance.what_to_do_now}</p>
+                        </Card>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <GuidanceBlock title="Detailed checklist" tone="default">
+                            <GuidanceList items={guidance.checklist} />
+                          </GuidanceBlock>
+
+                          <GuidanceBlock title="Deliverables" tone="butter">
+                            <GuidanceList items={guidance.deliverables} />
+                          </GuidanceBlock>
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <GuidanceBlock title="Common pitfalls" tone="blush">
+                            <GuidanceList items={guidance.pitfalls} />
+                          </GuidanceBlock>
+
+                          <GuidanceBlock title="Tools and resources" tone="default">
+                            <GuidanceList items={guidance.tools_resources} />
+                          </GuidanceBlock>
+                        </div>
+
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <GuidanceBlock title="Done when" tone="default">
+                            <GuidanceList items={guidance.done_when} />
+                          </GuidanceBlock>
+
+                          <GuidanceBlock title="Coaching note" tone="contrast">
+                            <p className="text-sm leading-6 text-paper/72">{guidance.encouragement}</p>
+                          </GuidanceBlock>
+                        </div>
+                      </div>
+                    </motion.div>
                   ) : null}
-                </div>
-              </div>
-
-              {guidanceError ? <p className="mt-3 text-sm text-red-500">{guidanceError}</p> : null}
-
-              {isExpanded && guidance ? (
-                <div className="mt-5 space-y-4 border-t border-surface-border pt-5">
-                  <GuidanceBlock title="What to do now">
-                    <p className="text-sm text-ink-700">{guidance.what_to_do_now}</p>
-                  </GuidanceBlock>
-
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <GuidanceBlock title="Detailed checklist">
-                      <ul className="space-y-2 text-sm text-ink-700">
-                        {guidance.checklist.map((item) => (
-                          <li key={item}>- {item}</li>
-                        ))}
-                      </ul>
-                    </GuidanceBlock>
-
-                    <GuidanceBlock title="Deliverables">
-                      <ul className="space-y-2 text-sm text-ink-700">
-                        {guidance.deliverables.map((item) => (
-                          <li key={item}>- {item}</li>
-                        ))}
-                      </ul>
-                    </GuidanceBlock>
-                  </div>
-
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <GuidanceBlock title="Common mistakes">
-                      <ul className="space-y-2 text-sm text-ink-700">
-                        {guidance.pitfalls.map((item) => (
-                          <li key={item}>- {item}</li>
-                        ))}
-                      </ul>
-                    </GuidanceBlock>
-
-                    <GuidanceBlock title="Tools and resources">
-                      <ul className="space-y-2 text-sm text-ink-700">
-                        {guidance.tools_resources.map((item) => (
-                          <li key={item}>- {item}</li>
-                        ))}
-                      </ul>
-                    </GuidanceBlock>
-                  </div>
-
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <GuidanceBlock title="How to know this step is complete">
-                      <ul className="space-y-2 text-sm text-ink-700">
-                        {guidance.done_when.map((item) => (
-                          <li key={item}>- {item}</li>
-                        ))}
-                      </ul>
-                    </GuidanceBlock>
-
-                    <GuidanceBlock title="Coaching note">
-                      <p className="text-sm text-ink-700">{guidance.encouragement}</p>
-                    </GuidanceBlock>
-                  </div>
-                </div>
-              ) : null}
+                </AnimatePresence>
+              </Card>
             </li>
           );
         })}
@@ -207,11 +234,29 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
   );
 }
 
-function GuidanceBlock({ title, children }: { title: string; children: ReactNode }) {
+function GuidanceBlock({
+  title,
+  tone = "default",
+  children,
+}: {
+  title: string;
+  tone?: "default" | "subtle" | "blush" | "butter" | "contrast";
+  children: ReactNode;
+}) {
   return (
-    <div className="space-y-2 rounded-xl border border-surface-border bg-white p-4">
-      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-ink-500">{title}</p>
+    <Card tone={tone} className="space-y-2" padding="md">
+      <p className={cn("editorial-kicker", tone === "contrast" && "text-paper/55")}>{title}</p>
       {children}
-    </div>
+    </Card>
+  );
+}
+
+function GuidanceList({ items }: { items: string[] }) {
+  return (
+    <ul className="space-y-2 text-sm leading-6 text-ink-soft">
+      {items.map((item) => (
+        <li key={item}>- {item}</li>
+      ))}
+    </ul>
   );
 }

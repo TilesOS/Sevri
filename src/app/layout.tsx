@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import Script from "next/script";
-import { themeScript } from "@/components/theme/theme-utils";
+import { Fraunces, Plus_Jakarta_Sans } from "next/font/google";
+import { MotionProvider } from "@/components/theme/motion-provider";
 import "@/app/globals.css";
 
 export const metadata: Metadata = {
@@ -9,18 +9,27 @@ export const metadata: Metadata = {
   description: "Build an authentic project you can finish and showcase.",
 };
 
+const sans = Plus_Jakarta_Sans({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
+
+const display = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-display",
+});
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={`${sans.variable} ${display.variable}`}>
       <body className="app-shell min-h-screen">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {themeScript}
-        </Script>
-        {children}
+        <MotionProvider>
+          {children}
+        </MotionProvider>
       </body>
     </html>
   );

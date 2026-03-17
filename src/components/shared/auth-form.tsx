@@ -3,7 +3,9 @@
 import { type FormEvent, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 
 type AuthMode = "sign-in" | "sign-up";
@@ -71,11 +73,12 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
+      <div aria-live="polite" className="sr-only">
+        {error ?? (isLoading ? "Submitting form." : "")}
+      </div>
+
       {mode === "sign-up" ? (
-        <div className="space-y-2">
-          <label htmlFor="full_name" className="text-sm font-medium text-ink-700">
-            Name
-          </label>
+        <FormField label="Name" htmlFor="full_name" required>
           <Input
             id="full_name"
             type="text"
@@ -85,13 +88,10 @@ export function AuthForm({ mode }: AuthFormProps) {
             autoComplete="name"
             required
           />
-        </div>
+        </FormField>
       ) : null}
 
-      <div className="space-y-2">
-        <label htmlFor="email" className="text-sm font-medium text-ink-700">
-          Email
-        </label>
+      <FormField label="Email" htmlFor="email" required>
         <Input
           id="email"
           type="email"
@@ -100,12 +100,9 @@ export function AuthForm({ mode }: AuthFormProps) {
           placeholder="you@student.edu"
           required
         />
-      </div>
+      </FormField>
 
-      <div className="space-y-2">
-        <label htmlFor="password" className="text-sm font-medium text-ink-700">
-          Password
-        </label>
+      <FormField label="Password" htmlFor="password" required>
         <Input
           id="password"
           type="password"
@@ -115,11 +112,11 @@ export function AuthForm({ mode }: AuthFormProps) {
           minLength={8}
           required
         />
-      </div>
+      </FormField>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <Button type="submit" className="w-full" disabled={isLoading}>
+      <Button type="submit" size="lg" fullWidth disabled={isLoading} className="mt-2">
         {isLoading ? "Please wait..." : mode === "sign-in" ? "Sign in" : "Create account"}
       </Button>
     </form>

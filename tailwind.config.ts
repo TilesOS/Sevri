@@ -10,41 +10,49 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        ink: {
-          50: "var(--ink-50)",
-          100: "var(--ink-100)",
-          200: "var(--ink-200)",
-          300: "var(--ink-300)",
-          400: "var(--ink-400)",
-          500: "var(--ink-500)",
-          600: "var(--ink-600)",
-          700: "var(--ink-700)",
-          800: "var(--ink-800)",
-          900: "var(--ink-900)",
-        },
-        mint: {
-          100: "var(--mint-100)",
-          300: "var(--mint-300)",
-          500: "var(--mint-500)",
-          700: "var(--mint-700)",
-        },
+        canvas: "var(--canvas)",
+        paper: "var(--paper)",
         surface: {
-          base: "var(--surface-base)",
-          card: "var(--surface-card)",
-          subtle: "var(--surface-subtle)",
-          border: "var(--surface-border)",
+          DEFAULT: "var(--surface)",
+          strong: "var(--surface-strong)",
+          butter: "var(--surface-butter)",
+          blush: "var(--surface-blush)",
+        },
+        line: {
+          DEFAULT: "var(--line)",
+          strong: "var(--line-strong)",
+        },
+        ink: {
+          DEFAULT: "var(--ink)",
+          soft: "var(--ink-soft)",
+          muted: "var(--ink-muted)",
+        },
+        accent: {
+          DEFAULT: "var(--accent)",
+          ink: "var(--accent-ink)",
+          soft: "var(--accent-soft)",
+        },
+        terracotta: {
+          DEFAULT: "var(--terracotta)",
+          soft: "var(--terracotta-soft)",
+        },
+        contrast: {
+          DEFAULT: "var(--contrast)",
+          soft: "var(--contrast-soft)",
+          line: "var(--contrast-line)",
         },
       },
       boxShadow: {
         soft: "var(--shadow-soft)",
+        lifted: "var(--shadow-lifted)",
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
-        serif: ["IBM Plex Serif", "Georgia", "Times New Roman", "serif"],
-        body: ["Inter", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        display: ["var(--font-display)", "Georgia", "Times New Roman", "serif"],
+        body: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
       },
-      borderWidth: {
-        thin: "0.8px",
+      maxWidth: {
+        editorial: "76rem",
       },
     },
   },

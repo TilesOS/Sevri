@@ -42,6 +42,12 @@ export default async function RecommendationsPage({
         ...item,
         project_track: asProjectTrack(item.project_track),
         why_it_fits: item.rationale,
+        weekly_hours: item.weekly_hours,
+        skills_demonstrated: item.skills_demonstrated,
+        tools_needed: item.tools_needed,
+        impressiveness_score: item.impressiveness_score,
+        finishability_score: item.finishability_score,
+        authenticity_note: item.authenticity_note,
       }))}
       plan={plan}
       batchesUsed={batchesUsed}
