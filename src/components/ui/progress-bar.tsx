@@ -34,7 +34,7 @@ export function ProgressBar({ value, max = 100, label, helperText, className }: 
         aria-valuenow={Math.round(clampedValue)}
       >
         <motion.div
-          className="h-full rounded-full bg-accent"
+          className="h-full rounded-full bg-primary"
           initial={false}
           animate={{ width: `${percentage}%` }}
           transition={{ duration: 0.45, ease: "easeOut" }}

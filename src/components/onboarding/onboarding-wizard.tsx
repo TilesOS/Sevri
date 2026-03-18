@@ -334,7 +334,7 @@ export function OnboardingWizard() {
                     isActive
                       ? "border-line-strong bg-paper"
                       : isComplete
-                        ? "border-accent bg-accent-soft"
+                        ? "border-primary-line bg-primary-soft"
                         : "border-line bg-surface/45",
                   )}
                 >
@@ -692,7 +692,7 @@ function TrackRadioCard({
       onClick={onClick}
       className={cn(
         "rounded-2xl border p-5 text-left transition",
-        checked ? "border-accent bg-accent-soft" : "border-line bg-surface/35 hover:border-line-strong hover:bg-paper",
+        checked ? "border-primary-line bg-primary-soft" : "border-line bg-surface/35 hover:border-line-strong hover:bg-paper",
       )}
     >
       <div className="flex items-start justify-between gap-4">
@@ -703,7 +703,7 @@ function TrackRadioCard({
         <span
           className={cn(
             "mt-1 h-5 w-5 rounded-full border",
-            checked ? "border-accent bg-accent" : "border-line-strong bg-paper",
+            checked ? "border-primary bg-primary" : "border-line-strong bg-paper",
           )}
           aria-hidden="true"
         />

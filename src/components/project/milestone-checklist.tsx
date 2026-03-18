@@ -126,7 +126,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
                     <label className="flex cursor-pointer items-start gap-3">
                       <input
                         type="checkbox"
-                        className="mt-1 h-5 w-5 rounded border-line accent-accent"
+                        className="mt-1 h-5 w-5 rounded border-line accent-primary"
                         checked={milestone.completed}
                         onChange={() => toggleMilestone(milestone)}
                         disabled={pendingId === milestone.id}

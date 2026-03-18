@@ -17,14 +17,14 @@ export const trackThemes: Record<
 > = {
   software: {
     badgeTone: "software",
-    accentSurfaceClassName: "bg-accent-soft",
-    borderClassName: "border-accent/60",
+    accentSurfaceClassName: "bg-secondary-blue-soft",
+    borderClassName: "border-secondary-blue-line",
     label: "Software",
   },
   research: {
     badgeTone: "research",
-    accentSurfaceClassName: "bg-terracotta-soft",
-    borderClassName: "border-terracotta/40",
+    accentSurfaceClassName: "bg-secondary-pink-soft",
+    borderClassName: "border-secondary-pink-line",
     label: "Research",
   },
 };

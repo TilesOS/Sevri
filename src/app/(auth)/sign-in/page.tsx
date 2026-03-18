@@ -19,7 +19,7 @@ export default function SignInPage() {
       </Suspense>
       <p className="text-sm text-ink-soft">
         No account yet?{" "}
-        <Link href="/sign-up" className="font-semibold text-terracotta hover:text-terracotta/80">
+        <Link href="/sign-up" className="font-semibold text-secondary-blue hover:opacity-80">
           Create one
         </Link>
       </p>

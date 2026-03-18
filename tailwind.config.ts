@@ -27,14 +27,22 @@ const config: Config = {
           soft: "var(--ink-soft)",
           muted: "var(--ink-muted)",
         },
-        accent: {
-          DEFAULT: "var(--accent)",
-          ink: "var(--accent-ink)",
-          soft: "var(--accent-soft)",
+        primary: {
+          DEFAULT: "var(--color-primary)",
+          hover: "var(--color-primary-hover)",
+          active: "var(--color-primary-active)",
+          soft: "var(--color-primary-soft)",
+          line: "var(--color-primary-line)",
         },
-        terracotta: {
-          DEFAULT: "var(--terracotta)",
-          soft: "var(--terracotta-soft)",
+        "secondary-blue": {
+          DEFAULT: "var(--color-secondary-blue)",
+          soft: "var(--color-secondary-blue-soft)",
+          line: "var(--color-secondary-blue-line)",
+        },
+        "secondary-pink": {
+          DEFAULT: "var(--color-secondary-pink)",
+          soft: "var(--color-secondary-pink-soft)",
+          line: "var(--color-secondary-pink-line)",
         },
         contrast: {
           DEFAULT: "var(--contrast)",

@@ -4,26 +4,34 @@
 
 :root {
   color-scheme: light;
+  --color-black: #151311;
+  --color-white: #fcf8f4;
+  --color-primary: #c7ef00;
+  --color-primary-hover: #b3d700;
+  --color-primary-active: #a9c441;
+  --color-primary-soft: #edf8c9;
+  --color-primary-line: rgba(199, 239, 0, 0.42);
+  --color-secondary-blue: #007cbe;
+  --color-secondary-blue-soft: #d9edf7;
+  --color-secondary-blue-line: rgba(0, 124, 190, 0.24);
+  --color-secondary-pink: #ee92c2;
+  --color-secondary-pink-soft: #f8e2ed;
+  --color-secondary-pink-line: rgba(238, 146, 194, 0.3);
   --canvas: #f4efe9;
   --paper: #fcf8f4;
   --surface: #ece4db;
   --surface-strong: #ddd3c7;
   --surface-butter: #f2e5d6;
-  --surface-blush: #ebe6f4;
+  --surface-blush: var(--color-secondary-pink-soft);
   --line: #d7ccc1;
   --line-strong: #aa9e92;
   --ink: #1f1a17;
   --ink-soft: #4c443d;
   --ink-muted: #786f67;
-  --accent: #8eaad6;
-  --accent-ink: #172335;
-  --accent-soft: #dde7f7;
-  --terracotta: #7864a8;
-  --terracotta-soft: #ede7f8;
   --contrast: #151311;
   --contrast-soft: #211e1b;
   --contrast-line: rgba(255, 255, 255, 0.12);
-  --focus-ring: rgba(142, 170, 214, 0.38);
+  --focus-ring: rgba(0, 124, 190, 0.28);
   --shadow-soft: 0 12px 28px rgba(34, 28, 24, 0.07);
   --shadow-lifted: 0 18px 40px rgba(34, 28, 24, 0.1);
 }
@@ -54,8 +62,8 @@
   }
 
   ::selection {
-    background: rgba(142, 170, 214, 0.42);
-    color: var(--accent-ink);
+    background: rgba(0, 124, 190, 0.22);
+    color: var(--ink);
   }
 
   :focus-visible {
@@ -68,8 +76,8 @@
   .app-shell {
     background-color: var(--canvas);
     background-image:
-      radial-gradient(circle at top left, rgba(237, 231, 248, 0.68), transparent 23rem),
-      radial-gradient(circle at 85% 8%, rgba(221, 231, 247, 0.6), transparent 18rem),
+      radial-gradient(circle at top left, rgba(248, 226, 237, 0.68), transparent 23rem),
+      radial-gradient(circle at 85% 8%, rgba(217, 237, 247, 0.6), transparent 18rem),
       linear-gradient(180deg, rgba(252, 248, 244, 0.82), rgba(252, 248, 244, 0.18));
     background-attachment: fixed;
   }

@@ -62,7 +62,7 @@ export default function HomePage() {
         <div className="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
           <Reveal className="space-y-8">
             <div className="space-y-4">
-              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-accent">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-secondary-blue">
                 Project-to-portfolio coaching
               </p>
               <h1 className="font-display text-5xl leading-[0.92] text-paper sm:text-6xl lg:text-7xl">
@@ -116,7 +116,7 @@ export default function HomePage() {
           <Reveal delay={0.1}>
             <div className="relative mx-auto max-w-xl">
               <div
-                className="absolute -left-8 top-12 hidden h-40 w-40 rounded-full bg-accent/20 blur-3xl sm:block"
+                className="absolute -left-8 top-12 hidden h-40 w-40 rounded-full bg-secondary-blue-soft blur-3xl sm:block"
                 aria-hidden="true"
               />
               <div className="space-y-4">
@@ -130,7 +130,7 @@ export default function HomePage() {
                     a clearer weekly transit plan.
                   </p>
                   <div className="mt-5 flex flex-wrap gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted">
-                    <span className="rounded-full bg-accent-soft px-3 py-1">Balanced pick</span>
+                    <span className="rounded-full bg-secondary-blue-soft px-3 py-1 text-secondary-blue">Balanced pick</span>
                     <span className="rounded-full bg-surface px-3 py-1">8 weeks</span>
                   </div>
                 </Card>

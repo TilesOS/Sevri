@@ -30,9 +30,9 @@ export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    "border border-accent bg-accent text-accent-ink shadow-soft hover:-translate-y-0.5 hover:brightness-[0.98] active:translate-y-0 active:brightness-[0.95]",
+    "border border-primary bg-primary text-ink shadow-soft hover:-translate-y-0.5 hover:border-primary-hover hover:bg-primary-hover active:translate-y-0 active:border-primary-active active:bg-primary-active",
   secondary:
-    "border border-terracotta bg-terracotta-soft text-terracotta shadow-soft hover:-translate-y-0.5 hover:brightness-[0.98] active:translate-y-0 active:brightness-[0.95]",
+    "border border-secondary-blue-line bg-secondary-blue-soft text-secondary-blue shadow-soft hover:-translate-y-0.5 hover:border-secondary-blue hover:brightness-[0.99] active:translate-y-0 active:border-secondary-blue active:brightness-[0.97]",
   outline: "border border-line bg-paper text-ink hover:border-line-strong hover:bg-surface/70",
   ghost: "border border-transparent bg-transparent text-ink hover:bg-surface/65",
   contrast: "border border-contrast-line bg-contrast text-paper hover:border-white/20 hover:bg-contrast-soft",
