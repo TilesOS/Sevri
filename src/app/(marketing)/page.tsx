@@ -66,11 +66,11 @@ export default function HomePage() {
                 Project-to-portfolio coaching
               </p>
               <h1 className="font-display text-5xl leading-[0.92] text-paper sm:text-6xl lg:text-7xl">
-                Build the project that proves how you think.
+                Build an authentic project that actually gets finished.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-paper/72">
-                Sevri helps ambitious students choose, scope, and complete meaningful software or
-                research work that can actually survive scrutiny.
+                Sevri helps driven students create software and research projects that speak louder than
+                any bullet point on a college app, resume, or portfolio.
               </p>
             </div>
 
