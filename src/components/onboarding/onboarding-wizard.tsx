@@ -656,7 +656,7 @@ export function OnboardingWizard() {
           </div>
         </Card>
 
-        <Card tone="butter">
+        <Card tone={projectTrack === "research" ? "blush" : "primary"}>
           <p className="editorial-kicker">What Sevri will optimize for</p>
           <p className="mt-3 text-lg font-semibold text-ink">
             {projectTrack === "software"

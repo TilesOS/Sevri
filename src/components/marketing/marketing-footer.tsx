@@ -62,10 +62,10 @@ export function MarketingFooter() {
         </div>
       </Container>
 
-      <div className="border-t border-contrast-line bg-secondary-blue-soft text-secondary-blue">
+      <div className="border-t border-black/10 bg-primary text-ink">
         <Container className="flex flex-col gap-6 py-10 sm:py-14">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em]">Scope matters. Finishability matters.</p>
-          <p className="font-display text-[clamp(3.3rem,9vw,8rem)] leading-[0.88]">Build the thing you can finish.</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-ink/72">Scope matters. Finishability matters.</p>
+          <p className="font-display text-[clamp(3.3rem,9vw,8rem)] leading-[0.88] text-ink">Build the thing you can finish.</p>
         </Container>
       </div>
     </footer>

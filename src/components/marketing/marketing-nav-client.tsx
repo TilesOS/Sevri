@@ -31,12 +31,7 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
       <Container className="relative flex h-20 items-center justify-between gap-6">
         <div className="flex items-center gap-4">
           <Button href="/" variant="ghost" className="h-auto rounded-full px-0 text-left text-white hover:bg-transparent">
-            <span className="flex flex-col">
-              <span className="font-display text-2xl leading-none">Sevri</span>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-white/60">
-                Premium workspace
-              </span>
-            </span>
+            <span className="font-display text-[2rem] leading-none sm:text-[2.35rem]">Sevri</span>
           </Button>
         </div>
 

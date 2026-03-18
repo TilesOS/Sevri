@@ -149,7 +149,7 @@ export default function PricingPage() {
             </Card>
           </Reveal>
           <Reveal delay={0.08}>
-            <Card tone="butter" className="h-full">
+            <Card tone="primary" className="h-full">
               <h2 className="text-3xl font-semibold text-ink">Pro fits best when you are committed.</h2>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
                 Upgrade when you want more iteration space, a richer workspace, and better finishing

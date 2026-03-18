@@ -64,7 +64,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             <p className="editorial-kicker">What happens next</p>
             <p className="mt-3 text-lg font-semibold text-ink">Sevri creates the milestone structure.</p>
           </Card>
-          <Card tone="butter">
+          <Card tone="primary">
             <p className="editorial-kicker">Execution bias</p>
             <p className="mt-3 text-lg font-semibold text-ink">You will move one deliverable at a time.</p>
           </Card>
@@ -145,7 +145,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <p className="mt-3 text-3xl font-semibold text-ink">{milestones.length}</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">Milestones designed to keep momentum visible.</p>
         </Card>
-        <Card tone="butter">
+        <Card tone="primary">
           <p className="editorial-kicker">Completed</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{completedCount}</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">Every completed milestone protects the finishable version.</p>
@@ -158,7 +158,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        <Card tone="butter" className="space-y-4">
+        <Card tone="primary" className="space-y-4">
           <p className="editorial-kicker">Stay finishable</p>
           <h2 className="text-3xl font-semibold text-ink">Protect the MVP scope before you chase the stretch version.</h2>
           <p className="text-sm leading-6 text-ink-soft">{workspace.roadmap.mvp_scope}</p>

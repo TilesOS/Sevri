@@ -50,7 +50,7 @@ export default async function SettingsPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <SettingsForm email={user.email ?? ""} initialValues={settingsValues} />
-        <Card tone="butter" className="space-y-4">
+        <Card tone="primary" className="space-y-4">
           <p className="editorial-kicker">What these defaults affect</p>
           <h2 className="text-3xl font-semibold text-ink">A better starting point every time you return.</h2>
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">

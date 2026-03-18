@@ -1,7 +1,7 @@
 import type { HTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
 
-type CardTone = "default" | "subtle" | "blush" | "butter" | "contrast";
+type CardTone = "default" | "subtle" | "blush" | "primary" | "butter" | "contrast";
 type CardPadding = "none" | "sm" | "md" | "lg";
 type CardElevation = "none" | "soft" | "lifted";
 
@@ -9,7 +9,8 @@ const toneClassName: Record<CardTone, string> = {
   default: "border-line bg-paper text-ink",
   subtle: "border-line bg-surface/70 text-ink",
   blush: "border-secondary-pink-line bg-surface-blush text-ink",
-  butter: "border-line bg-surface-butter text-ink",
+  primary: "border-primary-line bg-primary-soft text-ink",
+  butter: "border-primary-line bg-primary-soft text-ink",
   contrast: "border-contrast-line bg-contrast text-paper",
 };
 

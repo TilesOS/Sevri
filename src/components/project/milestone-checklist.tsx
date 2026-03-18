@@ -197,7 +197,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
                             <GuidanceList items={guidance.checklist} />
                           </GuidanceBlock>
 
-                          <GuidanceBlock title="Deliverables" tone="butter">
+                          <GuidanceBlock title="Deliverables" tone="primary">
                             <GuidanceList items={guidance.deliverables} />
                           </GuidanceBlock>
                         </div>
@@ -240,7 +240,7 @@ function GuidanceBlock({
   children,
 }: {
   title: string;
-  tone?: "default" | "subtle" | "blush" | "butter" | "contrast";
+  tone?: "default" | "subtle" | "blush" | "primary" | "butter" | "contrast";
   children: ReactNode;
 }) {
   return (
