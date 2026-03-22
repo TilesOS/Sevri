@@ -191,6 +191,7 @@ export default function HomePage() {
         eyebrow="How it works"
         title="A clean path from uncertainty to execution."
         description="The experience stays intentionally narrow: choose a track, compare strong options, then keep moving through a roadmap with better pacing and clearer tradeoffs."
+        className="bg-primary-soft"
       >
         <div className="grid gap-4 lg:grid-cols-3">
           {processSteps.map((step, index) => (
@@ -225,7 +226,7 @@ export default function HomePage() {
             </Card>
           </Reveal>
           <Reveal delay={0.1}>
-            <Card tone="blush" className="h-full">
+            <Card className="h-full">
               <p className="editorial-kicker">Research</p>
               <h3 className="mt-4 text-3xl font-semibold text-ink">
                 Turn curiosity into a question with a believable method.

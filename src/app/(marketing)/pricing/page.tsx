@@ -112,6 +112,7 @@ export default function PricingPage() {
         eyebrow="Comparison"
         title="What changes when you upgrade."
         description="The product contract stays the same: Sevri helps you choose, scope, and finish serious work. Pro mainly increases depth, flexibility, and iteration room."
+        className="bg-primary-soft"
       >
         <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-soft">
           <div className="grid grid-cols-[1.2fr_0.9fr_0.9fr] border-b border-line bg-surface/55 px-6 py-4 text-sm font-semibold text-ink">

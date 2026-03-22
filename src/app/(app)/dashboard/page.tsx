@@ -149,7 +149,7 @@ function TrackSection({
         </div>
       </div>
 
-      <div className={`grid gap-4 rounded-2xl border p-5 ${trackTheme.accentSurfaceClassName} ${trackTheme.borderClassName}`}>
+      <div className="grid gap-4 rounded-2xl border border-line bg-paper p-5">
         <div className="grid gap-4 sm:grid-cols-3">
           <div>
             <p className="editorial-kicker">Saved projects</p>
