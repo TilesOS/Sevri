@@ -19,7 +19,7 @@ export default function SignUpPage() {
       </Suspense>
       <p className="text-sm text-ink-soft">
         Already have an account?{" "}
-        <Link href="/sign-in" className="font-semibold text-secondary-blue hover:opacity-80">
+        <Link href="/sign-in" className="font-semibold text-primary hover:opacity-80">
           Sign in
         </Link>
       </p>

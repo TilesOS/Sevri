@@ -11,18 +11,15 @@
   --color-primary-active: #5a7f47;
   --color-primary-soft: #e8f2e3;
   --color-primary-line: rgba(126, 176, 105, 0.38);
-  --color-secondary-blue: #007cbe;
-  --color-secondary-blue-soft: #d9edf7;
-  --color-secondary-blue-line: rgba(0, 124, 190, 0.24);
-  --color-secondary-pink: #E8C8DD;
-  --color-secondary-pink-soft: #f4eaf1;
-  --color-secondary-pink-line: rgba(232, 200, 221, 0.35);
+  --color-secondary-amber: #C8923A;
+  --color-secondary-amber-hover: #B07830;
+  --color-secondary-amber-soft: #f5e8d4;
+  --color-secondary-amber-line: rgba(200, 146, 58, 0.30);
   --canvas: #f0ece4;
   --paper: #f7f4ed;
   --surface: #e8e0d5;
   --surface-strong: #d8cfc3;
   --surface-butter: #e8f0e0;
-  --surface-blush: var(--color-secondary-pink-soft);
   --line: #d7ccc1;
   --line-strong: #aa9e92;
   --ink: #1f1a17;
@@ -62,7 +59,7 @@
   }
 
   ::selection {
-    background: rgba(0, 124, 190, 0.22);
+    background: rgba(126, 176, 105, 0.22);
     color: var(--ink);
   }
 

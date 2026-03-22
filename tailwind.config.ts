@@ -16,7 +16,6 @@ const config: Config = {
           DEFAULT: "var(--surface)",
           strong: "var(--surface-strong)",
           butter: "var(--surface-butter)",
-          blush: "var(--surface-blush)",
         },
         line: {
           DEFAULT: "var(--line)",
@@ -34,15 +33,11 @@ const config: Config = {
           soft: "var(--color-primary-soft)",
           line: "var(--color-primary-line)",
         },
-        "secondary-blue": {
-          DEFAULT: "var(--color-secondary-blue)",
-          soft: "var(--color-secondary-blue-soft)",
-          line: "var(--color-secondary-blue-line)",
-        },
-        "secondary-pink": {
-          DEFAULT: "var(--color-secondary-pink)",
-          soft: "var(--color-secondary-pink-soft)",
-          line: "var(--color-secondary-pink-line)",
+        "secondary-amber": {
+          DEFAULT: "var(--color-secondary-amber)",
+          hover: "var(--color-secondary-amber-hover)",
+          soft: "var(--color-secondary-amber-soft)",
+          line: "var(--color-secondary-amber-line)",
         },
         contrast: {
           DEFAULT: "var(--contrast)",

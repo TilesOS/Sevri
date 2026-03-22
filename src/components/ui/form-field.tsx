@@ -24,7 +24,7 @@ export function FormField({
     <div className={cn("space-y-2", className)}>
       <label htmlFor={htmlFor} className="block text-sm font-semibold text-ink">
         {label}
-        {required ? <span className="ml-1 text-secondary-pink">*</span> : null}
+        {required ? <span className="ml-1 text-secondary-amber">*</span> : null}
       </label>
       {children}
       {hint ? <p className="text-xs leading-5 text-ink-muted">{hint}</p> : null}
