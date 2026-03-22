@@ -6,34 +6,34 @@
   color-scheme: light;
   --color-black: #151311;
   --color-white: #fcf8f4;
-  --color-primary: #c7ef00;
-  --color-primary-hover: #b3d700;
-  --color-primary-active: #a9c441;
-  --color-primary-soft: #edf8c9;
-  --color-primary-line: rgba(199, 239, 0, 0.42);
+  --color-primary: #7EB069;
+  --color-primary-hover: #649051;
+  --color-primary-active: #5a7f47;
+  --color-primary-soft: #e8f2e3;
+  --color-primary-line: rgba(126, 176, 105, 0.38);
   --color-secondary-blue: #007cbe;
   --color-secondary-blue-soft: #d9edf7;
   --color-secondary-blue-line: rgba(0, 124, 190, 0.24);
-  --color-secondary-pink: #ee92c2;
-  --color-secondary-pink-soft: #f8e2ed;
-  --color-secondary-pink-line: rgba(238, 146, 194, 0.3);
-  --canvas: #f4efe9;
-  --paper: #fcf8f4;
-  --surface: #ece4db;
-  --surface-strong: #ddd3c7;
-  --surface-butter: #f2e5d6;
+  --color-secondary-pink: #E8C8DD;
+  --color-secondary-pink-soft: #f4eaf1;
+  --color-secondary-pink-line: rgba(232, 200, 221, 0.35);
+  --canvas: #f0ece4;
+  --paper: #f7f4ed;
+  --surface: #e8e0d5;
+  --surface-strong: #d8cfc3;
+  --surface-butter: #ede4b8;
   --surface-blush: var(--color-secondary-pink-soft);
   --line: #d7ccc1;
   --line-strong: #aa9e92;
   --ink: #1f1a17;
   --ink-soft: #4c443d;
-  --ink-muted: #786f67;
+  --ink-muted: #81736A;
   --contrast: #151311;
   --contrast-soft: #211e1b;
   --contrast-line: rgba(255, 255, 255, 0.12);
   --focus-ring: rgba(0, 124, 190, 0.28);
-  --shadow-soft: 0 12px 28px rgba(34, 28, 24, 0.07);
-  --shadow-lifted: 0 18px 40px rgba(34, 28, 24, 0.1);
+  --shadow-soft: 0 12px 28px rgba(129, 115, 106, 0.15);
+  --shadow-lifted: 0 18px 40px rgba(129, 115, 106, 0.2);
 }
 
 @layer base {
@@ -76,9 +76,9 @@
   .app-shell {
     background-color: var(--canvas);
     background-image:
-      radial-gradient(circle at top left, rgba(248, 226, 237, 0.68), transparent 23rem),
-      radial-gradient(circle at 85% 8%, rgba(217, 237, 247, 0.6), transparent 18rem),
-      linear-gradient(180deg, rgba(252, 248, 244, 0.82), rgba(252, 248, 244, 0.18));
+      radial-gradient(circle at top left, rgba(232, 200, 221, 0.55), transparent 23rem),
+      radial-gradient(circle at 85% 8%, rgba(236, 228, 182, 0.5), transparent 18rem),
+      linear-gradient(180deg, rgba(247, 244, 237, 0.82), rgba(247, 244, 237, 0.18));
     background-attachment: fixed;
   }
 
