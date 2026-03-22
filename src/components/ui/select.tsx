@@ -16,7 +16,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function 
         className={cn(
           "w-full appearance-none rounded-lg border bg-paper px-4 py-3 pr-11 text-sm text-ink outline-none transition",
           hasError ? "border-red-300" : "border-line",
-          "focus:border-secondary-amber",
+          "focus:border-primary",
           "disabled:cursor-not-allowed disabled:bg-surface/60 disabled:text-ink-muted",
           className,
         )}

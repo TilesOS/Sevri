@@ -7,7 +7,7 @@ type SectionTone = "default" | "contrast" | "blush" | "butter";
 const toneClassName: Record<SectionTone, string> = {
   default: "",
   contrast: "bg-contrast text-paper",
-  blush: "",
+  blush: "bg-surface-mint",
   butter: "bg-surface-butter",
 };
 

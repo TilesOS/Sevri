@@ -17,8 +17,8 @@ export const trackThemes: Record<
 > = {
   software: {
     badgeTone: "software",
-    accentSurfaceClassName: "bg-secondary-amber-soft",
-    borderClassName: "border-secondary-amber-line",
+    accentSurfaceClassName: "bg-primary-soft",
+    borderClassName: "border-primary-line",
     label: "Software",
   },
   research: {

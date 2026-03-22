@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 type AlertTone = "info" | "success" | "warning" | "danger";
 
 const toneClassName: Record<AlertTone, string> = {
-  info: "border-secondary-amber-line bg-secondary-amber-soft text-ink",
+  info: "border-primary-line bg-primary-soft text-ink",
   success: "border-primary-line bg-primary-soft text-ink",
   warning: "border-line bg-surface-butter text-ink",
   danger: "border-red-200 bg-red-50 text-red-800",

@@ -5,8 +5,8 @@ type BadgeTone = "neutral" | "accent" | "software" | "research" | "success" | "w
 
 const toneClassName: Record<BadgeTone, string> = {
   neutral: "bg-surface text-ink-soft",
-  accent: "bg-secondary-amber text-paper",
-  software: "bg-secondary-amber-soft text-secondary-amber",
+  accent: "bg-primary text-paper",
+  software: "bg-primary-soft text-primary",
   research: "bg-surface text-ink-soft",
   success: "bg-primary-soft text-ink",
   warning: "bg-surface-butter text-ink-soft",

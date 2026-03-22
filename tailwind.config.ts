@@ -15,6 +15,7 @@ const config: Config = {
         surface: {
           DEFAULT: "var(--surface)",
           strong: "var(--surface-strong)",
+          mint: "var(--surface-mint)",
           butter: "var(--surface-butter)",
         },
         line: {
@@ -32,12 +33,6 @@ const config: Config = {
           active: "var(--color-primary-active)",
           soft: "var(--color-primary-soft)",
           line: "var(--color-primary-line)",
-        },
-        "secondary-amber": {
-          DEFAULT: "var(--color-secondary-amber)",
-          hover: "var(--color-secondary-amber-hover)",
-          soft: "var(--color-secondary-amber-soft)",
-          line: "var(--color-secondary-amber-line)",
         },
         contrast: {
           DEFAULT: "var(--contrast)",
