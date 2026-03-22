@@ -191,7 +191,6 @@ export default function HomePage() {
         eyebrow="How it works"
         title="A clean path from uncertainty to execution."
         description="The experience stays intentionally narrow: choose a track, compare strong options, then keep moving through a roadmap with better pacing and clearer tradeoffs."
-        tone="blush"
       >
         <div className="grid gap-4 lg:grid-cols-3">
           {processSteps.map((step, index) => (
