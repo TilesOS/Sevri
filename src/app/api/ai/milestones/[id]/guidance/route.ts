@@ -109,7 +109,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "fetch-roadmap";
     const { data: roadmap, error: roadmapError } = await supabase
       .from("project_roadmaps")
-      .select("overview")
+      .select("overview, track_payload_json")
       .eq("project_id", project.id)
       .single();
 
@@ -175,6 +175,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const roadmapOverview = buildRoadmapOverviewFromStorage({
       projectTitle: project.title,
       roadmapOverview: roadmap.overview,
+      trackPayloadJson: roadmap.track_payload_json,
       milestones: milestones ?? [],
     });
 
@@ -183,12 +184,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Roadmap step not found" }, { status: 404 });
     }
 
+    const previousStep = roadmapOverview.steps.find((step) => step.order_index === milestone.order_index - 1);
+    const nextStep = roadmapOverview.steps.find((step) => step.order_index === milestone.order_index + 1);
+
     stage = "generate-guidance";
     const generated = await runStepGuidanceGeneration({
       context: generationContext,
       selectedOption,
       roadmap: roadmapOverview,
       step: currentStep,
+      previousStep,
+      nextStep,
     });
 
     stage = "store-guidance";

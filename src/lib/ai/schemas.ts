@@ -72,12 +72,17 @@ const SoftwareOptionSeedSchema = z.object({
   target_user: z.string().min(10).max(140),
   problem_statement: z.string().min(16).max(220),
   core_workflow: z.string().min(16).max(220),
+  mvp_boundary: z.string().min(16).max(220),
+  validation_plan: z.string().min(16).max(220),
 });
 
 const ResearchOptionSeedSchema = z.object({
   research_question: z.string().min(16).max(220),
+  hypothesis_or_focus: z.string().min(16).max(220),
   methodology: z.string().min(8).max(180),
   evidence_plan: z.string().min(8).max(180),
+  scope_boundaries: z.string().min(12).max(220),
+  limitation_note: z.string().min(12).max(220),
 });
 
 const BaseProjectOptionSchema = z.object({
@@ -114,12 +119,17 @@ export const RoadmapStepSchema = z.object({
   objective: z.string().min(18).max(220),
   deliverable: z.string().min(12).max(180),
   rough_time_estimate: z.string().min(4).max(60),
+  validation_check: z.string().min(12).max(220),
+  scope_guardrail: z.string().min(12).max(220),
 });
 
 export const RoadmapOverviewSchema = z.object({
   project_title: z.string().min(5).max(140),
   short_overview: z.string().min(40).max(320),
+  project_brief: z.string().min(60).max(600),
   steps: z.array(RoadmapStepSchema).min(4).max(6),
+  cut_if_behind: z.array(z.string().min(8).max(180)).min(1).max(4),
+  success_criteria: z.array(z.string().min(8).max(180)).min(2).max(5),
 });
 
 export const StepGuidanceEmailSchema = z.object({

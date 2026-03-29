@@ -80,15 +80,15 @@ function resolveStageModel(stage: GenerationStage | string, explicitModel?: stri
 
 function getStageDefaults(stage: GenerationStage | string) {
   if (stage === "options") {
-    return { maxCompletionTokens: 600, maxRetries: 0, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 800, maxRetries: 0, reasoningEffort: "low" as const };
   }
 
   if (stage === "roadmap") {
-    return { maxCompletionTokens: 900, maxRetries: 0, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 1400, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
   if (stage === "step_guidance") {
-    return { maxCompletionTokens: 1400, maxRetries: 0, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 1800, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
   return { maxCompletionTokens: 1200, maxRetries: 2, reasoningEffort: undefined };

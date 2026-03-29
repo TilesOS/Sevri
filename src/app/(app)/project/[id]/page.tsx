@@ -102,17 +102,22 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
     workspace.roadmap.track_payload_json && typeof workspace.roadmap.track_payload_json === "object"
       ? (workspace.roadmap.track_payload_json as Record<string, unknown>)
       : {};
+  const optionSeed =
+    roadmapPayload.selected_option_seed && typeof roadmapPayload.selected_option_seed === "object"
+      ? (roadmapPayload.selected_option_seed as Record<string, unknown>)
+      : {};
+  const projectBrief = getPayloadString(roadmapPayload.project_brief, "");
   const projectLens =
     projectTrack === "research"
       ? [
-          { label: "Research question", value: getPayloadString(roadmapPayload.research_question, "Clarify the final question once the roadmap begins.") },
-          { label: "Methodology", value: getPayloadString(roadmapPayload.methodology, "Choose the cleanest method that matches your access.") },
-          { label: "Evidence plan", value: getPayloadString(roadmapPayload.evidence_plan, "Protect the evidence you can realistically gather.") },
+          { label: "Research question", value: getPayloadString(optionSeed.research_question, "Clarify the final question once the roadmap begins.") },
+          { label: "Methodology", value: getPayloadString(optionSeed.methodology, "Choose the cleanest method that matches your access.") },
+          { label: "Evidence plan", value: getPayloadString(optionSeed.evidence_plan, "Protect the evidence you can realistically gather.") },
         ]
       : [
-          { label: "Target user", value: getPayloadString(roadmapPayload.target_user, "Clarify who this project is genuinely for.") },
-          { label: "Problem statement", value: getPayloadString(roadmapPayload.problem_statement, "Keep the core problem concrete and narrow.") },
-          { label: "Core workflow", value: getPayloadString(roadmapPayload.core_workflow, "Protect the first workflow that makes the project feel real.") },
+          { label: "Target user", value: getPayloadString(optionSeed.target_user, "Clarify who this project is genuinely for.") },
+          { label: "Problem statement", value: getPayloadString(optionSeed.problem_statement, "Keep the core problem concrete and narrow.") },
+          { label: "Core workflow", value: getPayloadString(optionSeed.core_workflow, "Protect the first workflow that makes the project feel real.") },
         ];
   const keyDeliverables = milestones.slice(0, 3).map((milestone) => milestone.deliverable);
 
@@ -187,6 +192,12 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           <h2 className="text-3xl font-semibold text-ink">
             {projectTrack === "research" ? "Keep the question and method visible." : "Keep the user and workflow visible."}
           </h2>
+          {projectBrief ? (
+            <div className="rounded-xl border border-line bg-surface/35 p-4">
+              <p className="editorial-kicker">Project brief</p>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">{projectBrief}</p>
+            </div>
+          ) : null}
           <div className="space-y-4">
             {projectLens.map((item) => (
               <div key={item.label} className="rounded-xl border border-line bg-surface/35 p-4">
