@@ -158,6 +158,9 @@ export async function POST(request: Request) {
           track_payload_json: storageArtifacts.trackPayloadJson,
           raw_model_output_json: {
             roadmap: generated.parsed,
+            response: generated.raw,
+            citations: generated.citations,
+            refusal: generated.refusal,
             metrics: generated.metrics,
           },
         },
@@ -226,6 +229,7 @@ export async function POST(request: Request) {
         roadmap_id: roadmap.id,
         project_track: projectTrack,
         timings: routeMetadata,
+        ...(generated.citations.length > 0 ? { citations: generated.citations } : {}),
       },
       { status: 200 },
     );

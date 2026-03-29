@@ -121,6 +121,15 @@ async function benchmarkTrack(track: BenchmarkTrack) {
       optionsFallback: v2Options.result.metrics.fallback_used,
       roadmapFallback: v2Roadmap.result.metrics.fallback_used,
       stepFallback: v2Step.result.metrics.fallback_used,
+      optionsFallbackModel: v2Options.result.metrics.fallback_model_used,
+      roadmapFallbackModel: v2Roadmap.result.metrics.fallback_model_used,
+      stepFallbackModel: v2Step.result.metrics.fallback_model_used,
+      optionsWebSearchUsed: v2Options.result.metrics.web_search_used,
+      roadmapWebSearchUsed: v2Roadmap.result.metrics.web_search_used,
+      stepWebSearchUsed: v2Step.result.metrics.web_search_used,
+      optionsCitationCount: v2Options.result.metrics.citation_count,
+      roadmapCitationCount: v2Roadmap.result.metrics.citation_count,
+      stepCitationCount: v2Step.result.metrics.citation_count,
     },
   };
 }
@@ -138,6 +147,9 @@ async function main() {
       measured_legacy_ms: software.legacy.totalOptionsMs,
       measured_v2_ms: software.v2.optionsMs,
       fallback: software.v2.optionsFallback,
+      fallback_model: software.v2.optionsFallbackModel,
+      web_search_used: software.v2.optionsWebSearchUsed,
+      citation_count: software.v2.optionsCitationCount,
     },
     {
       stage: "roadmap",
@@ -146,6 +158,9 @@ async function main() {
       measured_legacy_ms: software.legacy.roadmapMs,
       measured_v2_ms: software.v2.roadmapMs,
       fallback: software.v2.roadmapFallback,
+      fallback_model: software.v2.roadmapFallbackModel,
+      web_search_used: software.v2.roadmapWebSearchUsed,
+      citation_count: software.v2.roadmapCitationCount,
     },
     {
       stage: "step_guidance",
@@ -154,6 +169,9 @@ async function main() {
       measured_legacy_ms: null,
       measured_v2_ms: software.v2.stepMs,
       fallback: software.v2.stepFallback,
+      fallback_model: software.v2.stepFallbackModel,
+      web_search_used: software.v2.stepWebSearchUsed,
+      citation_count: software.v2.stepCitationCount,
     },
     {
       stage: "options",
@@ -162,6 +180,9 @@ async function main() {
       measured_legacy_ms: research.legacy.totalOptionsMs,
       measured_v2_ms: research.v2.optionsMs,
       fallback: research.v2.optionsFallback,
+      fallback_model: research.v2.optionsFallbackModel,
+      web_search_used: research.v2.optionsWebSearchUsed,
+      citation_count: research.v2.optionsCitationCount,
     },
     {
       stage: "roadmap",
@@ -170,6 +191,9 @@ async function main() {
       measured_legacy_ms: research.legacy.roadmapMs,
       measured_v2_ms: research.v2.roadmapMs,
       fallback: research.v2.roadmapFallback,
+      fallback_model: research.v2.roadmapFallbackModel,
+      web_search_used: research.v2.roadmapWebSearchUsed,
+      citation_count: research.v2.roadmapCitationCount,
     },
     {
       stage: "step_guidance",
@@ -178,6 +202,9 @@ async function main() {
       measured_legacy_ms: null,
       measured_v2_ms: research.v2.stepMs,
       fallback: research.v2.stepFallback,
+      fallback_model: research.v2.stepFallbackModel,
+      web_search_used: research.v2.stepWebSearchUsed,
+      citation_count: research.v2.stepCitationCount,
     },
   ];
 

@@ -178,6 +178,7 @@ export async function POST(request: Request) {
       track_payload_json: recommendation.track_payload_json,
       raw_model_output_json: {
         recommendation,
+        response: generated.raw,
         metrics: generated.metrics,
       },
     }));

@@ -6,7 +6,13 @@ import {
   buildStepGuidanceSystemPrompt,
   buildStepGuidanceUserPrompt,
 } from "@/lib/ai/prompts";
-import { generateStructuredOutput, getGenerationVersion, type GenerationMetrics } from "@/lib/ai/client";
+import {
+  generateStructuredOutput,
+  getGenerationVersion,
+  type GenerationCitation,
+  type GenerationMetrics,
+  type WebSearchPolicy,
+} from "@/lib/ai/client";
 import {
   estimateWeeksFromContext,
   estimateWeeklyHoursFromContext,
@@ -52,6 +58,8 @@ interface PipelineResult<T> {
   parsed: T;
   raw: unknown;
   metrics: GenerationMetrics;
+  citations: GenerationCitation[];
+  refusal: string | null;
 }
 
 function buildFallbackMetrics(stage: GenerationMetrics["stage"], model = "deterministic-fallback"): GenerationMetrics {
@@ -65,6 +73,13 @@ function buildFallbackMetrics(stage: GenerationMetrics["stage"], model = "determ
     prompt_chars: 0,
     output_chars: 0,
     fallback_used: true,
+    fallback_model_used: null,
+    validator_failed: false,
+    validator_issue_count: 0,
+    tool_used: false,
+    web_search_used: false,
+    citation_count: 0,
+    refusal_detected: false,
   };
 }
 
@@ -85,6 +100,95 @@ function getFailureMetrics(error: unknown, stage: GenerationMetrics["stage"]): G
 
 function studentThemesAllowed(text: string) {
   return /(student|study|learning|education|wellness|mental health|school|classroom)/i.test(text);
+}
+
+const RECENCY_SENSITIVE_PATTERN =
+  /\b(latest|recent|current|up[-\s]?to[-\s]?date|newest|state[-\s]?of[-\s]?the[-\s]?art|202[4-9])\b/i;
+const RESEARCH_SOURCE_SEEKING_PATTERN =
+  /\b(paper|papers|dataset|datasets|benchmark|benchmarks|literature|survey|arxiv|source set|evidence)\b/i;
+const SOFTWARE_SOURCE_SEEKING_PATTERN =
+  /\b(api|apis|sdk|sdks|framework|frameworks|library|libraries|tooling|integration|integrations|package|packages|dependency|dependencies|version|versions)\b/i;
+
+function appendExternalSearchGuidance(basePrompt: string, policy?: WebSearchPolicy) {
+  if (!policy?.enabled) {
+    return basePrompt;
+  }
+
+  const reasonLine =
+    policy.reason === "recency_sensitive"
+      ? "Use web search only where current or recent external information materially improves the answer."
+      : policy.reason === "source_seeking"
+        ? "Use web search only where external sources, papers, datasets, or API references materially improve the answer."
+        : "Use web search only where the user explicitly asked for current external information.";
+
+  return [
+    basePrompt,
+    "External search guidance:",
+    `- ${reasonLine}`,
+    "- Ground any externally sourced claims in retrieved sources.",
+    "- Keep source-backed claims concise so citations can be surfaced cleanly in the response.",
+    "- Do not replace the student's project context with generic web information.",
+  ].join("\n\n");
+}
+
+function detectRoadmapWebSearchPolicy(input: { context: GenerationContext; selectedOption: ProjectOption }): WebSearchPolicy | undefined {
+  const combined = [
+    input.context.summary,
+    input.selectedOption.title,
+    input.selectedOption.summary,
+    input.selectedOption.why_it_fits,
+    JSON.stringify(input.selectedOption.track_payload_json),
+  ].join(" ");
+
+  if (RECENCY_SENSITIVE_PATTERN.test(combined)) {
+    return { enabled: true, reason: "recency_sensitive" };
+  }
+
+  const sourceSeekingPattern =
+    input.selectedOption.project_track === "research" ? RESEARCH_SOURCE_SEEKING_PATTERN : SOFTWARE_SOURCE_SEEKING_PATTERN;
+
+  if (sourceSeekingPattern.test(combined)) {
+    return { enabled: true, reason: "source_seeking" };
+  }
+
+  return undefined;
+}
+
+function detectStepGuidanceWebSearchPolicy(input: {
+  context: GenerationContext;
+  selectedOption: ProjectOption;
+  roadmap: RoadmapOverview;
+  step: RoadmapStep;
+  previousStep?: RoadmapStep;
+  nextStep?: RoadmapStep;
+}): WebSearchPolicy | undefined {
+  const combined = [
+    input.context.summary,
+    input.selectedOption.title,
+    input.selectedOption.summary,
+    JSON.stringify(input.selectedOption.track_payload_json),
+    input.roadmap.project_title,
+    input.roadmap.project_brief,
+    input.step.title,
+    input.step.objective,
+    input.step.deliverable,
+    input.step.validation_check,
+    input.previousStep?.deliverable ?? "",
+    input.nextStep?.objective ?? "",
+  ].join(" ");
+
+  if (RECENCY_SENSITIVE_PATTERN.test(combined)) {
+    return { enabled: true, reason: "recency_sensitive" };
+  }
+
+  const sourceSeekingPattern =
+    input.selectedOption.project_track === "research" ? RESEARCH_SOURCE_SEEKING_PATTERN : SOFTWARE_SOURCE_SEEKING_PATTERN;
+
+  if (sourceSeekingPattern.test(combined)) {
+    return { enabled: true, reason: "source_seeking" };
+  }
+
+  return undefined;
 }
 
 function containsBlockedTheme(text: string, allowStudentThemes: boolean) {
@@ -548,6 +652,8 @@ export async function runOptionsGeneration(context: GenerationContext): Promise<
       parsed: result.parsed,
       raw: result.raw,
       metrics: result.metrics,
+      citations: result.citations,
+      refusal: result.refusal,
     };
   } catch (error) {
     console.warn("options generation failed, using fallback", { error: error instanceof Error ? error.message : error });
@@ -562,6 +668,8 @@ export async function runOptionsGeneration(context: GenerationContext): Promise<
         reason: error instanceof Error ? error.message : "Unknown error",
       },
       metrics: { ...metrics, fallback_used: true },
+      citations: [],
+      refusal: null,
     };
   }
 }
@@ -571,23 +679,30 @@ export async function runRoadmapGeneration(input: {
   selectedOption: ProjectOption;
 }): Promise<PipelineResult<RoadmapOverview>> {
   try {
+    const webSearch = detectRoadmapWebSearchPolicy(input);
     const result = await generateStructuredOutput({
       stage: "roadmap",
       schema: RoadmapOverviewSchema,
       schemaName: `${input.context.project_track}_roadmap_overview`,
       systemPrompt: buildRoadmapSystemPrompt(input.context.project_track),
-      userPrompt: buildRoadmapUserPrompt({
-        projectTrack: input.context.project_track,
-        context: input.context,
-        selectedOption: input.selectedOption,
-      }),
+      userPrompt: appendExternalSearchGuidance(
+        buildRoadmapUserPrompt({
+          projectTrack: input.context.project_track,
+          context: input.context,
+          selectedOption: input.selectedOption,
+        }),
+        webSearch,
+      ),
       validator: (parsed) => roadmapIssues(parsed, input.selectedOption, input.context),
+      webSearch,
     });
 
     return {
       parsed: normalizeRoadmapSteps(result.parsed),
       raw: result.raw,
       metrics: result.metrics,
+      citations: result.citations,
+      refusal: result.refusal,
     };
   } catch (error) {
     console.warn("roadmap generation failed, using fallback", { error: error instanceof Error ? error.message : error });
@@ -602,6 +717,8 @@ export async function runRoadmapGeneration(input: {
         reason: error instanceof Error ? error.message : "Unknown error",
       },
       metrics: { ...metrics, fallback_used: true },
+      citations: [],
+      refusal: null,
     };
   }
 }
@@ -615,19 +732,23 @@ export async function runStepGuidanceGeneration(input: {
   nextStep?: RoadmapStep;
 }): Promise<PipelineResult<StepGuidance>> {
   try {
+    const webSearch = detectStepGuidanceWebSearchPolicy(input);
     const result = await generateStructuredOutput({
       stage: "step_guidance",
       schema: StepGuidanceSchema,
       schemaName: `${input.context.project_track}_step_guidance`,
       systemPrompt: buildStepGuidanceSystemPrompt(input.context.project_track),
-      userPrompt: buildStepGuidanceUserPrompt(input),
+      userPrompt: appendExternalSearchGuidance(buildStepGuidanceUserPrompt(input), webSearch),
       validator: (parsed) => stepGuidanceIssues(parsed, input.step, input.context),
+      webSearch,
     });
 
     return {
       parsed: result.parsed,
       raw: result.raw,
       metrics: result.metrics,
+      citations: result.citations,
+      refusal: result.refusal,
     };
   } catch (error) {
     console.warn("step guidance generation failed, using fallback", { error: error instanceof Error ? error.message : error, step_title: input.step.title });
@@ -642,6 +763,8 @@ export async function runStepGuidanceGeneration(input: {
         reason: error instanceof Error ? error.message : "Unknown error",
       },
       metrics: { ...metrics, fallback_used: true },
+      citations: [],
+      refusal: null,
     };
   }
 }
@@ -663,6 +786,13 @@ export function getRouteGenerationMetadata(input: {
     validation_ms: input.metrics.validation_ms,
     prompt_chars: input.metrics.prompt_chars,
     output_chars: input.metrics.output_chars,
+    fallback_model_used: input.metrics.fallback_model_used,
+    validator_failed: input.metrics.validator_failed,
+    validator_issue_count: input.metrics.validator_issue_count,
+    tool_used: input.metrics.tool_used,
+    web_search_used: input.metrics.web_search_used,
+    citation_count: input.metrics.citation_count,
+    refusal_detected: input.metrics.refusal_detected,
   };
 }
 

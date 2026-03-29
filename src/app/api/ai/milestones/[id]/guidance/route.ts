@@ -6,7 +6,7 @@ import { runStepGuidanceGeneration, getRouteGenerationMetadata } from "@/lib/ai/
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage, coerceStoredProjectOption } from "@/lib/ai/storage";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
-import { getGenerationVersion } from "@/lib/ai/client";
+import { getGenerationVersion, type GenerationCitation, type GenerationMetrics } from "@/lib/ai/client";
 import { trackEvent } from "@/lib/analytics/events";
 import { captureServerError } from "@/lib/sentry/server";
 
@@ -26,6 +26,41 @@ function getErrorDetails(error: unknown) {
   } catch {
     return "Unknown error";
   }
+}
+
+function asRecord(value: unknown) {
+  return value && typeof value === "object" ? (value as Record<string, unknown>) : null;
+}
+
+function getStoredCitations(rawModelOutput: unknown): GenerationCitation[] {
+  const raw = asRecord(rawModelOutput);
+  if (!raw || !Array.isArray(raw.citations)) {
+    return [];
+  }
+
+  const citations: GenerationCitation[] = [];
+
+  for (const citation of raw.citations) {
+    const item = asRecord(citation);
+    if (!item || typeof item.url !== "string" || item.url.trim().length === 0) {
+      continue;
+    }
+
+    citations.push({
+      title: typeof item.title === "string" ? item.title : undefined,
+      url: item.url,
+      start_index: typeof item.start_index === "number" ? item.start_index : undefined,
+      end_index: typeof item.end_index === "number" ? item.end_index : undefined,
+    });
+  }
+
+  return citations;
+}
+
+function getStoredMetrics(rawModelOutput: unknown) {
+  const raw = asRecord(rawModelOutput);
+  const metrics = raw ? asRecord(raw.metrics) : null;
+  return metrics as Partial<GenerationMetrics> | null;
 }
 
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -73,30 +108,43 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       stage = "check-cache";
       const { data: cachedGuidance } = await supabase
         .from("milestone_guidance")
-        .select("guidance_json, generation_version")
+        .select("guidance_json, generation_version, raw_model_output_json")
         .eq("milestone_id", milestone.id)
         .maybeSingle();
 
       if (cachedGuidance) {
         try {
           const parsed = StepGuidanceSchema.parse(cachedGuidance.guidance_json);
+          const cachedCitations = getStoredCitations(cachedGuidance.raw_model_output_json);
+          const cachedMetrics = getStoredMetrics(cachedGuidance.raw_model_output_json);
           return NextResponse.json(
             {
               guidance: parsed,
               cache_hit: true,
               timings: {
-                stage: "step_guidance",
-                generation_version: cachedGuidance.generation_version ?? getGenerationVersion(),
-                model: "cache",
-                attempt_count: 0,
-                fallback_used: false,
+                stage: cachedMetrics?.stage ?? "step_guidance",
+                generation_version:
+                  cachedGuidance.generation_version ?? cachedMetrics?.generation_version ?? getGenerationVersion(),
+                model: cachedMetrics?.model ?? "cache",
+                attempt_count: typeof cachedMetrics?.attempt_count === "number" ? cachedMetrics.attempt_count : 0,
+                fallback_used: cachedMetrics?.fallback_used ?? false,
                 cache_hit: true,
                 route_total_ms: Math.round(performance.now() - routeStartedAt),
-                ai_total_ms: 0,
-                validation_ms: 0,
-                prompt_chars: 0,
+                ai_total_ms: typeof cachedMetrics?.ai_total_ms === "number" ? cachedMetrics.ai_total_ms : 0,
+                validation_ms: typeof cachedMetrics?.validation_ms === "number" ? cachedMetrics.validation_ms : 0,
+                prompt_chars: typeof cachedMetrics?.prompt_chars === "number" ? cachedMetrics.prompt_chars : 0,
                 output_chars: JSON.stringify(parsed).length,
+                fallback_model_used:
+                  typeof cachedMetrics?.fallback_model_used === "string" ? cachedMetrics.fallback_model_used : null,
+                validator_failed: cachedMetrics?.validator_failed ?? false,
+                validator_issue_count:
+                  typeof cachedMetrics?.validator_issue_count === "number" ? cachedMetrics.validator_issue_count : 0,
+                tool_used: cachedMetrics?.tool_used ?? cachedCitations.length > 0,
+                web_search_used: cachedMetrics?.web_search_used ?? cachedCitations.length > 0,
+                citation_count: cachedCitations.length,
+                refusal_detected: cachedMetrics?.refusal_detected ?? false,
               },
+              ...(cachedCitations.length > 0 ? { citations: cachedCitations } : {}),
             },
             { status: 200 },
           );
@@ -204,7 +252,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         guidance_json: generated.parsed,
         email_payload_json: generated.parsed.email_version,
         raw_model_output_json: {
-          guidance: generated.raw,
+          guidance: generated.parsed,
+          response: generated.raw,
+          citations: generated.citations,
+          refusal: generated.refusal,
           metrics: generated.metrics,
         },
         generation_version: generated.metrics.generation_version,
@@ -241,6 +292,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         guidance: generated.parsed,
         cache_hit: false,
         timings: routeMetadata,
+        ...(generated.citations.length > 0 ? { citations: generated.citations } : {}),
       },
       { status: 200 },
     );
