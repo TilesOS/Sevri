@@ -305,7 +305,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
   }
 
   return (
-    <Card className="space-y-5">
+    <Card className="space-y-6">
       <div aria-live="polite" className="sr-only">
         {toggleError ??
           Object.values(guidanceErrorById).find(Boolean) ??
@@ -323,7 +323,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
 
       {toggleError ? <Alert tone="danger">{toggleError}</Alert> : null}
 
-      <ul className="space-y-4">
+      <ul className="divide-y divide-line">
         {milestones.map((milestone) => {
           const isExpanded = expandedId === milestone.id;
           const guidance = guidanceById[milestone.id];
@@ -335,131 +335,129 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
           const isResubmitMode = resubmitModeById[milestone.id] ?? false;
 
           return (
-            <li key={milestone.id}>
-              <Card className="space-y-5">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="space-y-4">
-                    <label className="flex cursor-pointer items-start gap-3">
-                      <input
-                        type="checkbox"
-                        className="mt-1 h-5 w-5 rounded border-line accent-primary"
-                        checked={milestone.completed}
-                        onChange={() => toggleMilestone(milestone)}
-                        disabled={pendingId === milestone.id}
-                      />
-                      <div className="space-y-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge tone={milestone.completed ? "success" : "neutral"}>
-                            Step {milestone.order_index + 1}
-                          </Badge>
-                          <Badge tone="warning">{milestone.rough_time_estimate ?? "About 1 week"}</Badge>
-                        </div>
-                        <p className="text-xl font-semibold text-ink">{milestone.title}</p>
+            <li key={milestone.id} className="space-y-4 py-5 first:pt-0 last:pb-0">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                <div className="space-y-4">
+                  <label className="flex cursor-pointer items-start gap-3">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-5 w-5 rounded border-line accent-primary"
+                      checked={milestone.completed}
+                      onChange={() => toggleMilestone(milestone)}
+                      disabled={pendingId === milestone.id}
+                    />
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge tone={milestone.completed ? "success" : "neutral"}>
+                          Step {milestone.order_index + 1}
+                        </Badge>
+                        <Badge tone="warning">{milestone.rough_time_estimate ?? "About 1 week"}</Badge>
                       </div>
-                    </label>
-
-                    <div className="space-y-3 pl-8 text-sm text-ink-soft">
-                      <p>{milestone.objective ?? milestone.description}</p>
-                      <div className="rounded-xl border border-line bg-surface/40 p-4">
-                        <p className="editorial-kicker">Deliverable</p>
-                        <p className="mt-2 text-sm font-semibold text-ink">{milestone.deliverable ?? "Concrete step output"}</p>
-                      </div>
+                      <p className="text-xl font-semibold text-ink">{milestone.title}</p>
                     </div>
-                  </div>
+                  </label>
 
-                  <div className="flex flex-wrap gap-2 lg:justify-end">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => toggleExpanded(milestone.id)}
-                      disabled={isGuidancePending}
-                      className="rounded-full"
-                    >
-                      {isExpanded ? "Hide guidance" : isGuidancePending ? "Loading..." : "Open guidance"}
-                    </Button>
-                    {isExpanded ? (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={() => void fetchGuidance(milestone.id, true)}
-                        disabled={isGuidancePending}
-                        className="rounded-full"
-                      >
-                        {isGuidancePending ? "Refreshing..." : "Refresh guidance"}
-                      </Button>
-                    ) : null}
+                  <div className="space-y-3 pl-8 text-sm text-ink-soft">
+                    <p>{milestone.objective ?? milestone.description}</p>
+                    <div className="rounded-lg bg-canvas p-4">
+                      <p className="editorial-kicker">Deliverable</p>
+                      <p className="mt-2 text-sm font-semibold text-ink">{milestone.deliverable ?? "Concrete step output"}</p>
+                    </div>
                   </div>
                 </div>
 
-                {guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
-
-                <AnimatePresence initial={false}>
-                  {isExpanded && guidance ? (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.24, ease: "easeOut" }}
-                      className="overflow-hidden"
+                <div className="flex flex-wrap gap-2 lg:justify-end">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => toggleExpanded(milestone.id)}
+                    disabled={isGuidancePending}
+                    className="rounded-full"
+                  >
+                    {isExpanded ? "Hide guidance" : isGuidancePending ? "Loading..." : "Open guidance"}
+                  </Button>
+                  {isExpanded ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      onClick={() => void fetchGuidance(milestone.id, true)}
+                      disabled={isGuidancePending}
+                      className="rounded-full"
                     >
-                      <div className="space-y-4 border-t border-line pt-5">
-                        <Card tone="subtle">
-                          <p className="editorial-kicker">What to do now</p>
-                          <p className="mt-3 text-sm leading-6 text-ink-soft">{guidance.what_to_do_now}</p>
-                        </Card>
-
-                        <div className="grid gap-4 lg:grid-cols-2">
-                          <GuidanceBlock title="Detailed checklist" tone="default">
-                            <GuidanceList items={guidance.checklist} />
-                          </GuidanceBlock>
-
-                          <GuidanceBlock title="Deliverables" tone="primary">
-                            <GuidanceList items={guidance.deliverables} />
-                          </GuidanceBlock>
-                        </div>
-
-                        <div className="grid gap-4 lg:grid-cols-2">
-                          <GuidanceBlock title="Common pitfalls" tone="blush">
-                            <GuidanceList items={guidance.pitfalls} />
-                          </GuidanceBlock>
-
-                          <GuidanceBlock title="Tools and resources" tone="default">
-                            <GuidanceList items={guidance.tools_resources} />
-                          </GuidanceBlock>
-                        </div>
-
-                        <div className="grid gap-4 lg:grid-cols-2">
-                          <GuidanceBlock title="Done when" tone="default">
-                            <GuidanceList items={guidance.done_when} />
-                          </GuidanceBlock>
-
-                          <GuidanceBlock title="Coaching note" tone="contrast">
-                            <p className="text-sm leading-6 text-paper/72">{guidance.encouragement}</p>
-                          </GuidanceBlock>
-                        </div>
-
-                        <div className="border-t border-line pt-5">
-                          <SubmissionSection
-                            slot={slot}
-                            isEvaluationPending={isEvaluationPending}
-                            evaluationError={evaluationError}
-                            isResubmitMode={isResubmitMode}
-                            onSubmit={(text, kind, nextFilename) =>
-                              void submitWork(milestone.id, text, kind, nextFilename)
-                            }
-                            onResubmit={() =>
-                              setResubmitModeById((prev) => ({ ...prev, [milestone.id]: true }))
-                            }
-                            onCancelResubmit={() =>
-                              setResubmitModeById((prev) => ({ ...prev, [milestone.id]: false }))
-                            }
-                          />
-                        </div>
-                      </div>
-                    </motion.div>
+                      {isGuidancePending ? "Refreshing..." : "Refresh guidance"}
+                    </Button>
                   ) : null}
-                </AnimatePresence>
-              </Card>
+                </div>
+              </div>
+
+              {guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
+
+              <AnimatePresence initial={false}>
+                {isExpanded && guidance ? (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    transition={{ duration: 0.24, ease: "easeOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-4 border-t border-line pt-5">
+                      <Card tone="subtle">
+                        <p className="editorial-kicker">What to do now</p>
+                        <p className="mt-3 text-sm leading-6 text-ink-soft">{guidance.what_to_do_now}</p>
+                      </Card>
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <GuidanceBlock title="Detailed checklist" tone="default">
+                          <GuidanceList items={guidance.checklist} />
+                        </GuidanceBlock>
+
+                        <GuidanceBlock title="Deliverables" tone="primary">
+                          <GuidanceList items={guidance.deliverables} />
+                        </GuidanceBlock>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <GuidanceBlock title="Common pitfalls" tone="blush">
+                          <GuidanceList items={guidance.pitfalls} />
+                        </GuidanceBlock>
+
+                        <GuidanceBlock title="Tools and resources" tone="default">
+                          <GuidanceList items={guidance.tools_resources} />
+                        </GuidanceBlock>
+                      </div>
+
+                      <div className="grid gap-4 lg:grid-cols-2">
+                        <GuidanceBlock title="Done when" tone="default">
+                          <GuidanceList items={guidance.done_when} />
+                        </GuidanceBlock>
+
+                        <GuidanceBlock title="Coaching note" tone="contrast">
+                          <p className="text-sm leading-6 text-paper/72">{guidance.encouragement}</p>
+                        </GuidanceBlock>
+                      </div>
+
+                      <div className="border-t border-line pt-5">
+                        <SubmissionSection
+                          slot={slot}
+                          isEvaluationPending={isEvaluationPending}
+                          evaluationError={evaluationError}
+                          isResubmitMode={isResubmitMode}
+                          onSubmit={(text, kind, nextFilename) =>
+                            void submitWork(milestone.id, text, kind, nextFilename)
+                          }
+                          onResubmit={() =>
+                            setResubmitModeById((prev) => ({ ...prev, [milestone.id]: true }))
+                          }
+                          onCancelResubmit={() =>
+                            setResubmitModeById((prev) => ({ ...prev, [milestone.id]: false }))
+                          }
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : null}
+              </AnimatePresence>
             </li>
           );
         })}

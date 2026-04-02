@@ -37,7 +37,7 @@ export function Card({
   className,
   tone = "default",
   padding = "md",
-  elevation = "soft",
+  elevation = "none",
   ...props
 }: CardProps) {
   return (

@@ -291,14 +291,14 @@ export function RecommendationsClient({
 
                   <div className="mt-6 grid gap-3">
                     {details.map((detail) => (
-                      <div key={detail.label} className="rounded-xl border border-line bg-surface/55 p-4">
+                      <div key={detail.label} className="rounded-lg bg-canvas p-4">
                         <p className="editorial-kicker">{detail.label}</p>
                         <p className="mt-2 text-sm leading-6 text-ink">{detail.value}</p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-6 space-y-4 rounded-xl border border-line bg-surface/45 p-4">
+                  <div className="mt-6 space-y-4 rounded-lg bg-canvas p-5">
                     <div className="grid grid-cols-2 gap-4">
                       <Metric label="Estimated timeline" value={`${item.estimated_weeks} weeks`} />
                       <Metric

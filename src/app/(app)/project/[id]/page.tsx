@@ -196,14 +196,14 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             {projectTrack === "research" ? "Keep the question and method visible." : "Keep the user and workflow visible."}
           </h2>
           {projectBrief ? (
-            <div className="rounded-xl border border-line bg-surface/35 p-4">
+            <div className="rounded-lg bg-canvas p-4">
               <p className="editorial-kicker">Project brief</p>
               <p className="mt-2 text-sm leading-6 text-ink-soft">{projectBrief}</p>
             </div>
           ) : null}
           <div className="space-y-4">
             {projectLens.map((item) => (
-              <div key={item.label} className="rounded-xl border border-line bg-surface/35 p-4">
+              <div key={item.label} className="rounded-lg bg-canvas p-4">
                 <p className="editorial-kicker">{item.label}</p>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">{item.value}</p>
               </div>

@@ -149,27 +149,25 @@ function TrackSection({
         </div>
       </div>
 
-      <div className="grid gap-4 rounded-2xl border border-line bg-paper p-5">
-        <div className="grid gap-4 sm:grid-cols-3">
-          <div>
-            <p className="editorial-kicker">Saved projects</p>
-            <p className="mt-3 text-3xl font-semibold text-ink">{projects.length}</p>
-          </div>
-          <div>
-            <p className="editorial-kicker">Recommendation history</p>
-            <p className="mt-3 text-3xl font-semibold text-ink">{recommendationCount}</p>
-          </div>
-          <div>
-            <p className="editorial-kicker">Track state</p>
-            <p className="mt-3 text-lg font-semibold text-ink">{hasIntake ? "Ready for action" : "Needs direction"}</p>
-          </div>
+      <div className="grid gap-6 rounded-xl bg-canvas px-5 py-4 sm:grid-cols-3">
+        <div>
+          <p className="editorial-kicker">Saved projects</p>
+          <p className="mt-3 text-3xl font-semibold text-ink">{projects.length}</p>
+        </div>
+        <div>
+          <p className="editorial-kicker">Recommendation history</p>
+          <p className="mt-3 text-3xl font-semibold text-ink">{recommendationCount}</p>
+        </div>
+        <div>
+          <p className="editorial-kicker">Track state</p>
+          <p className="mt-3 text-lg font-semibold text-ink">{hasIntake ? "Ready for action" : "Needs direction"}</p>
         </div>
       </div>
 
       {projects.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => (
-            <Card key={project.id} className="flex h-full flex-col">
+            <Card key={project.id} tone="subtle" className="flex h-full flex-col">
               <div className="flex items-start justify-between gap-3">
                 <Badge tone={trackTheme.badgeTone}>{track === "software" ? "Software" : "Research"}</Badge>
                 <Badge tone={project.status === "completed" ? "success" : "neutral"}>{project.status}</Badge>
