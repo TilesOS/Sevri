@@ -9,7 +9,7 @@ import { getGenerationVersion } from "@/lib/ai/client";
 import { getRecommendationGenerationCount, getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { canGenerateRecommendations } from "@/lib/usage/limits";
-import { trackEvent } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 
 export const runtime = "nodejs";

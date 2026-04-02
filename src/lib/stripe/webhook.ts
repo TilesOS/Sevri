@@ -3,7 +3,7 @@ import { getServerEnv } from "@/lib/env";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { upsertSubscription } from "@/lib/db/mutations/subscriptions";
-import { trackEvent } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 
 const env = getServerEnv();
 

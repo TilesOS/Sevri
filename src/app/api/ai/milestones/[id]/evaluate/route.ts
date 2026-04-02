@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
+import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/feature-access";
@@ -8,7 +9,7 @@ import { runWorkEvaluation, getRouteGenerationMetadata } from "@/lib/ai/pipeline
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage } from "@/lib/ai/storage";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
-import { trackEvent } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 import type {
   EvaluationLifecycleStatus,
@@ -36,6 +37,7 @@ const bodySchema = z.object({
 });
 
 type ServerSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
+type AdminSupabaseClient = ReturnType<typeof createAdminSupabaseClient>;
 
 type SubmissionRecord = {
   id: string;
@@ -43,7 +45,6 @@ type SubmissionRecord = {
   submission_filename: string | null;
   created_at: string;
   updated_at: string;
-  is_latest?: boolean | null;
 };
 
 type EvaluationRecord = {
@@ -142,9 +143,10 @@ async function buildEvaluationResponse(
 ): Promise<MilestoneEvaluationResponse> {
   const { data: submissions, error: submissionsError } = await supabase
     .from("milestone_submissions")
-    .select("id, submission_kind, submission_filename, created_at, updated_at, is_latest")
+    .select("id, submission_kind, submission_filename, created_at, updated_at")
     .eq("milestone_id", milestoneId)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
 
   if (submissionsError) {
     throw new Error(submissionsError.message);
@@ -159,7 +161,7 @@ async function buildEvaluationResponse(
   }
 
   const submissionRecords = submissions as SubmissionRecord[];
-  const currentSubmission = submissionRecords.find((candidate) => candidate.is_latest) ?? submissionRecords[0];
+  const currentSubmission = submissionRecords[0];
   const submissionIds = submissionRecords.map((candidate) => candidate.id);
 
   let evaluationRecords: EvaluationRecord[] = [];
@@ -168,7 +170,8 @@ async function buildEvaluationResponse(
       .from("milestone_submission_evaluations")
       .select("id, submission_id, evaluation_json, status, failure_message, created_at, updated_at")
       .in("submission_id", submissionIds)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false });
 
     if (evaluationsError) {
       throw new Error(evaluationsError.message);
@@ -194,19 +197,15 @@ async function buildEvaluationResponse(
 }
 
 async function markEvaluationFailed(
-  supabase: ServerSupabaseClient,
+  adminSupabase: AdminSupabaseClient,
   evaluationId: string,
   failureMessage: string,
   stage: string,
 ) {
-  const { error } = await supabase
-    .from("milestone_submission_evaluations")
-    .update({
-      status: "failed",
-      evaluation_json: null,
-      failure_message: failureMessage,
-    })
-    .eq("id", evaluationId);
+  const { error } = await adminSupabase.rpc("fail_milestone_submission_evaluation", {
+    p_evaluation_id: evaluationId,
+    p_failure_message: failureMessage,
+  });
 
   if (error) {
     console.error("failed to mark evaluation as failed", { stage, error });
@@ -218,6 +217,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   const routeStartedAt = performance.now();
   let stage = "start";
   let supabase: ServerSupabaseClient | null = null;
+  let adminSupabase: AdminSupabaseClient | null = null;
   let recoveryMilestoneId: string | null = null;
   let savedEvaluationId: string | null = null;
 
@@ -268,6 +268,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     stage = "create-supabase-client";
     supabase = await createServerSupabaseClient();
+    adminSupabase = createAdminSupabaseClient();
 
     stage = "fetch-milestone";
     const { data: milestone, error: milestoneError } = await supabase
@@ -417,7 +418,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       if (generated.metrics.fallback_used) {
         stage = "mark-evaluation-failed";
         await markEvaluationFailed(
-          supabase,
+          adminSupabase,
           persistedRecord.evaluation_id,
           getPipelineFailureMessage(generated.raw),
           stage,
@@ -427,14 +428,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       }
 
       stage = "mark-evaluation-completed";
-      const { error: evaluationUpdateError } = await supabase
-        .from("milestone_submission_evaluations")
-        .update({
-          status: "completed",
-          evaluation_json: generated.parsed,
-          failure_message: null,
-        })
-        .eq("id", persistedRecord.evaluation_id);
+      const { error: evaluationUpdateError } = await adminSupabase.rpc(
+        "complete_milestone_submission_evaluation",
+        {
+          p_evaluation_id: persistedRecord.evaluation_id,
+          p_evaluation_json: generated.parsed,
+        },
+      );
 
       if (evaluationUpdateError) {
         console.error("failed to persist completed evaluation", { stage, error: evaluationUpdateError });
@@ -442,7 +442,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
         stage = "mark-evaluation-failed";
         await markEvaluationFailed(
-          supabase,
+          adminSupabase,
           persistedRecord.evaluation_id,
           "Evaluation finished, but the result could not be saved. Your submission is still available - submit another version to retry.",
           stage,
@@ -476,7 +476,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     } catch (evaluationError) {
       stage = "mark-evaluation-failed";
       await markEvaluationFailed(
-        supabase,
+        adminSupabase,
         persistedRecord.evaluation_id,
         getErrorMessage(
           evaluationError,

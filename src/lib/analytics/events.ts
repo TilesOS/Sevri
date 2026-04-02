@@ -1,29 +1,35 @@
-import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { z } from "zod";
 
-export type AppEvent =
-  | "onboarding_started"
-  | "onboarding_completed"
-  | "recommendations_generated"
-  | "recommendation_selected"
-  | "roadmap_generated"
-  | "milestone_guidance_generated"
-  | "upgrade_clicked"
-  | "checkout_completed"
-  | "work_evaluation_completed";
+export const APP_EVENT_TYPES = [
+  "onboarding_started",
+  "onboarding_completed",
+  "recommendations_generated",
+  "recommendation_selected",
+  "roadmap_generated",
+  "milestone_guidance_generated",
+  "upgrade_clicked",
+  "checkout_completed",
+  "work_evaluation_completed",
+] as const;
 
-export async function trackEvent(
-  userId: string,
+export const appEventSchema = z.enum(APP_EVENT_TYPES);
+
+export type AppEvent = (typeof APP_EVENT_TYPES)[number];
+
+export async function trackClientEvent(
   eventType: AppEvent,
   metadata: Record<string, unknown> = {},
 ) {
-  const supabase = createAdminSupabaseClient();
-  const { error } = await supabase.from("usage_events").insert({
-    user_id: userId,
-    event_type: eventType,
-    metadata_json: metadata,
+  const response = await fetch("/api/events/track", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      event_type: eventType,
+      metadata,
+    }),
   });
 
-  if (error) {
-    throw new Error(`Failed to track event (${eventType}): ${error.message}`);
+  if (!response.ok) {
+    throw new Error(`Failed to track event (${eventType})`);
   }
 }

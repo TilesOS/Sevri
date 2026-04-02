@@ -1,19 +1,11 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
-import { trackEvent } from "@/lib/analytics/events";
+import { appEventSchema } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 
 const payloadSchema = z.object({
-  event_type: z.enum([
-    "onboarding_started",
-    "onboarding_completed",
-    "recommendations_generated",
-    "recommendation_selected",
-    "roadmap_generated",
-    "milestone_guidance_generated",
-    "upgrade_clicked",
-    "checkout_completed",
-  ]),
+  event_type: appEventSchema,
   metadata: z.record(z.unknown()).optional(),
 });
 

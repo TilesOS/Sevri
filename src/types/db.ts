@@ -254,7 +254,6 @@ export interface Database {
           submission_text: string | null;
           submission_filename: string | null;
           storage_path: string | null;
-          is_latest: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -266,7 +265,6 @@ export interface Database {
           submission_text?: string | null;
           submission_filename?: string | null;
           storage_path?: string | null;
-          is_latest?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -278,7 +276,6 @@ export interface Database {
           submission_text?: string | null;
           submission_filename?: string | null;
           storage_path?: string | null;
-          is_latest?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -377,6 +374,20 @@ export interface Database {
           evaluation_created_at: string;
           evaluation_updated_at: string;
         }[];
+      };
+      complete_milestone_submission_evaluation: {
+        Args: {
+          p_evaluation_id: string;
+          p_evaluation_json: Json;
+        };
+        Returns: undefined;
+      };
+      fail_milestone_submission_evaluation: {
+        Args: {
+          p_evaluation_id: string;
+          p_failure_message: string;
+        };
+        Returns: undefined;
       };
     };
   };

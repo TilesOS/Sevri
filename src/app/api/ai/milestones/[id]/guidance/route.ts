@@ -9,7 +9,7 @@ import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage, coerceStoredProjectOption } from "@/lib/ai/storage";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
 import { getGenerationVersion, type GenerationCitation, type GenerationMetrics } from "@/lib/ai/client";
-import { trackEvent } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 
 export const runtime = "nodejs";

@@ -15,6 +15,7 @@ import { Input } from "@/components/ui/input";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { trackClientEvent } from "@/lib/analytics/events";
 import { cn, toList } from "@/lib/utils";
 import { onboardingInputSchema } from "@/lib/validators/onboarding";
 import { studentStageOptions, targetOutcomeOptions } from "@/lib/validators/settings";
@@ -206,13 +207,8 @@ export function OnboardingWizard() {
   const currentStep = steps[step];
 
   useEffect(() => {
-    fetch("/api/events/track", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        event_type: "onboarding_started",
-        metadata: { project_track: form.getValues("project_track") },
-      }),
+    trackClientEvent("onboarding_started", {
+      project_track: form.getValues("project_track"),
     }).catch(() => undefined);
   }, [form]);
 

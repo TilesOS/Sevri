@@ -6,7 +6,7 @@ import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { runRoadmapGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildMilestoneInsert, buildRoadmapStorageArtifacts, coerceStoredProjectOption } from "@/lib/ai/storage";
-import { trackEvent } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 import { sendEmail } from "@/lib/email/resend";
 import { roadmapReadyTemplate } from "@/lib/email/templates";

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { onboardingInputSchema, upsertOnboardingData } from "@/lib/db/mutations/onboarding";
-import { trackEvent } from "@/lib/analytics/events";
+import { trackEvent } from "@/lib/analytics/track";
 import { sendEmail } from "@/lib/email/resend";
 import { welcomeEmailTemplate } from "@/lib/email/templates";
 import { captureServerError } from "@/lib/sentry/server";
