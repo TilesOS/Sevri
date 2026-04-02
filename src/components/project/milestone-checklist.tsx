@@ -31,6 +31,13 @@ interface StoredSubmission {
   updated_at: string;
 }
 
+interface RouteErrorBody {
+  error?: string;
+  code?: "upgrade_required";
+  feature?: "full_roadmap";
+  upgrade_url?: string;
+}
+
 type SubmissionSlot =
   | { status: "unloaded" }
   | { status: "loading" }
@@ -114,7 +121,9 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
       body: JSON.stringify({ refresh }),
     });
 
-    const body = (await response.json().catch(() => null)) as { guidance?: StepGuidance; error?: string } | null;
+    const body = (await response.json().catch(() => null)) as
+      | ({ guidance?: StepGuidance } & RouteErrorBody)
+      | null;
 
     if (!response.ok || !body?.guidance) {
       setGuidanceErrorById((current) => ({
@@ -132,15 +141,25 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
 
   async function loadSubmission(milestoneId: string) {
     setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "loading" } }));
+    setEvaluationErrorById((prev) => ({ ...prev, [milestoneId]: "" }));
 
     try {
       const response = await fetch(`/api/ai/milestones/${milestoneId}/evaluate`);
       const body = (await response.json().catch(() => null)) as {
         submission?: StoredSubmission | null;
         evaluation?: WorkEvaluation | null;
-      } | null;
+      } & RouteErrorBody | null;
 
-      if (!response.ok || !body?.submission || !body?.evaluation) {
+      if (!response.ok) {
+        setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "empty" } }));
+        setEvaluationErrorById((prev) => ({
+          ...prev,
+          [milestoneId]: body?.error ?? "Failed to load saved evaluation.",
+        }));
+        return;
+      }
+
+      if (!body?.submission || !body?.evaluation) {
         setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "empty" } }));
         return;
       }
@@ -155,6 +174,10 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
       }));
     } catch {
       setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "empty" } }));
+      setEvaluationErrorById((prev) => ({
+        ...prev,
+        [milestoneId]: "Network error. Failed to load saved evaluation.",
+      }));
     }
   }
 
@@ -181,8 +204,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
       const body = (await response.json().catch(() => null)) as {
         submission?: StoredSubmission;
         evaluation?: WorkEvaluation;
-        error?: string;
-      } | null;
+      } & RouteErrorBody | null;
 
       if (!response.ok || !body?.submission || !body?.evaluation) {
         setEvaluationErrorById((prev) => ({

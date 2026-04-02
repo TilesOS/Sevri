@@ -2,6 +2,8 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/feature-access";
 import { runStepGuidanceGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage, coerceStoredProjectOption } from "@/lib/ai/storage";
@@ -77,6 +79,39 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "parse-request";
     const body = bodySchema.parse(await request.json().catch(() => ({})));
     const { id } = await context.params;
+
+    stage = "rate-limit";
+    try {
+      const rateLimit = await enforceRateLimit({
+        userId: user.id,
+        endpoint: "milestone-guidance",
+        maxRequests: 8,
+        windowMinutes: 60,
+      });
+
+      if (!rateLimit.allowed) {
+        return NextResponse.json(
+          { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
+          { status: 429 },
+        );
+      }
+    } catch (rateLimitError) {
+      console.error("milestone guidance rate-limit failed", { stage, error: rateLimitError });
+      captureServerError(rateLimitError, {
+        route: "ai/milestones/guidance",
+        stage: "rate-limit",
+      });
+    }
+
+    stage = "feature-access";
+    const featureAccess = await assertFeatureAccess({
+      userId: user.id,
+      feature: "full_roadmap",
+    });
+
+    if (!featureAccess.allowed) {
+      return createUpgradeRequiredResponse(featureAccess.error);
+    }
 
     stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();

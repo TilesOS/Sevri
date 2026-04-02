@@ -2,11 +2,13 @@ import { notFound } from "next/navigation";
 import { getRequiredUser } from "@/lib/auth/guard";
 import { getProjectWorkspace } from "@/lib/db/queries/projects";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
+import { hasRoadmapDetailAccess } from "@/lib/usage/limits";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PageHeader } from "@/components/ui/page-header";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { MilestoneChecklist } from "@/components/project/milestone-checklist";
 import { GenerateRoadmapButton } from "@/components/project/generate-roadmap-button";
 
@@ -34,6 +36,7 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   }
 
   const plan = await getUserPlan(user.id);
+  const hasFullRoadmapAccess = hasRoadmapDetailAccess(plan);
   const projectTrack = workspace.project.project_track === "research" ? "research" : "software";
   const trackTheme = trackThemes[projectTrack];
 
@@ -209,7 +212,24 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
         </Card>
       </div>
 
-      <MilestoneChecklist milestones={milestones} />
+      {hasFullRoadmapAccess ? (
+        <MilestoneChecklist milestones={milestones} />
+      ) : (
+        <Card className="space-y-4">
+          <div>
+            <p className="editorial-kicker">Premium roadmap depth</p>
+            <h2 className="mt-3 text-2xl font-semibold text-ink">Upgrade to unlock milestone guidance and work evaluation.</h2>
+          </div>
+          <p className="text-sm leading-6 text-ink-soft">
+            Your roadmap overview stays visible on the free plan. Upgrade to Pro when you want step-by-step guidance, refreshable milestone coaching, and AI evaluation for submitted work.
+          </p>
+          <div>
+            <Button href="/billing" className="rounded-full px-6">
+              Upgrade to Pro
+            </Button>
+          </div>
+        </Card>
+      )}
     </div>
   );
 }
