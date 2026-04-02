@@ -5,6 +5,8 @@ import {
   buildRoadmapUserPrompt,
   buildStepGuidanceSystemPrompt,
   buildStepGuidanceUserPrompt,
+  buildWorkEvaluationSystemPrompt,
+  buildWorkEvaluationUserPrompt,
 } from "@/lib/ai/prompts";
 import {
   generateStructuredOutput,
@@ -25,12 +27,14 @@ import {
   RecommendationBatchSchema,
   RoadmapOverviewSchema,
   StepGuidanceSchema,
+  WorkEvaluationSchema,
   type GenerationContext,
   type ProjectOption,
   type RecommendationBatch,
   type RoadmapOverview,
   type RoadmapStep,
   type StepGuidance,
+  type WorkEvaluation,
 } from "@/lib/ai/schemas";
 
 const STUDENT_THEME_PATTERNS = [
@@ -760,6 +764,65 @@ export async function runStepGuidanceGeneration(input: {
       raw: {
         source: "fallback",
         stage: "step_guidance",
+        reason: error instanceof Error ? error.message : "Unknown error",
+      },
+      metrics: { ...metrics, fallback_used: true },
+      citations: [],
+      refusal: null,
+    };
+  }
+}
+
+export async function runWorkEvaluation(input: {
+  context: GenerationContext;
+  step: RoadmapStep;
+  guidance: StepGuidance;
+  submissionText: string;
+  submissionFilename?: string;
+}): Promise<PipelineResult<WorkEvaluation>> {
+  try {
+    const result = await generateStructuredOutput({
+      stage: "work_evaluation",
+      schema: WorkEvaluationSchema,
+      schemaName: `${input.context.project_track}_work_evaluation`,
+      systemPrompt: buildWorkEvaluationSystemPrompt(input.context.project_track),
+      userPrompt: buildWorkEvaluationUserPrompt({
+        step: input.step,
+        guidance: input.guidance,
+        submissionText: input.submissionText,
+        submissionFilename: input.submissionFilename,
+      }),
+    });
+
+    return {
+      parsed: result.parsed,
+      raw: result.raw,
+      metrics: result.metrics,
+      citations: result.citations,
+      refusal: result.refusal,
+    };
+  } catch (error) {
+    console.warn("work evaluation failed, using fallback", { error: error instanceof Error ? error.message : error });
+    const metrics = getFailureMetrics(error, "work_evaluation");
+
+    const parsed: WorkEvaluation = {
+      criterion_verdicts: [{
+        criterion: input.step.validation_check,
+        verdict: "not_yet",
+        note: "Evaluation could not be completed. Please resubmit to try again.",
+      }],
+      overall_assessment: "The evaluation failed due to a technical issue. Your submission was saved — resubmit to get a full evaluation.",
+      strongest_aspect: "Unable to assess at this time.",
+      clearest_gap: "Unable to assess at this time.",
+      next_best_action: "Resubmit your work to get a complete evaluation.",
+      ready_to_mark_complete: false,
+    };
+
+    return {
+      parsed,
+      raw: {
+        source: "fallback",
+        stage: "work_evaluation",
         reason: error instanceof Error ? error.message : "Unknown error",
       },
       metrics: { ...metrics, fallback_used: true },

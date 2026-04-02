@@ -63,3 +63,19 @@ export interface StepGuidance {
     body: string;
   };
 }
+
+export interface CriterionVerdict {
+  criterion: string;
+  verdict: "pass" | "partial" | "not_yet";
+  note: string;
+}
+
+export interface WorkEvaluation {
+  criterion_verdicts: CriterionVerdict[];
+  overall_assessment: string;
+  strongest_aspect: string;
+  clearest_gap: string;
+  next_best_action: string;
+  ready_to_mark_complete: boolean;
+  confidence?: "high" | "medium" | "low";
+}

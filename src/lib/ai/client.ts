@@ -7,7 +7,7 @@ import { getServerEnv } from "@/lib/env";
 const env = getServerEnv();
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-export type GenerationStage = "options" | "roadmap" | "step_guidance" | "normalize" | "legacy";
+export type GenerationStage = "options" | "roadmap" | "step_guidance" | "work_evaluation" | "normalize" | "legacy";
 export type WebSearchReason = "recency_sensitive" | "source_seeking" | "user_requested_current";
 
 export interface GenerationCitation {
@@ -112,6 +112,10 @@ function getStageDefaults(stage: GenerationStage | string) {
 
   if (stage === "step_guidance") {
     return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "low" as const };
+  }
+
+  if (stage === "work_evaluation") {
+    return { maxCompletionTokens: 900, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
   return { maxCompletionTokens: 1200, maxRetries: 2, reasoningEffort: undefined };

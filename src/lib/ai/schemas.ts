@@ -149,6 +149,22 @@ export const StepGuidanceSchema = z.object({
   email_version: StepGuidanceEmailSchema,
 });
 
+const CriterionVerdictSchema = z.object({
+  criterion: z.string().min(5).max(240),
+  verdict: z.enum(["pass", "partial", "not_yet"]),
+  note: z.string().min(10).max(300),
+});
+
+export const WorkEvaluationSchema = z.object({
+  criterion_verdicts: z.array(CriterionVerdictSchema).min(1).max(6),
+  overall_assessment: z.string().min(40).max(500),
+  strongest_aspect: z.string().min(10).max(200),
+  clearest_gap: z.string().min(10).max(200),
+  next_best_action: z.string().min(10).max(300),
+  ready_to_mark_complete: z.boolean(),
+  confidence: z.enum(["high", "medium", "low"]).optional(),
+});
+
 export type ProjectTrack = z.infer<typeof ProjectTrackSchema>;
 export type GenerationContext = z.infer<typeof GenerationContextSchema>;
 export type RecommendationBatch = z.infer<typeof RecommendationBatchSchema>;
@@ -156,3 +172,4 @@ export type ProjectOption = z.infer<typeof ProjectOptionSchema>;
 export type RoadmapOverview = z.infer<typeof RoadmapOverviewSchema>;
 export type RoadmapStep = z.infer<typeof RoadmapStepSchema>;
 export type StepGuidance = z.infer<typeof StepGuidanceSchema>;
+export type WorkEvaluation = z.infer<typeof WorkEvaluationSchema>;

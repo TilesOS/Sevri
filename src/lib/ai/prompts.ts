@@ -1,4 +1,4 @@
-import type { GenerationContext, ProjectTrack, ProjectOption, RoadmapOverview, RoadmapStep } from "@/lib/ai/schemas";
+import type { GenerationContext, ProjectTrack, ProjectOption, RoadmapOverview, RoadmapStep, StepGuidance } from "@/lib/ai/schemas";
 
 function formatContext(context: GenerationContext) {
   if (context.project_track === "software") {
@@ -192,5 +192,46 @@ export function buildStepGuidanceUserPrompt(input: {
     "- Pitfalls should warn about project-specific mistakes and scope drift for THIS step.",
     "- done_when criteria must be tied to the step's validation_check.",
     "- The email_version should be ready for a future coaching email.",
+  ].join("\n\n");
+}
+
+export function buildWorkEvaluationSystemPrompt(projectTrack: ProjectTrack) {
+  return [
+    `You evaluate student work submissions for Sevri ${projectTrack} projects.`,
+    "Return only JSON that matches the schema.",
+    "Evaluate honestly — mark 'not_yet' when something is genuinely missing, not to encourage where encouragement is not warranted.",
+    "Each criterion_verdict must map to a specific done_when item or the step's validation_check.",
+    "The overall_assessment should synthesize the verdicts into a balanced narrative.",
+    "strongest_aspect should name what the student did best — even if the work is incomplete.",
+    "clearest_gap should name the most important thing still missing.",
+    "next_best_action should give one concrete, actionable step the student can take next.",
+    "ready_to_mark_complete should be true only when all criteria genuinely pass.",
+    "If you are confident in your assessment, set confidence to 'high'. If parts of the submission are ambiguous, use 'medium' or 'low'.",
+  ].join(" ");
+}
+
+export function buildWorkEvaluationUserPrompt(input: {
+  step: RoadmapStep;
+  guidance: StepGuidance;
+  submissionText: string;
+  submissionFilename?: string;
+}) {
+  const criteria = [
+    ...input.guidance.done_when.map((item) => `- ${item}`),
+    `- Validation check: ${input.step.validation_check}`,
+  ];
+
+  return [
+    "Step context:",
+    [
+      `Title: ${input.step.title}`,
+      `Objective: ${input.step.objective}`,
+      `Deliverable: ${input.step.deliverable}`,
+      `Validation check: ${input.step.validation_check}`,
+    ].join("\n"),
+    "Done-when criteria to evaluate against:",
+    criteria.join("\n"),
+    `Submission${input.submissionFilename ? ` (${input.submissionFilename})` : ""}:`,
+    input.submissionText,
   ].join("\n\n");
 }

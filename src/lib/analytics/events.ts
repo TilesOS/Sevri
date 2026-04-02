@@ -8,7 +8,8 @@ export type AppEvent =
   | "roadmap_generated"
   | "milestone_guidance_generated"
   | "upgrade_clicked"
-  | "checkout_completed";
+  | "checkout_completed"
+  | "work_evaluation_completed";
 
 export async function trackEvent(
   userId: string,

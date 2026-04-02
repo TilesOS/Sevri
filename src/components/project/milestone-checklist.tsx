@@ -1,15 +1,16 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { StepGuidance } from "@/types/domain";
+import type { StepGuidance, WorkEvaluation } from "@/types/domain";
 
 interface Milestone {
   id: string;
@@ -22,6 +23,52 @@ interface Milestone {
   completed: boolean;
 }
 
+interface StoredSubmission {
+  id: string;
+  submission_kind: "pasted_text" | "file_upload";
+  submission_filename: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+type SubmissionSlot =
+  | { status: "unloaded" }
+  | { status: "loading" }
+  | { status: "empty" }
+  | { status: "loaded"; submission: StoredSubmission; evaluation: WorkEvaluation };
+
+const ACCEPTED_FILE_EXTENSIONS = ".py,.js,.ts,.jsx,.tsx,.html,.css,.md,.txt,.json,.csv,.sql";
+const MAX_SUBMISSION_CHARS = 20_000;
+const NOTES_SEPARATOR = "\n\n--- Notes ---\n\n";
+
+function formatDate(dateString: string) {
+  return new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+function formatSubmissionKind(kind: string, filename: string | null) {
+  if (kind === "pasted_text") return "Pasted text";
+  if (filename) return `File: ${filename}`;
+  return "File upload";
+}
+
+const VERDICT_TONE: Record<string, "success" | "warning" | "danger"> = {
+  pass: "success",
+  partial: "warning",
+  not_yet: "danger",
+};
+
+const VERDICT_LABEL: Record<string, string> = {
+  pass: "Pass",
+  partial: "Partial",
+  not_yet: "Not yet",
+};
+
+const CONFIDENCE_LABEL: Record<string, string> = {
+  high: "High confidence",
+  medium: "Medium confidence",
+  low: "Low confidence",
+};
+
 export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) {
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -30,6 +77,11 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
   const [guidancePendingId, setGuidancePendingId] = useState<string | null>(null);
   const [guidanceErrorById, setGuidanceErrorById] = useState<Record<string, string>>({});
   const [toggleError, setToggleError] = useState<string | null>(null);
+
+  const [submissionById, setSubmissionById] = useState<Record<string, SubmissionSlot>>({});
+  const [evaluationPendingId, setEvaluationPendingId] = useState<string | null>(null);
+  const [evaluationErrorById, setEvaluationErrorById] = useState<Record<string, string>>({});
+  const [resubmitModeById, setResubmitModeById] = useState<Record<string, boolean>>({});
 
   async function toggleMilestone(milestone: Milestone) {
     setPendingId(milestone.id);
@@ -78,10 +130,97 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
     setGuidancePendingId(null);
   }
 
+  async function loadSubmission(milestoneId: string) {
+    setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "loading" } }));
+
+    try {
+      const response = await fetch(`/api/ai/milestones/${milestoneId}/evaluate`);
+      const body = (await response.json().catch(() => null)) as {
+        submission?: StoredSubmission | null;
+        evaluation?: WorkEvaluation | null;
+      } | null;
+
+      if (!response.ok || !body?.submission || !body?.evaluation) {
+        setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "empty" } }));
+        return;
+      }
+
+      setSubmissionById((prev) => ({
+        ...prev,
+        [milestoneId]: {
+          status: "loaded",
+          submission: body.submission!,
+          evaluation: body.evaluation!,
+        },
+      }));
+    } catch {
+      setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "empty" } }));
+    }
+  }
+
+  async function submitWork(
+    milestoneId: string,
+    text: string,
+    kind: "pasted_text" | "file_upload",
+    filename?: string,
+  ) {
+    setEvaluationPendingId(milestoneId);
+    setEvaluationErrorById((prev) => ({ ...prev, [milestoneId]: "" }));
+
+    try {
+      const response = await fetch(`/api/ai/milestones/${milestoneId}/evaluate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          submission_text: text,
+          submission_kind: kind,
+          submission_filename: filename,
+        }),
+      });
+
+      const body = (await response.json().catch(() => null)) as {
+        submission?: StoredSubmission;
+        evaluation?: WorkEvaluation;
+        error?: string;
+      } | null;
+
+      if (!response.ok || !body?.submission || !body?.evaluation) {
+        setEvaluationErrorById((prev) => ({
+          ...prev,
+          [milestoneId]: body?.error ?? "Evaluation failed. Your submission was saved — try again.",
+        }));
+        setEvaluationPendingId(null);
+        return;
+      }
+
+      setSubmissionById((prev) => ({
+        ...prev,
+        [milestoneId]: {
+          status: "loaded",
+          submission: body.submission!,
+          evaluation: body.evaluation!,
+        },
+      }));
+      setResubmitModeById((prev) => ({ ...prev, [milestoneId]: false }));
+    } catch {
+      setEvaluationErrorById((prev) => ({
+        ...prev,
+        [milestoneId]: "Network error. Your submission may have been saved — refresh and try again.",
+      }));
+    }
+
+    setEvaluationPendingId(null);
+  }
+
   function toggleExpanded(milestoneId: string) {
     if (expandedId === milestoneId) {
       setExpandedId(null);
       return;
+    }
+
+    const slot = submissionById[milestoneId];
+    if (!slot || slot.status === "unloaded") {
+      void loadSubmission(milestoneId);
     }
 
     if (guidanceById[milestoneId]) {
@@ -117,6 +256,10 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
           const guidance = guidanceById[milestone.id];
           const isGuidancePending = guidancePendingId === milestone.id;
           const guidanceError = guidanceErrorById[milestone.id];
+          const slot = submissionById[milestone.id];
+          const isEvaluationPending = evaluationPendingId === milestone.id;
+          const evaluationError = evaluationErrorById[milestone.id];
+          const isResubmitMode = resubmitModeById[milestone.id] ?? false;
 
           return (
             <li key={milestone.id}>
@@ -221,6 +364,25 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
                             <p className="text-sm leading-6 text-paper/72">{guidance.encouragement}</p>
                           </GuidanceBlock>
                         </div>
+
+                        {/* Work submission + evaluation section */}
+                        <div className="border-t border-line pt-5">
+                          <SubmissionSection
+                            slot={slot}
+                            isEvaluationPending={isEvaluationPending}
+                            evaluationError={evaluationError}
+                            isResubmitMode={isResubmitMode}
+                            onSubmit={(text, kind, filename) =>
+                              void submitWork(milestone.id, text, kind, filename)
+                            }
+                            onResubmit={() =>
+                              setResubmitModeById((prev) => ({ ...prev, [milestone.id]: true }))
+                            }
+                            onCancelResubmit={() =>
+                              setResubmitModeById((prev) => ({ ...prev, [milestone.id]: false }))
+                            }
+                          />
+                        </div>
                       </div>
                     </motion.div>
                   ) : null}
@@ -230,6 +392,310 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
           );
         })}
       </ul>
+    </Card>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Sub-components                                                     */
+/* ------------------------------------------------------------------ */
+
+function SubmissionSection({
+  slot,
+  isEvaluationPending,
+  evaluationError,
+  isResubmitMode,
+  onSubmit,
+  onResubmit,
+  onCancelResubmit,
+}: {
+  slot: SubmissionSlot | undefined;
+  isEvaluationPending: boolean;
+  evaluationError: string | undefined;
+  isResubmitMode: boolean;
+  onSubmit: (text: string, kind: "pasted_text" | "file_upload", filename?: string) => void;
+  onResubmit: () => void;
+  onCancelResubmit: () => void;
+}) {
+  if (!slot || slot.status === "unloaded") return null;
+
+  if (slot.status === "loading") {
+    return (
+      <div className="space-y-2">
+        <p className="editorial-kicker">Submit your work</p>
+        <p className="text-sm text-ink-muted">Loading your submission...</p>
+      </div>
+    );
+  }
+
+  if (slot.status === "loaded") {
+    return (
+      <div className="space-y-4">
+        {isResubmitMode ? (
+          <>
+            <ResubmitSummaryBar
+              evaluation={slot.evaluation}
+              createdAt={slot.submission.created_at}
+              onCancel={onCancelResubmit}
+            />
+            <MilestoneSubmissionForm onSubmit={onSubmit} disabled={isEvaluationPending} />
+            {evaluationError ? <Alert tone="danger">{evaluationError}</Alert> : null}
+          </>
+        ) : (
+          <EvaluationResult
+            submission={slot.submission}
+            evaluation={slot.evaluation}
+            onResubmit={onResubmit}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // status === "empty" or evaluating from empty
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="editorial-kicker">Submit your work</p>
+        <p className="mt-1 text-sm text-ink-soft">
+          Paste your work or upload a file to get an honest AI evaluation against the done-when criteria.
+        </p>
+      </div>
+      <MilestoneSubmissionForm onSubmit={onSubmit} disabled={isEvaluationPending} />
+      {evaluationError ? <Alert tone="danger">{evaluationError}</Alert> : null}
+    </div>
+  );
+}
+
+function MilestoneSubmissionForm({
+  onSubmit,
+  disabled,
+}: {
+  onSubmit: (text: string, kind: "pasted_text" | "file_upload", filename?: string) => void;
+  disabled: boolean;
+}) {
+  const [pastedText, setPastedText] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [fileContent, setFileContent] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const combinedLength = fileContent
+    ? fileContent.length + (pastedText ? NOTES_SEPARATOR.length + pastedText.length : 0)
+    : pastedText.length;
+  const hasContent = combinedLength > 0;
+  const isOverLimit = combinedLength > MAX_SUBMISSION_CHARS;
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const selected = e.target.files?.[0];
+    if (!selected) {
+      setFile(null);
+      setFileContent(null);
+      return;
+    }
+
+    setFile(selected);
+    const reader = new FileReader();
+    reader.onload = () => setFileContent(reader.result as string);
+    reader.readAsText(selected);
+  }
+
+  function clearFile() {
+    setFile(null);
+    setFileContent(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
+
+  function handleSubmit() {
+    if (!hasContent || isOverLimit || disabled) return;
+
+    if (fileContent && pastedText) {
+      onSubmit(`${fileContent}${NOTES_SEPARATOR}${pastedText}`, "file_upload", file!.name);
+    } else if (fileContent) {
+      onSubmit(fileContent, "file_upload", file!.name);
+    } else {
+      onSubmit(pastedText, "pasted_text");
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <Textarea
+        placeholder="Paste your code, research, or written work here..."
+        value={pastedText}
+        onChange={(e) => setPastedText(e.target.value)}
+        disabled={disabled}
+        rows={6}
+      />
+
+      <div className="flex flex-wrap items-center gap-3">
+        <input
+          ref={fileInputRef}
+          type="file"
+          className="hidden"
+          accept={ACCEPTED_FILE_EXTENSIONS}
+          onChange={handleFileChange}
+          disabled={disabled}
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={disabled}
+        >
+          {file ? file.name : "Attach file"}
+        </Button>
+        {file ? (
+          <button
+            type="button"
+            className="text-xs text-ink-muted hover:text-ink"
+            onClick={clearFile}
+            disabled={disabled}
+          >
+            Remove
+          </button>
+        ) : null}
+      </div>
+
+      {fileContent && pastedText ? (
+        <p className="text-xs text-ink-muted">File content and notes will be sent together.</p>
+      ) : null}
+
+      <div className="flex items-center justify-between gap-4">
+        <span className={cn("text-xs", isOverLimit ? "text-red-600 font-medium" : "text-ink-muted")}>
+          {combinedLength.toLocaleString()} / {MAX_SUBMISSION_CHARS.toLocaleString()} characters
+        </span>
+        <Button
+          type="button"
+          size="sm"
+          onClick={handleSubmit}
+          disabled={!hasContent || isOverLimit || disabled}
+        >
+          {disabled ? "Evaluating..." : "Get evaluation"}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function EvaluationResult({
+  submission,
+  evaluation,
+  onResubmit,
+}: {
+  submission: StoredSubmission;
+  evaluation: WorkEvaluation;
+  onResubmit: () => void;
+}) {
+  return (
+    <Card tone="subtle" className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="editorial-kicker">Your evaluation</p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+            <span>{formatSubmissionKind(submission.submission_kind, submission.submission_filename)}</span>
+            <span>&middot;</span>
+            <span>{formatDate(submission.created_at)}</span>
+            {evaluation.confidence ? (
+              <>
+                <span>&middot;</span>
+                <Badge tone="neutral" className="text-[10px]">
+                  {CONFIDENCE_LABEL[evaluation.confidence]}
+                </Badge>
+              </>
+            ) : null}
+          </div>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={onResubmit} className="rounded-full">
+          Submit new version
+        </Button>
+      </div>
+
+      {/* Criterion verdicts */}
+      <div className="space-y-2">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Criterion verdicts</p>
+        <ul className="space-y-2">
+          {evaluation.criterion_verdicts.map((cv, i) => (
+            <li key={i} className="flex items-start gap-2 text-sm">
+              <Badge tone={VERDICT_TONE[cv.verdict]} className="mt-0.5 shrink-0 text-[10px]">
+                {VERDICT_LABEL[cv.verdict]}
+              </Badge>
+              <div>
+                <span className="font-medium text-ink">{cv.criterion}</span>
+                <span className="text-ink-soft"> — {cv.note}</span>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Overall assessment */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Overall assessment</p>
+        <p className="mt-1 text-sm leading-6 text-ink-soft">{evaluation.overall_assessment}</p>
+      </div>
+
+      {/* Strongest aspect + Clearest gap */}
+      <div className="grid gap-3 lg:grid-cols-2">
+        <Card tone="primary" padding="sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Strongest aspect</p>
+          <p className="mt-1 text-sm leading-6 text-ink">{evaluation.strongest_aspect}</p>
+        </Card>
+        <Card tone="default" padding="sm">
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Clearest gap</p>
+          <p className="mt-1 text-sm leading-6 text-ink">{evaluation.clearest_gap}</p>
+        </Card>
+      </div>
+
+      {/* Next best action */}
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Next best action</p>
+        <p className="mt-1 text-sm leading-6 text-ink-soft">{evaluation.next_best_action}</p>
+      </div>
+
+      {/* Ready to mark complete */}
+      {evaluation.ready_to_mark_complete ? (
+        <Alert tone="success">This step looks done. You can mark it complete above.</Alert>
+      ) : (
+        <p className="text-xs text-ink-muted">
+          Not quite ready to mark complete — address the gaps above first.
+        </p>
+      )}
+    </Card>
+  );
+}
+
+function ResubmitSummaryBar({
+  evaluation,
+  createdAt,
+  onCancel,
+}: {
+  evaluation: WorkEvaluation;
+  createdAt: string;
+  onCancel: () => void;
+}) {
+  const passCount = evaluation.criterion_verdicts.filter((v) => v.verdict === "pass").length;
+  const totalCount = evaluation.criterion_verdicts.length;
+
+  return (
+    <Card tone="subtle" padding="sm" className="flex items-center justify-between gap-3">
+      <div className="space-y-0.5">
+        <p className="text-xs font-semibold text-ink">
+          Last evaluation &middot; {formatDate(createdAt)}
+        </p>
+        <p className="text-xs text-ink-muted">
+          {passCount} of {totalCount} criteria passed &middot;{" "}
+          {evaluation.ready_to_mark_complete ? "Ready to mark complete" : "Not ready to mark complete"}
+        </p>
+        <p className="text-xs text-ink-muted">Your previous evaluation is saved.</p>
+      </div>
+      <button
+        type="button"
+        className="shrink-0 text-xs text-ink-muted hover:text-ink"
+        onClick={onCancel}
+      >
+        Cancel
+      </button>
     </Card>
   );
 }
