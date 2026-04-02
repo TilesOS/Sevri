@@ -245,6 +245,76 @@ export interface Database {
           updated_at?: string;
         };
       };
+      milestone_submissions: {
+        Row: {
+          id: string;
+          milestone_id: string;
+          user_id: string;
+          submission_kind: "pasted_text" | "file_upload";
+          submission_text: string | null;
+          submission_filename: string | null;
+          storage_path: string | null;
+          is_latest: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          milestone_id: string;
+          user_id: string;
+          submission_kind: "pasted_text" | "file_upload";
+          submission_text?: string | null;
+          submission_filename?: string | null;
+          storage_path?: string | null;
+          is_latest?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          milestone_id?: string;
+          user_id?: string;
+          submission_kind?: "pasted_text" | "file_upload";
+          submission_text?: string | null;
+          submission_filename?: string | null;
+          storage_path?: string | null;
+          is_latest?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      milestone_submission_evaluations: {
+        Row: {
+          id: string;
+          submission_id: string;
+          user_id: string;
+          evaluation_json: Json | null;
+          status: "pending" | "completed" | "failed";
+          failure_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          user_id: string;
+          evaluation_json?: Json | null;
+          status?: "pending" | "completed" | "failed";
+          failure_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          submission_id?: string;
+          user_id?: string;
+          evaluation_json?: Json | null;
+          status?: "pending" | "completed" | "failed";
+          failure_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       subscriptions: {
         Row: {
           id: string;
@@ -286,6 +356,27 @@ export interface Database {
           metadata_json?: Json;
           created_at?: string;
         };
+      };
+    };
+    Functions: {
+      create_milestone_submission_with_pending_evaluation: {
+        Args: {
+          p_milestone_id: string;
+          p_submission_kind: "pasted_text" | "file_upload";
+          p_submission_text: string;
+          p_submission_filename?: string | null;
+        };
+        Returns: {
+          submission_id: string;
+          submission_kind: "pasted_text" | "file_upload";
+          submission_filename: string | null;
+          submission_created_at: string;
+          submission_updated_at: string;
+          evaluation_id: string;
+          evaluation_status: "pending" | "completed" | "failed";
+          evaluation_created_at: string;
+          evaluation_updated_at: string;
+        }[];
       };
     };
   };

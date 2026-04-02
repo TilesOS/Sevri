@@ -10,6 +10,14 @@ import { buildRoadmapOverviewFromStorage } from "@/lib/ai/storage";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
 import { trackEvent } from "@/lib/analytics/events";
 import { captureServerError } from "@/lib/sentry/server";
+import type {
+  EvaluationLifecycleStatus,
+  LatestCompletedMilestoneEvaluation,
+  MilestoneEvaluationResponse,
+  MilestoneEvaluationState,
+  StoredMilestoneSubmission,
+  WorkEvaluation,
+} from "@/types/domain";
 
 export const runtime = "nodejs";
 
@@ -27,6 +35,27 @@ const bodySchema = z.object({
   }
 });
 
+type ServerSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
+
+type SubmissionRecord = {
+  id: string;
+  submission_kind: StoredMilestoneSubmission["submission_kind"];
+  submission_filename: string | null;
+  created_at: string;
+  updated_at: string;
+  is_latest?: boolean | null;
+};
+
+type EvaluationRecord = {
+  id: string;
+  submission_id: string;
+  evaluation_json: WorkEvaluation | null;
+  status: EvaluationLifecycleStatus;
+  failure_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 function getErrorDetails(error: unknown) {
   if (error instanceof Error) {
     return error.message;
@@ -39,13 +68,23 @@ function getErrorDetails(error: unknown) {
   }
 }
 
-function formatSubmissionResponse(submission: {
-  id: string;
-  submission_kind: string;
-  submission_filename: string | null;
-  created_at: string;
-  updated_at: string;
-}) {
+function getErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+function getPipelineFailureMessage(raw: unknown) {
+  if (raw && typeof raw === "object" && "reason" in raw && typeof raw.reason === "string" && raw.reason.trim()) {
+    return `Evaluation could not be completed. ${raw.reason.trim()}`;
+  }
+
+  return "Evaluation could not be completed. Your submission was saved, but you will need to submit another version to retry.";
+}
+
+function formatSubmissionResponse(submission: SubmissionRecord): StoredMilestoneSubmission {
   return {
     id: submission.id,
     submission_kind: submission.submission_kind,
@@ -55,9 +94,132 @@ function formatSubmissionResponse(submission: {
   };
 }
 
+function formatCurrentEvaluationResponse(evaluation: EvaluationRecord | null): MilestoneEvaluationState {
+  const status: EvaluationLifecycleStatus =
+    evaluation?.status === "failed"
+      ? "failed"
+      : evaluation?.status === "completed" && evaluation.evaluation_json
+        ? "completed"
+        : "pending";
+
+  return {
+    id: evaluation?.id ?? null,
+    status,
+    evaluation: status === "completed" ? evaluation?.evaluation_json ?? null : null,
+    failure_message:
+      status === "failed"
+        ? evaluation?.failure_message ?? "Evaluation failed. Submit another version to retry."
+        : null,
+  };
+}
+
+function getLatestCompletedEvaluation(
+  submissions: SubmissionRecord[],
+  evaluations: EvaluationRecord[],
+): LatestCompletedMilestoneEvaluation | null {
+  const completedEvaluation = evaluations.find(
+    (candidate) => candidate.status === "completed" && candidate.evaluation_json,
+  );
+  if (!completedEvaluation) {
+    return null;
+  }
+
+  const submission = submissions.find((candidate) => candidate.id === completedEvaluation.submission_id);
+  if (!submission || !completedEvaluation.evaluation_json) {
+    return null;
+  }
+
+  return {
+    submission: formatSubmissionResponse(submission),
+    evaluation: completedEvaluation.evaluation_json,
+    evaluation_id: completedEvaluation.id,
+  };
+}
+
+async function buildEvaluationResponse(
+  supabase: ServerSupabaseClient,
+  milestoneId: string,
+): Promise<MilestoneEvaluationResponse> {
+  const { data: submissions, error: submissionsError } = await supabase
+    .from("milestone_submissions")
+    .select("id, submission_kind, submission_filename, created_at, updated_at, is_latest")
+    .eq("milestone_id", milestoneId)
+    .order("created_at", { ascending: false });
+
+  if (submissionsError) {
+    throw new Error(submissionsError.message);
+  }
+
+  if (!submissions?.length) {
+    return {
+      current_submission: null,
+      current_evaluation: null,
+      latest_completed_evaluation: null,
+    };
+  }
+
+  const submissionRecords = submissions as SubmissionRecord[];
+  const currentSubmission = submissionRecords.find((candidate) => candidate.is_latest) ?? submissionRecords[0];
+  const submissionIds = submissionRecords.map((candidate) => candidate.id);
+
+  let evaluationRecords: EvaluationRecord[] = [];
+  if (submissionIds.length > 0) {
+    const { data: evaluations, error: evaluationsError } = await supabase
+      .from("milestone_submission_evaluations")
+      .select("id, submission_id, evaluation_json, status, failure_message, created_at, updated_at")
+      .in("submission_id", submissionIds)
+      .order("created_at", { ascending: false });
+
+    if (evaluationsError) {
+      throw new Error(evaluationsError.message);
+    }
+
+    evaluationRecords = (evaluations ?? []) as EvaluationRecord[];
+  }
+
+  const evaluationBySubmission = new Map<string, EvaluationRecord>();
+  for (const evaluation of evaluationRecords) {
+    if (!evaluationBySubmission.has(evaluation.submission_id)) {
+      evaluationBySubmission.set(evaluation.submission_id, evaluation);
+    }
+  }
+
+  return {
+    current_submission: formatSubmissionResponse(currentSubmission),
+    current_evaluation: formatCurrentEvaluationResponse(
+      evaluationBySubmission.get(currentSubmission.id) ?? null,
+    ),
+    latest_completed_evaluation: getLatestCompletedEvaluation(submissionRecords, evaluationRecords),
+  };
+}
+
+async function markEvaluationFailed(
+  supabase: ServerSupabaseClient,
+  evaluationId: string,
+  failureMessage: string,
+  stage: string,
+) {
+  const { error } = await supabase
+    .from("milestone_submission_evaluations")
+    .update({
+      status: "failed",
+      evaluation_json: null,
+      failure_message: failureMessage,
+    })
+    .eq("id", evaluationId);
+
+  if (error) {
+    console.error("failed to mark evaluation as failed", { stage, error });
+    captureServerError(error, { route: "ai/milestones/evaluate", stage });
+  }
+}
+
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const routeStartedAt = performance.now();
   let stage = "start";
+  let supabase: ServerSupabaseClient | null = null;
+  let recoveryMilestoneId: string | null = null;
+  let savedEvaluationId: string | null = null;
 
   try {
     stage = "auth";
@@ -69,6 +231,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "parse-request";
     const body = bodySchema.parse(await request.json());
     const { id } = await context.params;
+    recoveryMilestoneId = id;
 
     stage = "rate-limit";
     try {
@@ -104,7 +267,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     stage = "create-supabase-client";
-    const supabase = await createServerSupabaseClient();
+    supabase = await createServerSupabaseClient();
 
     stage = "fetch-milestone";
     const { data: milestone, error: milestoneError } = await supabase
@@ -220,81 +383,126 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       );
     }
 
-    stage = "insert-submission";
-    const { data: submission, error: insertError } = await supabase
-      .from("milestone_submissions")
-      .insert({
-        milestone_id: milestone.id,
-        user_id: user.id,
-        submission_kind: body.submission_kind,
-        submission_text: body.submission_text,
-        submission_filename: body.submission_filename ?? null,
-        is_latest: true,
+    stage = "insert-submission-and-evaluation";
+    const { data: persisted, error: persistError } = await supabase
+      .rpc("create_milestone_submission_with_pending_evaluation", {
+        p_milestone_id: milestone.id,
+        p_submission_kind: body.submission_kind,
+        p_submission_text: body.submission_text,
+        p_submission_filename: body.submission_filename ?? null,
       })
-      .select("id, submission_kind, submission_filename, created_at, updated_at")
       .single();
 
-    if (insertError || !submission) {
-      throw new Error(insertError?.message ?? "Failed to insert submission");
+    if (persistError || !persisted) {
+      throw new Error(persistError?.message ?? "Failed to save submission");
     }
 
-    stage = "evaluate";
-    const generated = await runWorkEvaluation({
-      context: generationContext,
-      step: currentStep,
-      guidance,
-      submissionText: body.submission_text,
-      submissionFilename: body.submission_filename,
-    });
+    const persistedRecord = persisted as {
+      submission_id: string;
+      evaluation_id: string;
+    };
 
-    stage = "insert-evaluation";
-    const { data: evaluation, error: evalInsertError } = await supabase
-      .from("milestone_submission_evaluations")
-      .insert({
-        submission_id: submission.id,
-        user_id: user.id,
-        evaluation_json: generated.parsed,
-        status: "completed",
-      })
-      .select("id, created_at")
-      .single();
+    savedEvaluationId = persistedRecord.evaluation_id;
 
-    if (evalInsertError || !evaluation) {
-      throw new Error(evalInsertError?.message ?? "Failed to insert evaluation");
-    }
-
-    const routeMetadata = getRouteGenerationMetadata({
-      metrics: generated.metrics,
-      routeTotalMs: performance.now() - routeStartedAt,
-      cacheHit: false,
-    });
-
-    stage = "track-evaluation";
-    void trackEvent(user.id, "work_evaluation_completed", {
-      project_id: project.id,
-      milestone_id: milestone.id,
-      submission_id: submission.id,
-      project_track: project.project_track === "research" ? "research" : "software",
-      ...routeMetadata,
-    }).catch((trackError) => {
-      console.error("work evaluation track failed", { stage, error: trackError });
-      captureServerError(trackError, {
-        route: "ai/milestones/evaluate",
-        stage: "track-evaluation",
+    try {
+      stage = "evaluate";
+      const generated = await runWorkEvaluation({
+        context: generationContext,
+        step: currentStep,
+        guidance,
+        submissionText: body.submission_text,
+        submissionFilename: body.submission_filename,
       });
-    });
 
-    return NextResponse.json(
-      {
-        submission: formatSubmissionResponse(submission),
-        evaluation: generated.parsed,
-        evaluation_id: evaluation.id,
-      },
-      { status: 200 },
-    );
+      if (generated.metrics.fallback_used) {
+        stage = "mark-evaluation-failed";
+        await markEvaluationFailed(
+          supabase,
+          persistedRecord.evaluation_id,
+          getPipelineFailureMessage(generated.raw),
+          stage,
+        );
+
+        return NextResponse.json(await buildEvaluationResponse(supabase, milestone.id), { status: 200 });
+      }
+
+      stage = "mark-evaluation-completed";
+      const { error: evaluationUpdateError } = await supabase
+        .from("milestone_submission_evaluations")
+        .update({
+          status: "completed",
+          evaluation_json: generated.parsed,
+          failure_message: null,
+        })
+        .eq("id", persistedRecord.evaluation_id);
+
+      if (evaluationUpdateError) {
+        console.error("failed to persist completed evaluation", { stage, error: evaluationUpdateError });
+        captureServerError(evaluationUpdateError, { route: "ai/milestones/evaluate", stage });
+
+        stage = "mark-evaluation-failed";
+        await markEvaluationFailed(
+          supabase,
+          persistedRecord.evaluation_id,
+          "Evaluation finished, but the result could not be saved. Your submission is still available - submit another version to retry.",
+          stage,
+        );
+
+        return NextResponse.json(await buildEvaluationResponse(supabase, milestone.id), { status: 200 });
+      }
+
+      const routeMetadata = getRouteGenerationMetadata({
+        metrics: generated.metrics,
+        routeTotalMs: performance.now() - routeStartedAt,
+        cacheHit: false,
+      });
+
+      stage = "track-evaluation";
+      void trackEvent(user.id, "work_evaluation_completed", {
+        project_id: project.id,
+        milestone_id: milestone.id,
+        submission_id: persistedRecord.submission_id,
+        project_track: project.project_track === "research" ? "research" : "software",
+        ...routeMetadata,
+      }).catch((trackError) => {
+        console.error("work evaluation track failed", { stage, error: trackError });
+        captureServerError(trackError, {
+          route: "ai/milestones/evaluate",
+          stage: "track-evaluation",
+        });
+      });
+
+      return NextResponse.json(await buildEvaluationResponse(supabase, milestone.id), { status: 200 });
+    } catch (evaluationError) {
+      stage = "mark-evaluation-failed";
+      await markEvaluationFailed(
+        supabase,
+        persistedRecord.evaluation_id,
+        getErrorMessage(
+          evaluationError,
+          "Evaluation failed, but your submission was saved. Submit another version to retry.",
+        ),
+        stage,
+      );
+
+      return NextResponse.json(await buildEvaluationResponse(supabase, milestone.id), { status: 200 });
+    }
   } catch (error) {
     console.error("work evaluation failed", { stage, error });
     captureServerError(error, { route: "ai/milestones/evaluate", stage });
+
+    if (supabase && recoveryMilestoneId && savedEvaluationId) {
+      try {
+        return NextResponse.json(await buildEvaluationResponse(supabase, recoveryMilestoneId), { status: 200 });
+      } catch (recoveryError) {
+        console.error("failed to recover saved submission state", { recoveryError });
+        captureServerError(recoveryError, {
+          route: "ai/milestones/evaluate",
+          stage: "recover-saved-submission",
+        });
+      }
+    }
+
     const details = getErrorDetails(error);
     const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
 
@@ -349,34 +557,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
-    const { data: submission } = await supabase
-      .from("milestone_submissions")
-      .select("id, submission_kind, submission_filename, created_at, updated_at")
-      .eq("milestone_id", milestone.id)
-      .eq("is_latest", true)
-      .limit(1)
-      .maybeSingle();
-
-    if (!submission) {
-      return NextResponse.json({ submission: null, evaluation: null }, { status: 200 });
-    }
-
-    const { data: evaluation } = await supabase
-      .from("milestone_submission_evaluations")
-      .select("id, evaluation_json, created_at")
-      .eq("submission_id", submission.id)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    return NextResponse.json(
-      {
-        submission: formatSubmissionResponse(submission),
-        evaluation: evaluation?.evaluation_json ?? null,
-        evaluation_id: evaluation?.id ?? null,
-      },
-      { status: 200 },
-    );
+    return NextResponse.json(await buildEvaluationResponse(supabase, milestone.id), { status: 200 });
   } catch (error) {
     console.error("get evaluation failed", { error });
     captureServerError(error, { route: "ai/milestones/evaluate", stage: "get" });

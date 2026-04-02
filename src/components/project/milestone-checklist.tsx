@@ -10,7 +10,13 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import type { StepGuidance, WorkEvaluation } from "@/types/domain";
+import type {
+  LatestCompletedMilestoneEvaluation,
+  MilestoneEvaluationResponse,
+  StepGuidance,
+  StoredMilestoneSubmission,
+  WorkEvaluation,
+} from "@/types/domain";
 
 interface Milestone {
   id: string;
@@ -21,14 +27,6 @@ interface Milestone {
   deliverable?: string | null;
   rough_time_estimate?: string | null;
   completed: boolean;
-}
-
-interface StoredSubmission {
-  id: string;
-  submission_kind: "pasted_text" | "file_upload";
-  submission_filename: string | null;
-  created_at: string;
-  updated_at: string;
 }
 
 interface RouteErrorBody {
@@ -42,7 +40,22 @@ type SubmissionSlot =
   | { status: "unloaded" }
   | { status: "loading" }
   | { status: "empty" }
-  | { status: "loaded"; submission: StoredSubmission; evaluation: WorkEvaluation };
+  | {
+      status: "pending";
+      submission: StoredMilestoneSubmission;
+      latestCompletedEvaluation: LatestCompletedMilestoneEvaluation | null;
+    }
+  | {
+      status: "failed";
+      submission: StoredMilestoneSubmission;
+      failureMessage: string | null;
+      latestCompletedEvaluation: LatestCompletedMilestoneEvaluation | null;
+    }
+  | {
+      status: "completed";
+      submission: StoredMilestoneSubmission;
+      evaluation: WorkEvaluation;
+    };
 
 const ACCEPTED_FILE_EXTENSIONS = ".py,.js,.ts,.jsx,.tsx,.html,.css,.md,.txt,.json,.csv,.sql";
 const MAX_SUBMISSION_CHARS = 20_000;
@@ -75,6 +88,52 @@ const CONFIDENCE_LABEL: Record<string, string> = {
   medium: "Medium confidence",
   low: "Low confidence",
 };
+
+function buildSubmissionSlot(body: MilestoneEvaluationResponse | null | undefined): SubmissionSlot {
+  if (!body?.current_submission) {
+    return { status: "empty" };
+  }
+
+  const currentSubmission = body.current_submission;
+  const currentEvaluation = body.current_evaluation;
+  const latestCompletedEvaluation = body.latest_completed_evaluation ?? null;
+
+  if (currentEvaluation?.status === "completed" && currentEvaluation.evaluation) {
+    return {
+      status: "completed",
+      submission: currentSubmission,
+      evaluation: currentEvaluation.evaluation,
+    };
+  }
+
+  if (currentEvaluation?.status === "failed") {
+    return {
+      status: "failed",
+      submission: currentSubmission,
+      failureMessage: currentEvaluation.failure_message,
+      latestCompletedEvaluation,
+    };
+  }
+
+  return {
+    status: "pending",
+    submission: currentSubmission,
+    latestCompletedEvaluation,
+  };
+}
+
+function getFallbackEvaluation(slot: SubmissionSlot | undefined) {
+  if (!slot || (slot.status !== "pending" && slot.status !== "failed")) {
+    return null;
+  }
+
+  const fallback = slot.latestCompletedEvaluation;
+  if (!fallback || fallback.submission.id === slot.submission.id) {
+    return null;
+  }
+
+  return fallback;
+}
 
 export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) {
   const router = useRouter();
@@ -139,38 +198,26 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
     setGuidancePendingId(null);
   }
 
+  async function fetchSubmissionState(milestoneId: string) {
+    const response = await fetch(`/api/ai/milestones/${milestoneId}/evaluate`);
+    const body = (await response.json().catch(() => null)) as (MilestoneEvaluationResponse & RouteErrorBody) | null;
+
+    if (!response.ok || !body) {
+      throw new Error(body?.error ?? "Failed to load saved evaluation.");
+    }
+
+    return body;
+  }
+
   async function loadSubmission(milestoneId: string) {
     setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "loading" } }));
     setEvaluationErrorById((prev) => ({ ...prev, [milestoneId]: "" }));
 
     try {
-      const response = await fetch(`/api/ai/milestones/${milestoneId}/evaluate`);
-      const body = (await response.json().catch(() => null)) as {
-        submission?: StoredSubmission | null;
-        evaluation?: WorkEvaluation | null;
-      } & RouteErrorBody | null;
-
-      if (!response.ok) {
-        setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "empty" } }));
-        setEvaluationErrorById((prev) => ({
-          ...prev,
-          [milestoneId]: body?.error ?? "Failed to load saved evaluation.",
-        }));
-        return;
-      }
-
-      if (!body?.submission || !body?.evaluation) {
-        setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "empty" } }));
-        return;
-      }
-
+      const body = await fetchSubmissionState(milestoneId);
       setSubmissionById((prev) => ({
         ...prev,
-        [milestoneId]: {
-          status: "loaded",
-          submission: body.submission!,
-          evaluation: body.evaluation!,
-        },
+        [milestoneId]: buildSubmissionSlot(body),
       }));
     } catch {
       setSubmissionById((prev) => ({ ...prev, [milestoneId]: { status: "empty" } }));
@@ -201,15 +248,12 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
         }),
       });
 
-      const body = (await response.json().catch(() => null)) as {
-        submission?: StoredSubmission;
-        evaluation?: WorkEvaluation;
-      } & RouteErrorBody | null;
+      const body = (await response.json().catch(() => null)) as (MilestoneEvaluationResponse & RouteErrorBody) | null;
 
-      if (!response.ok || !body?.submission || !body?.evaluation) {
+      if (!response.ok || !body) {
         setEvaluationErrorById((prev) => ({
           ...prev,
-          [milestoneId]: body?.error ?? "Evaluation failed. Your submission was saved — try again.",
+          [milestoneId]: body?.error ?? "Failed to save your submission.",
         }));
         setEvaluationPendingId(null);
         return;
@@ -217,18 +261,25 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
 
       setSubmissionById((prev) => ({
         ...prev,
-        [milestoneId]: {
-          status: "loaded",
-          submission: body.submission!,
-          evaluation: body.evaluation!,
-        },
+        [milestoneId]: buildSubmissionSlot(body),
       }));
+      setEvaluationErrorById((prev) => ({ ...prev, [milestoneId]: "" }));
       setResubmitModeById((prev) => ({ ...prev, [milestoneId]: false }));
     } catch {
-      setEvaluationErrorById((prev) => ({
-        ...prev,
-        [milestoneId]: "Network error. Your submission may have been saved — refresh and try again.",
-      }));
+      try {
+        const recovered = await fetchSubmissionState(milestoneId);
+        setSubmissionById((prev) => ({
+          ...prev,
+          [milestoneId]: buildSubmissionSlot(recovered),
+        }));
+        setEvaluationErrorById((prev) => ({ ...prev, [milestoneId]: "" }));
+        setResubmitModeById((prev) => ({ ...prev, [milestoneId]: false }));
+      } catch {
+        setEvaluationErrorById((prev) => ({
+          ...prev,
+          [milestoneId]: "Network error. Your submission may have been saved - refresh and try again.",
+        }));
+      }
     }
 
     setEvaluationPendingId(null);
@@ -387,15 +438,14 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
                           </GuidanceBlock>
                         </div>
 
-                        {/* Work submission + evaluation section */}
                         <div className="border-t border-line pt-5">
                           <SubmissionSection
                             slot={slot}
                             isEvaluationPending={isEvaluationPending}
                             evaluationError={evaluationError}
                             isResubmitMode={isResubmitMode}
-                            onSubmit={(text, kind, filename) =>
-                              void submitWork(milestone.id, text, kind, filename)
+                            onSubmit={(text, kind, nextFilename) =>
+                              void submitWork(milestone.id, text, kind, nextFilename)
                             }
                             onResubmit={() =>
                               setResubmitModeById((prev) => ({ ...prev, [milestone.id]: true }))
@@ -450,7 +500,7 @@ function SubmissionSection({
     );
   }
 
-  if (slot.status === "loaded") {
+  if (slot.status === "completed") {
     return (
       <div className="space-y-4">
         {isResubmitMode ? (
@@ -474,7 +524,43 @@ function SubmissionSection({
     );
   }
 
-  // status === "empty" or evaluating from empty
+  if (slot.status === "pending" || slot.status === "failed") {
+    const fallbackEvaluation = getFallbackEvaluation(slot);
+
+    return (
+      <div className="space-y-4">
+        {isResubmitMode ? (
+          <>
+            <SubmissionStateSummaryBar slot={slot} onCancel={onCancelResubmit} />
+            <MilestoneSubmissionForm onSubmit={onSubmit} disabled={isEvaluationPending} />
+            {evaluationError ? <Alert tone="danger">{evaluationError}</Alert> : null}
+          </>
+        ) : (
+          <>
+            <CurrentSubmissionStatusCard
+              slot={slot}
+              isEvaluationPending={isEvaluationPending}
+              onResubmit={onResubmit}
+            />
+            {fallbackEvaluation ? (
+              <EvaluationResult
+                title="Last completed evaluation"
+                note={
+                  slot.status === "pending"
+                    ? "Your newest submission is still pending, so Sevri is keeping the last completed evaluation visible."
+                    : "Your newest submission failed to evaluate, so Sevri is keeping the last completed evaluation visible."
+                }
+                submission={fallbackEvaluation.submission}
+                evaluation={fallbackEvaluation.evaluation}
+              />
+            ) : null}
+            {evaluationError ? <Alert tone="danger">{evaluationError}</Alert> : null}
+          </>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -584,7 +670,7 @@ function MilestoneSubmissionForm({
       ) : null}
 
       <div className="flex items-center justify-between gap-4">
-        <span className={cn("text-xs", isOverLimit ? "text-red-600 font-medium" : "text-ink-muted")}>
+        <span className={cn("text-xs", isOverLimit ? "font-medium text-red-600" : "text-ink-muted")}>
           {combinedLength.toLocaleString()} / {MAX_SUBMISSION_CHARS.toLocaleString()} characters
         </span>
         <Button
@@ -600,20 +686,69 @@ function MilestoneSubmissionForm({
   );
 }
 
+function CurrentSubmissionStatusCard({
+  slot,
+  isEvaluationPending,
+  onResubmit,
+}: {
+  slot: Extract<SubmissionSlot, { status: "pending" | "failed" }>;
+  isEvaluationPending: boolean;
+  onResubmit: () => void;
+}) {
+  const isFailed = slot.status === "failed";
+
+  return (
+    <Card tone="subtle" className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="space-y-1">
+          <p className="editorial-kicker">{isFailed ? "Evaluation failed" : "Evaluation pending"}</p>
+          <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
+            <span>{formatSubmissionKind(slot.submission.submission_kind, slot.submission.submission_filename)}</span>
+            <span>&middot;</span>
+            <span>{formatDate(slot.submission.created_at)}</span>
+            <Badge tone={isFailed ? "danger" : "warning"} className="text-[10px]">
+              {isFailed ? "Failed" : "Pending"}
+            </Badge>
+          </div>
+        </div>
+        <Button type="button" variant="outline" size="sm" onClick={onResubmit} className="rounded-full">
+          {isFailed ? "Submit new version" : "Submit another version"}
+        </Button>
+      </div>
+
+      {isFailed ? (
+        <Alert tone="danger">
+          {slot.failureMessage ?? "The evaluation could not be completed, but your submission is still saved."}
+        </Alert>
+      ) : (
+        <Alert tone="warning">
+          {isEvaluationPending
+            ? "Sevri is still processing this submission."
+            : "This submission is saved, but its evaluation is still pending."}
+        </Alert>
+      )}
+    </Card>
+  );
+}
+
 function EvaluationResult({
   submission,
   evaluation,
   onResubmit,
+  title = "Your evaluation",
+  note,
 }: {
-  submission: StoredSubmission;
+  submission: StoredMilestoneSubmission;
   evaluation: WorkEvaluation;
-  onResubmit: () => void;
+  onResubmit?: () => void;
+  title?: string;
+  note?: string;
 }) {
   return (
     <Card tone="subtle" className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="editorial-kicker">Your evaluation</p>
+          <p className="editorial-kicker">{title}</p>
           <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
             <span>{formatSubmissionKind(submission.submission_kind, submission.submission_filename)}</span>
             <span>&middot;</span>
@@ -627,13 +762,15 @@ function EvaluationResult({
               </>
             ) : null}
           </div>
+          {note ? <p className="text-xs text-ink-muted">{note}</p> : null}
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={onResubmit} className="rounded-full">
-          Submit new version
-        </Button>
+        {onResubmit ? (
+          <Button type="button" variant="outline" size="sm" onClick={onResubmit} className="rounded-full">
+            Submit new version
+          </Button>
+        ) : null}
       </div>
 
-      {/* Criterion verdicts */}
       <div className="space-y-2">
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Criterion verdicts</p>
         <ul className="space-y-2">
@@ -644,20 +781,18 @@ function EvaluationResult({
               </Badge>
               <div>
                 <span className="font-medium text-ink">{cv.criterion}</span>
-                <span className="text-ink-soft"> — {cv.note}</span>
+                <span className="text-ink-soft"> - {cv.note}</span>
               </div>
             </li>
           ))}
         </ul>
       </div>
 
-      {/* Overall assessment */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Overall assessment</p>
         <p className="mt-1 text-sm leading-6 text-ink-soft">{evaluation.overall_assessment}</p>
       </div>
 
-      {/* Strongest aspect + Clearest gap */}
       <div className="grid gap-3 lg:grid-cols-2">
         <Card tone="primary" padding="sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Strongest aspect</p>
@@ -669,18 +804,16 @@ function EvaluationResult({
         </Card>
       </div>
 
-      {/* Next best action */}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Next best action</p>
         <p className="mt-1 text-sm leading-6 text-ink-soft">{evaluation.next_best_action}</p>
       </div>
 
-      {/* Ready to mark complete */}
       {evaluation.ready_to_mark_complete ? (
         <Alert tone="success">This step looks done. You can mark it complete above.</Alert>
       ) : (
         <p className="text-xs text-ink-muted">
-          Not quite ready to mark complete — address the gaps above first.
+          Not quite ready to mark complete - address the gaps above first.
         </p>
       )}
     </Card>
@@ -710,6 +843,39 @@ function ResubmitSummaryBar({
           {evaluation.ready_to_mark_complete ? "Ready to mark complete" : "Not ready to mark complete"}
         </p>
         <p className="text-xs text-ink-muted">Your previous evaluation is saved.</p>
+      </div>
+      <button
+        type="button"
+        className="shrink-0 text-xs text-ink-muted hover:text-ink"
+        onClick={onCancel}
+      >
+        Cancel
+      </button>
+    </Card>
+  );
+}
+
+function SubmissionStateSummaryBar({
+  slot,
+  onCancel,
+}: {
+  slot: Extract<SubmissionSlot, { status: "pending" | "failed" }>;
+  onCancel: () => void;
+}) {
+  return (
+    <Card tone="subtle" padding="sm" className="flex items-center justify-between gap-3">
+      <div className="space-y-0.5">
+        <p className="text-xs font-semibold text-ink">
+          Current submission &middot; {formatDate(slot.submission.created_at)}
+        </p>
+        <p className="text-xs text-ink-muted">
+          {slot.status === "failed"
+            ? "The latest evaluation failed, but this submission is still saved."
+            : "The latest submission is still pending evaluation."}
+        </p>
+        <p className="text-xs text-ink-muted">
+          Submitting again will create a new saved attempt.
+        </p>
       </div>
       <button
         type="button"

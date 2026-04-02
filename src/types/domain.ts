@@ -79,3 +79,32 @@ export interface WorkEvaluation {
   ready_to_mark_complete: boolean;
   confidence?: "high" | "medium" | "low";
 }
+
+export type EvaluationLifecycleStatus = "pending" | "completed" | "failed";
+
+export interface StoredMilestoneSubmission {
+  id: string;
+  submission_kind: "pasted_text" | "file_upload";
+  submission_filename: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MilestoneEvaluationState {
+  id: string | null;
+  status: EvaluationLifecycleStatus;
+  evaluation: WorkEvaluation | null;
+  failure_message: string | null;
+}
+
+export interface LatestCompletedMilestoneEvaluation {
+  submission: StoredMilestoneSubmission;
+  evaluation: WorkEvaluation;
+  evaluation_id: string;
+}
+
+export interface MilestoneEvaluationResponse {
+  current_submission: StoredMilestoneSubmission | null;
+  current_evaluation: MilestoneEvaluationState | null;
+  latest_completed_evaluation: LatestCompletedMilestoneEvaluation | null;
+}
