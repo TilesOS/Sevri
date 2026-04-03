@@ -1,4 +1,58 @@
-import type { GenerationContext, ProjectTrack, ProjectOption, RoadmapOverview, RoadmapStep, StepGuidance } from "@/lib/ai/schemas";
+import type { GenerationContext, ProjectOption, ProjectTrack, RoadmapOverview, RoadmapStep, StepGuidance } from "@/lib/ai/schemas";
+
+export interface PromptFeedbackItem {
+  signal: "good" | "mixed" | "bad";
+  notes: string | null;
+  contextLabel?: string | null;
+}
+
+function formatFeedback(feedback: PromptFeedbackItem[] | undefined) {
+  if (!feedback || feedback.length === 0) {
+    return "No prior user feedback is available for this stage.";
+  }
+
+  return feedback
+    .map((item, index) => {
+      const note = item.notes?.trim() ? item.notes.trim() : "No written note.";
+      const label = item.contextLabel?.trim() ? ` (${item.contextLabel.trim()})` : "";
+      return `${index + 1}. ${item.signal.toUpperCase()}${label}: ${note}`;
+    })
+    .join("\n");
+}
+
+export function buildNormalizeSystemPrompt(projectTrack: ProjectTrack) {
+  const trackSpecific =
+    projectTrack === "research"
+      ? "Extract a concrete student research planning brief from the onboarding answers. Keep the question ambitious but believable, and do not invent mentor or lab access."
+      : "Extract a concrete software project planning brief from the onboarding answers. Keep the recommendation domain-specific, demoable, and free from generic productivity defaults.";
+
+  return [
+    `You are Sevri's ${projectTrack} profile normalizer.`,
+    "Return only JSON that matches the schema.",
+    trackSpecific,
+    "Anchor the profile to the user's real domain language, constraints, time budget, and desired proof.",
+    "Infer at most one careful step beyond what the user explicitly signals.",
+    "Populate anti_generic_warnings, scope_guardrails, and goal/resource summaries with concrete, useful language.",
+    "If the intake is specific, the normalized profile must stay specific.",
+  ].join(" ");
+}
+
+export function buildNormalizeUserPrompt(input: {
+  projectTrack: ProjectTrack;
+  rawIntake: Record<string, unknown>;
+  feedback?: PromptFeedbackItem[];
+}) {
+  return [
+    "Onboarding intake JSON:",
+    JSON.stringify(input.rawIntake, null, 2),
+    "Relevant prior feedback:",
+    formatFeedback(input.feedback),
+    "Requirements:",
+    "- Reuse the user's actual technical or research language whenever possible.",
+    "- Keep the normalized profile narrow enough to drive differentiated outputs.",
+    "- Do not introduce removed concepts like mentor access, school/company targeting, or tool access assumptions unless the raw intake explicitly names them in free text.",
+  ].join("\n\n");
+}
 
 function formatContext(context: GenerationContext) {
   if (context.project_track === "software") {
@@ -12,6 +66,7 @@ function formatContext(context: GenerationContext) {
       `Goal: ${payload.goal_signal}`,
       `Target outcome: ${payload.target_outcome}`,
       `Resources: ${payload.resource_snapshot}`,
+      `Anti-generic warnings: ${payload.anti_generic_warnings.join(" | ")}`,
       `Weekly hours: ${payload.weekly_hours}`,
       `Constraints: ${payload.constraints_summary}`,
       `Scope guardrails: ${payload.scope_guardrails.join(" | ")}`,
@@ -33,12 +88,13 @@ function formatContext(context: GenerationContext) {
     `Goal: ${payload.goal_signal}`,
     `Target outcome: ${payload.target_outcome}`,
     `Resources: ${payload.resource_snapshot}`,
+    `Anti-generic warnings: ${payload.anti_generic_warnings.join(" | ")}`,
     `Weekly hours: ${payload.weekly_hours}`,
     `Constraints: ${payload.constraints_summary}`,
     `Scope guardrails: ${payload.scope_guardrails.join(" | ")}`,
     `Focus: ${payload.focus_signal}`,
     `Readiness: ${payload.research_readiness}`,
-    `Mentor notes: ${payload.mentor_resource_notes}`,
+    `Method guidance: ${payload.methodology_guidance}`,
     `Methods: ${payload.viable_methodologies.join(" | ")}`,
     ...(context.risk_flags.length > 0 ? [`Risk flags: ${context.risk_flags.join(", ")}`] : []),
   ].join("\n");
@@ -58,20 +114,27 @@ export function buildOptionsSystemPrompt(projectTrack: ProjectTrack) {
     "Stay grounded in the student's real domain interests and constraints.",
     "Avoid generic student-life, study-habit, or productivity ideas unless the context explicitly supports them.",
     `Each option's track_payload_json must include all seed fields (${seedFields}) with concrete, project-specific values.`,
-    "These seed fields become the foundation for roadmap generation — make them specific enough to drive a real execution plan.",
+    "Also return skills_demonstrated, tools_needed, impressiveness_score, and finishability_score for every option.",
+    "Make the three options genuinely different in user/problem/workflow shape for software or question/method shape for research.",
+    "Scores must reflect the real time budget, skill level, and risk flags rather than generic optimism.",
+    "These seed fields become the foundation for roadmap generation - make them specific enough to drive a real execution plan.",
   ].join(" ");
 }
 
-export function buildOptionsUserPrompt(context: GenerationContext) {
+export function buildOptionsUserPrompt(context: GenerationContext, feedback?: PromptFeedbackItem[]) {
   return [
     "Student context:",
     formatContext(context),
+    "Relevant prior feedback:",
+    formatFeedback(feedback),
     "Requirements:",
     "- Make the three options clearly different from each other.",
     "- Each option should feel finishable for the stated time budget.",
     "- Keep the seed payload concrete and useful for later roadmap generation.",
     "- mvp_boundary (or scope_boundaries for research) must define what is IN vs OUT of the first version.",
     "- validation_plan (or limitation_note for research) must describe how the student proves the work succeeded.",
+    "- Skills demonstrated should feel resume-relevant and specific to the option.",
+    "- Tools needed should be realistic for the student's context, not an aspirational stack dump.",
   ].join("\n\n");
 }
 
@@ -88,7 +151,7 @@ export function buildRoadmapSystemPrompt(projectTrack: ProjectTrack) {
     "cut_if_behind: 1-4 items the student can drop if they fall behind schedule. These must be specific to THIS project.",
     "success_criteria: 2-5 concrete conditions that define project success. Tie them to actual deliverables and evidence, not effort.",
     "",
-    "Do not use generic titles like 'Foundation Setup', 'Core Workflow', 'Polish and Packaging'.",
+    "Do not use generic titles like 'Foundation Setup', 'Core Workflow', or 'Polish and Packaging'.",
     "Every deliverable must be a concrete artifact, not a phase name.",
     "Do not include long rationale, README text, or extra sections.",
   ].join(" ");
@@ -98,6 +161,7 @@ export function buildRoadmapUserPrompt(input: {
   projectTrack: ProjectTrack;
   context: GenerationContext;
   selectedOption: ProjectOption;
+  feedback?: PromptFeedbackItem[];
 }) {
   return [
     "Student context:",
@@ -111,6 +175,8 @@ export function buildRoadmapUserPrompt(input: {
       `Estimated weeks: ${input.selectedOption.estimated_weeks}`,
       `Seed payload: ${JSON.stringify(input.selectedOption.track_payload_json)}`,
     ].join("\n"),
+    "Relevant prior feedback:",
+    formatFeedback(input.feedback),
     "Requirements:",
     "- The project_brief must synthesize the student context + selected option into a clear execution anchor.",
     "- The roadmap should feel practical for the student to start immediately.",
@@ -130,7 +196,7 @@ export function buildStepGuidanceSystemPrompt(projectTrack: ProjectTrack) {
     "Be specific, actionable, and encouraging without filler.",
     "Assume the student needs a clear next move, a realistic checklist, and honest pitfalls.",
     "Make the advice detailed enough to feel premium, but keep every bullet practical.",
-    "The done_when criteria must tie directly to the step's validation_check — do not invent abstract completion conditions.",
+    "The done_when criteria must tie directly to the step's validation_check - do not invent abstract completion conditions.",
     "Pitfalls must reference real risks specific to this project and step, not generic advice.",
   ].join(" ");
 }
@@ -142,6 +208,7 @@ export function buildStepGuidanceUserPrompt(input: {
   step: RoadmapStep;
   previousStep?: RoadmapStep;
   nextStep?: RoadmapStep;
+  feedback?: PromptFeedbackItem[];
 }) {
   const roadmapContext = [
     `Title: ${input.roadmap.project_title}`,
@@ -154,10 +221,7 @@ export function buildStepGuidanceUserPrompt(input: {
   ];
 
   const fullRoadmap = input.roadmap.steps
-    .map(
-      (s) =>
-        `Step ${s.order_index}: ${s.title} → ${s.deliverable} (${s.rough_time_estimate})`,
-    )
+    .map((step) => `Step ${step.order_index}: ${step.title} -> ${step.deliverable} (${step.rough_time_estimate})`)
     .join("\n");
 
   const stepContext = [
@@ -182,13 +246,14 @@ export function buildStepGuidanceUserPrompt(input: {
     formatContext(input.context),
     "Project:",
     roadmapContext.join("\n"),
+    "Relevant prior feedback:",
+    formatFeedback(input.feedback),
     "Full roadmap:",
     fullRoadmap,
     "Current roadmap step:",
     stepContext.join("\n"),
     "Requirements:",
     "- The checklist should be in a realistic execution order.",
-    "- Deliverables should match the current step, not the whole project.",
     "- Pitfalls should warn about project-specific mistakes and scope drift for THIS step.",
     "- done_when criteria must be tied to the step's validation_check.",
     "- The email_version should be ready for a future coaching email.",
@@ -199,10 +264,10 @@ export function buildWorkEvaluationSystemPrompt(projectTrack: ProjectTrack) {
   return [
     `You evaluate student work submissions for Sevri ${projectTrack} projects.`,
     "Return only JSON that matches the schema.",
-    "Evaluate honestly — mark 'not_yet' when something is genuinely missing, not to encourage where encouragement is not warranted.",
+    "Evaluate honestly - mark 'not_yet' when something is genuinely missing, not to encourage where encouragement is not warranted.",
     "Each criterion_verdict must map to a specific done_when item or the step's validation_check.",
     "The overall_assessment should synthesize the verdicts into a balanced narrative.",
-    "strongest_aspect should name what the student did best — even if the work is incomplete.",
+    "strongest_aspect should name what the student did best - even if the work is incomplete.",
     "clearest_gap should name the most important thing still missing.",
     "next_best_action should give one concrete, actionable step the student can take next.",
     "ready_to_mark_complete should be true only when all criteria genuinely pass.",

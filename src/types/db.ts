@@ -312,6 +312,59 @@ export interface Database {
           updated_at?: string;
         };
       };
+      generation_feedback: {
+        Row: {
+          id: string;
+          user_id: string;
+          stage: "recommendations" | "roadmap" | "step_guidance" | "work_evaluation";
+          signal: "good" | "mixed" | "bad";
+          notes: string | null;
+          normalized_profile_id: string | null;
+          closest_recommendation_id: string | null;
+          roadmap_id: string | null;
+          milestone_guidance_id: string | null;
+          submission_evaluation_id: string | null;
+          project_track: string | null;
+          project_id: string | null;
+          milestone_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          stage: "recommendations" | "roadmap" | "step_guidance" | "work_evaluation";
+          signal: "good" | "mixed" | "bad";
+          notes?: string | null;
+          normalized_profile_id?: string | null;
+          closest_recommendation_id?: string | null;
+          roadmap_id?: string | null;
+          milestone_guidance_id?: string | null;
+          submission_evaluation_id?: string | null;
+          project_track?: string | null;
+          project_id?: string | null;
+          milestone_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          stage?: "recommendations" | "roadmap" | "step_guidance" | "work_evaluation";
+          signal?: "good" | "mixed" | "bad";
+          notes?: string | null;
+          normalized_profile_id?: string | null;
+          closest_recommendation_id?: string | null;
+          roadmap_id?: string | null;
+          milestone_guidance_id?: string | null;
+          submission_evaluation_id?: string | null;
+          project_track?: string | null;
+          project_id?: string | null;
+          milestone_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       subscriptions: {
         Row: {
           id: string;

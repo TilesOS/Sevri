@@ -16,8 +16,6 @@ function getSoftwareTrackPayload(input: SoftwareOnboardingInput) {
     coding_experience: input.coding_experience,
     preferred_project_style: input.preferred_project_style,
     known_tools: input.known_tools,
-    target_schools_or_companies: input.target_schools_or_companies,
-    preferred_difficulty: input.preferred_difficulty,
   };
 }
 
@@ -25,9 +23,7 @@ function getResearchTrackPayload(input: ResearchOnboardingInput) {
   return {
     preferred_research_domain: input.preferred_research_domain,
     research_experience: input.research_experience,
-    mentor_access: input.mentor_access,
     methodology_preference: input.methodology_preference,
-    research_tools_or_resources: input.research_tools_or_resources,
     target_research_deliverable: input.target_research_deliverable,
     data_or_resource_access: input.data_or_resource_access ?? null,
   };
@@ -78,8 +74,8 @@ export async function upsertOnboardingData(user: User, input: OnboardingInput) {
           weekly_time_available: input.weekly_time_available,
           preferred_project_style: input.preferred_project_style,
           known_tools: input.known_tools,
-          target_schools_or_companies: input.target_schools_or_companies,
-          preferred_difficulty: input.preferred_difficulty,
+          target_schools_or_companies: [],
+          preferred_difficulty: null,
           constraints: input.constraints ?? null,
           track_payload_json: getSoftwareTrackPayload(input),
           raw_answers_json: input,

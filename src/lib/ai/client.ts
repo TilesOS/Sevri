@@ -86,6 +86,10 @@ function resolveStageModel(stage: GenerationStage | string, explicitModel?: stri
     return explicitModel.trim();
   }
 
+  if (stage === "normalize" && env.OPENAI_NORMALIZE_MODEL?.trim()) {
+    return env.OPENAI_NORMALIZE_MODEL.trim();
+  }
+
   if (stage === "options" && env.OPENAI_STAGE1_MODEL?.trim()) {
     return env.OPENAI_STAGE1_MODEL.trim();
   }
@@ -102,20 +106,24 @@ function resolveStageModel(stage: GenerationStage | string, explicitModel?: stri
 }
 
 function getStageDefaults(stage: GenerationStage | string) {
+  if (stage === "normalize") {
+    return { maxCompletionTokens: 1400, maxRetries: 1, reasoningEffort: "medium" as const };
+  }
+
   if (stage === "options") {
-    return { maxCompletionTokens: 800, maxRetries: 0, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 1200, maxRetries: 1, reasoningEffort: "medium" as const };
   }
 
   if (stage === "roadmap") {
-    return { maxCompletionTokens: 1700, maxRetries: 1, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 1900, maxRetries: 1, reasoningEffort: "medium" as const };
   }
 
   if (stage === "step_guidance") {
-    return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "medium" as const };
   }
 
   if (stage === "work_evaluation") {
-    return { maxCompletionTokens: 900, maxRetries: 1, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 900, maxRetries: 1, reasoningEffort: "medium" as const };
   }
 
   return { maxCompletionTokens: 1200, maxRetries: 2, reasoningEffort: undefined };

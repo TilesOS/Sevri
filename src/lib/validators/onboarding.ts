@@ -4,13 +4,6 @@ export const projectTrackSchema = z.enum(["software", "research"]);
 
 export const targetOutcomeSchema = z.enum(["college_apps", "internship", "portfolio", "learning"]);
 
-export const softwareDifficultySchema = z.enum([
-  "beginner",
-  "beginner_intermediate",
-  "intermediate",
-  "intermediate_advanced",
-]);
-
 const sharedOnboardingSchema = z.object({
   student_stage: z.string().min(2),
   target_outcome: targetOutcomeSchema,
@@ -26,17 +19,13 @@ export const softwareOnboardingInputSchema = sharedOnboardingSchema.extend({
   coding_experience: z.enum(["beginner", "intermediate", "advanced"]),
   preferred_project_style: z.string().min(2),
   known_tools: z.array(z.string()).default([]),
-  target_schools_or_companies: z.array(z.string()).default([]),
-  preferred_difficulty: softwareDifficultySchema,
 });
 
 export const researchOnboardingInputSchema = sharedOnboardingSchema.extend({
   project_track: z.literal("research"),
   preferred_research_domain: z.string().min(2),
-  research_experience: z.enum(["beginner", "intermediate", "advanced"]),
-  mentor_access: z.enum(["none", "limited", "strong"]),
+  research_experience: z.enum(["beginner", "advanced"]),
   methodology_preference: z.enum(["literature_review", "experiment", "data_analysis", "survey_based", "mixed"]),
-  research_tools_or_resources: z.array(z.string()).default([]),
   target_research_deliverable: z.enum([
     "paper",
     "poster",

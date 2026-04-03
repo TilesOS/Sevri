@@ -86,6 +86,22 @@ function asString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
 
+function buildAntiGenericWarnings(projectTrack: ProjectTrack, rawIntake: Record<string, unknown>) {
+  const combined = JSON.stringify(rawIntake);
+  const warnings = [
+    projectTrack === "research"
+      ? "Do not drift into generic student-life, wellness, or study-habit research unless the intake explicitly points there."
+      : "Do not drift into generic productivity, student-life, or study assistant apps unless the intake explicitly points there.",
+    "Reuse the user's actual domain language, not polished generic framing.",
+  ];
+
+  if (!/(student|study|learning|education|wellness|mental health|school|classroom)/i.test(combined)) {
+    warnings.push("If student users appear, they must be part of a real domain workflow rather than the default audience.");
+  }
+
+  return warnings;
+}
+
 function extractAnchorCandidates(rawIntake: Record<string, unknown>) {
   const candidates = uniqueTrimmed([
     ...toStringArray(rawIntake.interests),
@@ -93,7 +109,6 @@ function extractAnchorCandidates(rawIntake: Record<string, unknown>) {
     ...toStringArray(rawIntake.preferred_project_style),
     ...toStringArray(rawIntake.preferred_research_domain),
     ...toStringArray(rawIntake.known_tools),
-    ...toStringArray(rawIntake.research_tools_or_resources),
     ...toStringArray(rawIntake.additional_context),
   ]);
 
@@ -162,33 +177,31 @@ function coerceSkillAssessment(value: unknown): "beginner" | "intermediate" | "a
 
 function buildGoalSignal(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack) {
   const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
-  const targets = toStringArray(rawIntake.target_schools_or_companies).slice(0, 2);
   const deliverable = String(rawIntake.target_research_deliverable ?? "portfolio entry").replace(/_/g, " ");
 
   if (projectTrack === "research") {
-    return targets.length > 0
-      ? `Deliver a credible research artifact for ${targetOutcome} goals that feels discussable around ${targets.join(" and ")}.`
-      : `Deliver a credible research artifact for ${targetOutcome} goals with a polished ${deliverable}.`;
+    return `Deliver a credible research artifact for ${targetOutcome} goals with a polished ${deliverable} and an evidence path the student can defend.`;
   }
 
-  return targets.length > 0
-    ? `Ship a concrete software project that feels believable for ${targetOutcome} goals and strong enough to discuss with ${targets.join(" and ")}.`
-    : `Ship a concrete software project that is easy to demo and defend for ${targetOutcome} goals.`;
+  return `Ship a concrete software project that is easy to demo, explain, and defend for ${targetOutcome} goals.`;
 }
 
 function buildResourceSnapshot(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack, skill: "beginner" | "intermediate" | "advanced") {
   const weeklyHours = getWeeklyHours(rawIntake);
   const constraints = asString(rawIntake.constraints, "").trim();
-  const tools = projectTrack === "research" ? toStringArray(rawIntake.research_tools_or_resources) : toStringArray(rawIntake.known_tools);
-  const mentorAccess = String(rawIntake.mentor_access ?? "limited");
   const parts = [`${weeklyHours}h/week`, `${skill} experience`];
+  const tools = projectTrack === "software" ? toStringArray(rawIntake.known_tools) : [];
 
   if (tools.length > 0) {
     parts.push(`tools: ${tools.slice(0, 4).join(", ")}`);
   }
 
   if (projectTrack === "research") {
-    parts.push(`mentor access: ${mentorAccess}`);
+    parts.push(`method preference: ${String(rawIntake.methodology_preference ?? "data analysis").replace(/_/g, " ")}`);
+    const accessDetails = asString(rawIntake.data_or_resource_access, "").trim();
+    if (accessDetails) {
+      parts.push(`access: ${accessDetails}`);
+    }
   }
 
   if (constraints) {
@@ -215,11 +228,6 @@ function buildConstraintsSummary(rawIntake: Record<string, unknown>) {
 
 function buildSoftwareFocusSignal(rawIntake: Record<string, unknown>, anchors: string[]) {
   const preferredStyle = asString(rawIntake.preferred_project_style, "focused tool");
-  const schools = toStringArray(rawIntake.target_schools_or_companies);
-
-  if (schools.length > 0) {
-    return `Aim for a ${preferredStyle} in ${anchors[0] ?? "the user's domain"} that looks credible to ${schools.slice(0, 2).join(" and ")}.`;
-  }
 
   return `Aim for a ${preferredStyle} in ${anchors[0] ?? "the user's domain"} with one sharp user workflow.`;
 }
@@ -233,10 +241,9 @@ function buildResearchFocusSignal(rawIntake: Record<string, unknown>, anchors: s
 
 function getRiskFlags(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack, anchors: string[]) {
   const skill = coerceSkillAssessment(projectTrack === "research" ? rawIntake.research_experience : rawIntake.coding_experience);
-  const preferredDifficulty = String(rawIntake.preferred_difficulty ?? "").toLowerCase();
   const weeklyHours = getWeeklyHours(rawIntake);
-  const mentorAccess = String(rawIntake.mentor_access ?? "limited").toLowerCase();
   const riskFlags = new Set<RiskFlag>();
+  const family = detectDomainFamily(anchors);
 
   if (anchors.length === 0) {
     riskFlags.add("too_vague");
@@ -247,18 +254,14 @@ function getRiskFlags(rawIntake: Record<string, unknown>, projectTrack: ProjectT
   }
 
   if (projectTrack === "software") {
-    if (skill === "beginner" && preferredDifficulty.includes("advanced")) {
+    if (skill === "beginner" && (family === "hardware" || family === "photonics")) {
       riskFlags.add("too_advanced");
     }
 
-    if (weeklyHours <= 4 && (preferredDifficulty.includes("intermediate") || preferredDifficulty.includes("advanced"))) {
+    if (weeklyHours <= 4 && skill !== "beginner") {
       riskFlags.add("too_ambitious");
     }
   } else {
-    if (mentorAccess === "none") {
-      riskFlags.add("insufficient_guidance");
-    }
-
     if (asString(rawIntake.data_or_resource_access, "").trim().length === 0) {
       riskFlags.add("resource_constraint");
     }
@@ -308,6 +311,7 @@ function buildSoftwareContext(rawIntake: Record<string, unknown>) {
       anchor_interests: interpretedInterests,
       goal_signal: buildGoalSignal(rawIntake, "software"),
       resource_snapshot: buildResourceSnapshot(rawIntake, "software", skill),
+      anti_generic_warnings: buildAntiGenericWarnings("software", rawIntake),
       scope_guardrails: [
         "Center the MVP on one user and one end-to-end workflow.",
         "Cut integrations or automation that do not improve the first demo.",
@@ -346,6 +350,7 @@ function buildResearchContext(rawIntake: Record<string, unknown>) {
       anchor_interests: interpretedInterests,
       goal_signal: buildGoalSignal(rawIntake, "research"),
       resource_snapshot: buildResourceSnapshot(rawIntake, "research", skill),
+      anti_generic_warnings: buildAntiGenericWarnings("research", rawIntake),
       scope_guardrails: [
         "Choose one primary question and one primary evidence source.",
         "State the limitation note early so the project stays believable.",
@@ -358,7 +363,7 @@ function buildResearchContext(rawIntake: Record<string, unknown>) {
         skill === "advanced"
           ? "The student can handle a moderately technical method if the scope stays narrow."
           : "Keep the method simple enough that the student can defend each step clearly.",
-      mentor_resource_notes: `Preferred method is ${methodPreference}. Use mentor time for feasibility and interpretation checks when available.`,
+      methodology_guidance: `Preferred method is ${methodPreference}. Choose the cleanest evidence path that matches the student's actual access.`,
       viable_methodologies:
         methodPreference === "experiment"
           ? ["small controlled experiment", "simulation-backed comparison"]
@@ -441,6 +446,9 @@ export function coerceStoredGenerationContext(row: StoredGenerationContextRow): 
         anchor_interests: asStringArray(rawPayload.anchor_interests).length ? asStringArray(rawPayload.anchor_interests) : interpretedInterests,
         goal_signal: asString(rawPayload.goal_signal, "Deliver a credible research artifact."),
         resource_snapshot: asString(rawPayload.resource_snapshot, "Use realistic student resources and time."),
+        anti_generic_warnings: asStringArray(rawPayload.anti_generic_warnings).length
+          ? asStringArray(rawPayload.anti_generic_warnings)
+          : buildAntiGenericWarnings("research", {}),
         scope_guardrails: asStringArray(rawPayload.scope_guardrails).length
           ? asStringArray(rawPayload.scope_guardrails)
           : ["Choose one question", "Choose one evidence source"],
@@ -449,7 +457,10 @@ export function coerceStoredGenerationContext(row: StoredGenerationContextRow): 
         constraints_summary: asString(rawPayload.constraints_summary, "No major constraints were stated."),
         weekly_hours: asNumber(rawPayload.weekly_hours, 6),
         research_readiness: asString(rawPayload.research_readiness, "Keep the methodology simple and defensible."),
-        mentor_resource_notes: asString(rawPayload.mentor_resource_notes, "Use mentor review when available."),
+        methodology_guidance: asString(
+          rawPayload.methodology_guidance ?? rawPayload.mentor_resource_notes,
+          "Choose the cleanest method and evidence path the student can defend.",
+        ),
         viable_methodologies: asStringArray(rawPayload.viable_methodologies).length
           ? asStringArray(rawPayload.viable_methodologies)
           : ["secondary data analysis", "focused literature review"],
@@ -468,6 +479,9 @@ export function coerceStoredGenerationContext(row: StoredGenerationContextRow): 
       anchor_interests: asStringArray(rawPayload.anchor_interests).length ? asStringArray(rawPayload.anchor_interests) : interpretedInterests,
       goal_signal: asString(rawPayload.goal_signal, "Ship a concrete software project."),
       resource_snapshot: asString(rawPayload.resource_snapshot, "Use realistic student time and tools."),
+      anti_generic_warnings: asStringArray(rawPayload.anti_generic_warnings).length
+        ? asStringArray(rawPayload.anti_generic_warnings)
+        : buildAntiGenericWarnings("software", {}),
       scope_guardrails: asStringArray(rawPayload.scope_guardrails).length
         ? asStringArray(rawPayload.scope_guardrails)
         : ["Keep the MVP narrow", "Cut optional integrations"],

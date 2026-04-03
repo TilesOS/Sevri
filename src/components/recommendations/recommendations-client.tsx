@@ -11,10 +11,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import type { Plan, ProjectTrack } from "@/types/domain";
 
 interface RecommendationItem {
   id: string;
+  normalized_profile_id?: string;
   project_track: ProjectTrack;
   title: string;
   summary: string;
@@ -45,16 +47,18 @@ interface RecommendationsClientProps {
 
 const difficultyOrder: Record<string, number> = {
   beginner: 1,
-  beginner_intermediate: 2,
-  intermediate: 3,
-  intermediate_advanced: 4,
+  beginner_intermediate: 1,
+  intermediate: 2,
+  intermediate_advanced: 3,
+  advanced: 3,
 };
 
 const difficultyLabel: Record<string, string> = {
   beginner: "Beginner",
-  beginner_intermediate: "Beginner-Intermediate",
+  beginner_intermediate: "Beginner",
   intermediate: "Intermediate",
-  intermediate_advanced: "Intermediate-Advanced",
+  intermediate_advanced: "Advanced",
+  advanced: "Advanced",
 };
 
 export function RecommendationsClient({
@@ -361,6 +365,17 @@ export function RecommendationsClient({
           })}
         </motion.div>
       </AnimatePresence>
+
+      {recommendations.length > 0 && recommendations[0]?.normalized_profile_id ? (
+        <GenerationFeedbackForm
+          stage="recommendations"
+          normalizedProfileId={recommendations[0].normalized_profile_id}
+          recommendations={recommendations.map((recommendation) => ({
+            id: recommendation.id,
+            title: recommendation.title,
+          }))}
+        />
+      ) : null}
     </div>
   );
 }
@@ -396,6 +411,14 @@ function getSoftwareDetails(payload?: Record<string, unknown>) {
       label: "Core workflow",
       value: getString(payload?.core_workflow, "The first version of the workflow will stay intentionally narrow."),
     },
+    {
+      label: "MVP boundary",
+      value: getString(payload?.mvp_boundary, "Keep the first version honest about what is in and out."),
+    },
+    {
+      label: "Validation plan",
+      value: getString(payload?.validation_plan, "Validate the product with a small set of realistic users or cases."),
+    },
   ];
 }
 
@@ -412,6 +435,14 @@ function getResearchDetails(payload?: Record<string, unknown>) {
     {
       label: "Evidence plan",
       value: getString(payload?.evidence_plan, "The plan will be shaped around evidence you can realistically gather."),
+    },
+    {
+      label: "Scope boundaries",
+      value: getString(payload?.scope_boundaries, "Keep the first version narrow enough to finish and defend."),
+    },
+    {
+      label: "Limitation note",
+      value: getString(payload?.limitation_note, "State the main limitation early so the work stays believable."),
     },
   ];
 }

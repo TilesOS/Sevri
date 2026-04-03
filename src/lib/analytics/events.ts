@@ -10,6 +10,7 @@ export const APP_EVENT_TYPES = [
   "upgrade_clicked",
   "checkout_completed",
   "work_evaluation_completed",
+  "generation_feedback_submitted",
 ] as const;
 
 export const appEventSchema = z.enum(APP_EVENT_TYPES);

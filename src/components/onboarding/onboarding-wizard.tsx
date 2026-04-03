@@ -31,14 +31,10 @@ const wizardSchema = z.object({
   coding_experience: z.enum(["beginner", "intermediate", "advanced"]),
   preferred_project_style: z.string().min(2),
   known_tools: z.string().optional(),
-  target_schools_or_companies: z.string().optional(),
-  preferred_difficulty: z.enum(["beginner", "beginner_intermediate", "intermediate", "intermediate_advanced"]),
 
   preferred_research_domain: z.string().min(2),
-  research_experience: z.enum(["beginner", "intermediate", "advanced"]),
-  mentor_access: z.enum(["none", "limited", "strong"]),
+  research_experience: z.enum(["beginner", "advanced"]),
   methodology_preference: z.enum(["literature_review", "experiment", "data_analysis", "survey_based", "mixed"]),
-  research_tools_or_resources: z.string().optional(),
   target_research_deliverable: z.enum([
     "paper",
     "poster",
@@ -65,13 +61,9 @@ const sharedDefaults: WizardValues = {
   coding_experience: "beginner",
   preferred_project_style: "web app",
   known_tools: "",
-  target_schools_or_companies: "",
-  preferred_difficulty: "beginner_intermediate",
   preferred_research_domain: "social science",
   research_experience: "beginner",
-  mentor_access: "limited",
   methodology_preference: "data_analysis",
-  research_tools_or_resources: "",
   target_research_deliverable: "portfolio_entry",
   data_or_resource_access: "",
   constraints: "",
@@ -84,17 +76,9 @@ const experienceOptions = [
   { value: "advanced", label: "Advanced" },
 ] as const;
 
-const difficultyOptions = [
+const researchExperienceOptions = [
   { value: "beginner", label: "Beginner" },
-  { value: "beginner_intermediate", label: "Beginner-Intermediate" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "intermediate_advanced", label: "Intermediate-Advanced" },
-] as const;
-
-const mentorAccessOptions = [
-  { value: "none", label: "No meaningful access" },
-  { value: "limited", label: "Some access" },
-  { value: "strong", label: "Strong access" },
+  { value: "advanced", label: "Advanced" },
 ] as const;
 
 const methodologyOptions = [
@@ -139,8 +123,6 @@ const stepConfig = {
         "coding_experience",
         "preferred_project_style",
         "known_tools",
-        "target_schools_or_companies",
-        "preferred_difficulty",
       ] as WizardField[],
     },
     {
@@ -170,9 +152,7 @@ const stepConfig = {
       fields: [
         "preferred_research_domain",
         "research_experience",
-        "mentor_access",
         "methodology_preference",
-        "research_tools_or_resources",
         "target_research_deliverable",
         "data_or_resource_access",
       ] as WizardField[],
@@ -243,17 +223,13 @@ export function OnboardingWizard() {
               coding_experience: values.coding_experience,
               preferred_project_style: values.preferred_project_style,
               known_tools: toList(values.known_tools ?? ""),
-              target_schools_or_companies: toList(values.target_schools_or_companies ?? ""),
-              preferred_difficulty: values.preferred_difficulty,
             })
           : onboardingInputSchema.parse({
               ...sharedPayload,
               project_track: "research",
               preferred_research_domain: values.preferred_research_domain,
               research_experience: values.research_experience,
-              mentor_access: values.mentor_access,
               methodology_preference: values.methodology_preference,
-              research_tools_or_resources: toList(values.research_tools_or_resources ?? ""),
               target_research_deliverable: values.target_research_deliverable,
               data_or_resource_access: values.data_or_resource_access,
             });
@@ -442,30 +418,18 @@ export function OnboardingWizard() {
 
               {currentStep.key === "build_setup" ? (
                 <>
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <FormField label="Coding experience">
-                      <Select {...form.register("coding_experience")}>
-                        {experienceOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
-
-                    <FormField
-                      label="Preferred difficulty"
-                      hint="This helps Sevri choose ambition you can still finish."
-                    >
-                      <Select {...form.register("preferred_difficulty")}>
-                        {difficultyOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
-                  </div>
+                  <FormField
+                    label="Coding experience and preferred challenge"
+                    hint="This single answer should reflect both your current comfort level and the difficulty you want Sevri to calibrate toward."
+                  >
+                    <Select {...form.register("coding_experience")}>
+                      {experienceOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
 
                   <FormField
                     label="Preferred project style"
@@ -477,16 +441,9 @@ export function OnboardingWizard() {
 
                   <FormField
                     label="Known tools"
-                    hint="Comma-separated. Include anything you would realistically use."
+                    hint="Optional. Include anything you would love to work with."
                   >
                     <Input {...form.register("known_tools")} placeholder="React, Python, SQL" />
-                  </FormField>
-
-                  <FormField
-                    label="Target schools or companies"
-                    hint="Optional. Use this if you already know what kind of environment you want to be legible to."
-                  >
-                    <Input {...form.register("target_schools_or_companies")} placeholder="MIT, Google, NASA" />
                   </FormField>
                 </>
               ) : null}
@@ -507,7 +464,7 @@ export function OnboardingWizard() {
                   <div className="grid gap-5 md:grid-cols-2">
                     <FormField label="Research experience">
                       <Select {...form.register("research_experience")}>
-                        {experienceOptions.map((option) => (
+                        {researchExperienceOptions.map((option) => (
                           <option key={option.value} value={option.value}>
                             {option.label}
                           </option>
@@ -515,18 +472,6 @@ export function OnboardingWizard() {
                       </Select>
                     </FormField>
 
-                    <FormField label="Mentor or resource access">
-                      <Select {...form.register("mentor_access")}>
-                        {mentorAccessOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
-                  </div>
-
-                  <div className="grid gap-5 md:grid-cols-2">
                     <FormField label="Methodology preference">
                       <Select {...form.register("methodology_preference")}>
                         {methodologyOptions.map((option) => (
@@ -536,35 +481,25 @@ export function OnboardingWizard() {
                         ))}
                       </Select>
                     </FormField>
-
-                    <FormField label="Target final deliverable">
-                      <Select {...form.register("target_research_deliverable")}>
-                        {deliverableOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
                   </div>
 
-                  <FormField
-                    label="Available tools or resources"
-                    hint="Comma-separated. List anything that materially changes what research is realistic."
-                  >
-                    <Input
-                      {...form.register("research_tools_or_resources")}
-                      placeholder="Google Scholar, Excel, school library, public datasets"
-                    />
+                  <FormField label="Target final deliverable">
+                    <Select {...form.register("target_research_deliverable")}>
+                      {deliverableOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
                   </FormField>
 
                   <FormField
                     label="Data or resource access details"
-                    hint="Optional. Mention survey permissions, lab access, mentors, or special constraints."
+                    hint="Optional. Mention dataset access, survey permissions, advisor support, or any hard limits."
                   >
                     <Textarea
                       {...form.register("data_or_resource_access")}
-                      placeholder="Public datasets only, survey access through a school club, mentor willing to review drafts..."
+                      placeholder="Public datasets only, school survey access, advisor willing to review drafts..."
                     />
                   </FormField>
                 </>

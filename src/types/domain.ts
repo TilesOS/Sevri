@@ -15,7 +15,7 @@ export type StudentStage =
 
 export type TargetOutcome = "college_apps" | "internship" | "portfolio" | "learning";
 
-export type Difficulty = "beginner" | "beginner_intermediate" | "intermediate" | "intermediate_advanced";
+export type Difficulty = "beginner" | "intermediate" | "advanced";
 
 export type RiskFlag =
   | "too_ambitious"
@@ -29,11 +29,18 @@ export type RiskFlag =
 export interface Recommendation {
   id: string;
   project_track: ProjectTrack;
+  normalized_profile_id?: string;
   title: string;
   summary: string;
   why_it_fits: string;
   difficulty: Difficulty;
   estimated_weeks: number;
+  weekly_hours?: number;
+  skills_demonstrated?: string[];
+  tools_needed?: string[];
+  impressiveness_score?: number;
+  finishability_score?: number;
+  authenticity_note?: string;
   track_payload_json?: Record<string, unknown>;
 }
 
@@ -52,7 +59,6 @@ export interface Roadmap {
 export interface StepGuidance {
   what_to_do_now: string;
   checklist: string[];
-  deliverables: string[];
   pitfalls: string[];
   tools_resources: string[];
   done_when: string[];
@@ -108,3 +114,6 @@ export interface MilestoneEvaluationResponse {
   current_evaluation: MilestoneEvaluationState | null;
   latest_completed_evaluation: LatestCompletedMilestoneEvaluation | null;
 }
+
+export type FeedbackStage = "recommendations" | "roadmap" | "step_guidance" | "work_evaluation";
+export type FeedbackSignal = "good" | "mixed" | "bad";

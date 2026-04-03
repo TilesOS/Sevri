@@ -1,4 +1,6 @@
 import {
+  buildNormalizeSystemPrompt,
+  buildNormalizeUserPrompt,
   buildOptionsSystemPrompt,
   buildOptionsUserPrompt,
   buildRoadmapSystemPrompt,
@@ -7,6 +9,7 @@ import {
   buildStepGuidanceUserPrompt,
   buildWorkEvaluationSystemPrompt,
   buildWorkEvaluationUserPrompt,
+  type PromptFeedbackItem,
 } from "@/lib/ai/prompts";
 import {
   generateStructuredOutput,
@@ -16,6 +19,7 @@ import {
   type WebSearchPolicy,
 } from "@/lib/ai/client";
 import {
+  buildGenerationContext,
   estimateWeeksFromContext,
   estimateWeeklyHoursFromContext,
   getDomainFamilyFromContext,
@@ -24,11 +28,14 @@ import {
   slugify,
 } from "@/lib/ai/generation-context";
 import {
+  ResearchGenerationContextSchema,
   RecommendationBatchSchema,
   RoadmapOverviewSchema,
+  SoftwareGenerationContextSchema,
   StepGuidanceSchema,
   WorkEvaluationSchema,
   type GenerationContext,
+  type ProjectTrack,
   type ProjectOption,
   type RecommendationBatch,
   type RoadmapOverview,
@@ -207,16 +214,27 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
   const anchors = context.track_payload_json.anchor_interests;
   const allowStudentThemes = studentThemesAllowed(JSON.stringify(context));
   const titles = new Set<string>();
+  const shapeKeys = new Set<string>();
   const issues: string[] = [];
 
   batch.recommendations.forEach((recommendation, index) => {
     const content = `${recommendation.title} ${recommendation.summary} ${recommendation.why_it_fits} ${JSON.stringify(recommendation.track_payload_json)}`;
+    const shapeKey =
+      recommendation.project_track === "research"
+        ? `${recommendation.track_payload_json.methodology.toLowerCase()}|${recommendation.track_payload_json.research_question.toLowerCase().slice(0, 80)}`
+        : `${recommendation.track_payload_json.target_user.toLowerCase().slice(0, 80)}|${recommendation.track_payload_json.problem_statement.toLowerCase().slice(0, 80)}|${recommendation.track_payload_json.core_workflow.toLowerCase().slice(0, 80)}`;
 
     if (titles.has(recommendation.title.toLowerCase())) {
       issues.push(`Option ${index + 1} duplicates another title.`);
     }
 
     titles.add(recommendation.title.toLowerCase());
+
+    if (shapeKeys.has(shapeKey)) {
+      issues.push(`Option ${index + 1} is too close to another option's core shape.`);
+    }
+
+    shapeKeys.add(shapeKey);
 
     if (!hasGrounding(content, anchors)) {
       issues.push(`Option ${index + 1} is not clearly grounded in the student's domain.`);
@@ -225,7 +243,38 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
     if (containsBlockedTheme(content, allowStudentThemes)) {
       issues.push(`Option ${index + 1} drifts into generic blocked themes.`);
     }
+
+    if (recommendation.finishability_score >= 9 && context.risk_flags.some((flag) => flag === "too_little_time" || flag === "too_ambitious")) {
+      issues.push(`Option ${index + 1} overstates finishability for the student's constraints.`);
+    }
+
+    if (recommendation.skills_demonstrated.length < 2 || recommendation.tools_needed.length < 2) {
+      issues.push(`Option ${index + 1} needs more concrete skills/tools detail.`);
+    }
   });
+
+  if (new Set(batch.recommendations.map((recommendation) => recommendation.difficulty)).size < 2) {
+    issues.push("The batch needs at least two distinct difficulty levels.");
+  }
+
+  if (new Set(batch.recommendations.map((recommendation) => recommendation.estimated_weeks)).size < 2) {
+    issues.push("The batch needs more timeline differentiation.");
+  }
+
+  return issues;
+}
+
+function normalizedContextIssues(context: GenerationContext) {
+  const payload = context.track_payload_json;
+  const issues: string[] = [];
+
+  if (!hasGrounding(`${context.summary} ${payload.domain_brief} ${payload.focus_signal}`, payload.anchor_interests)) {
+    issues.push("Normalized profile is not clearly grounded in the user's domain.");
+  }
+
+  if (payload.anti_generic_warnings.length < 2) {
+    issues.push("Normalized profile needs stronger anti-generic warnings.");
+  }
 
   return issues;
 }
@@ -267,7 +316,7 @@ function roadmapIssues(roadmap: RoadmapOverview, selectedOption: ProjectOption, 
 
 function stepGuidanceIssues(guidance: StepGuidance, step: RoadmapStep, context: GenerationContext) {
   const anchors = context.track_payload_json.anchor_interests;
-  const combined = `${guidance.what_to_do_now} ${guidance.checklist.join(" ")} ${guidance.deliverables.join(" ")} ${guidance.pitfalls.join(" ")}`;
+  const combined = `${guidance.what_to_do_now} ${guidance.checklist.join(" ")} ${guidance.pitfalls.join(" ")} ${guidance.done_when.join(" ")}`;
   const issues: string[] = [];
 
   if (!hasGrounding(`${combined} ${step.title} ${step.objective} ${step.deliverable}`, anchors)) {
@@ -287,14 +336,14 @@ function stepGuidanceIssues(guidance: StepGuidance, step: RoadmapStep, context: 
 
 function fallbackDifficulty(context: GenerationContext) {
   if (context.skill_assessment === "advanced") {
-    return "intermediate_advanced" as const;
+    return "advanced" as const;
   }
 
   if (context.skill_assessment === "intermediate") {
     return "intermediate" as const;
   }
 
-  return "beginner_intermediate" as const;
+  return "beginner" as const;
 }
 
 function buildSoftwareFallbackOptions(context: GenerationContext): RecommendationBatch {
@@ -315,6 +364,10 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
             core_workflow: "Load a small case set, compare outputs, and review the most important tradeoff in one place.",
             mvp_boundary: `One comparison view for a single ${primary.toLowerCase()} tradeoff with tabular output — no multi-project support, no advanced visualization.`,
             validation_plan: `Demo the tool on one realistic ${primary.toLowerCase()} case set and confirm the comparison output is understandable to a peer.`,
+            skills: ["product scoping", "domain translation", "comparative analysis"],
+            tools: ["TypeScript", "React", "manual dataset input"],
+            impressiveness: 8,
+            finishability: 7,
           },
           {
             artifact: "Verification Review Board",
@@ -325,6 +378,10 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
             core_workflow: "Capture a failing case, label the issue, and log the next action in a single review flow.",
             mvp_boundary: `Track up to 20 failure cases with labels and next-action notes — no automated test integration, no CI pipeline hooks.`,
             validation_plan: `Log 5 real failure cases from a ${primary.toLowerCase()} project and confirm the review flow surfaces the right next action.`,
+            skills: ["debugging workflow design", "quality triage", "UI information architecture"],
+            tools: ["TypeScript", "React", "local storage or Supabase"],
+            impressiveness: 7,
+            finishability: 8,
           },
           {
             artifact: "Architecture Comparison Lab",
@@ -335,6 +392,10 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
             core_workflow: "Choose two or three configurations, run the comparison, and export the key result summary.",
             mvp_boundary: `Compare up to 3 configurations with one output metric — no batch runs, no configuration history.`,
             validation_plan: `Run a side-by-side comparison on 2 real ${primary.toLowerCase()} configurations and confirm the summary is accurate.`,
+            skills: ["systems thinking", "tradeoff analysis", "technical communication"],
+            tools: ["TypeScript", "charts", "manual configuration input"],
+            impressiveness: 8,
+            finishability: 7,
           },
         ]
       : [
@@ -347,6 +408,10 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
             core_workflow: "Capture a key input, run one core flow, and return one useful domain-specific output.",
             mvp_boundary: `One input type, one analysis flow, one output format — no batch processing, no multi-workflow support.`,
             validation_plan: `Run the tool on 3 realistic ${primary.toLowerCase()} inputs and confirm the output saves time compared to the manual process.`,
+            skills: ["workflow modeling", "product scoping", "domain-specific UX"],
+            tools: ["TypeScript", "React", "manual test cases"],
+            impressiveness: 7,
+            finishability: 8,
           },
           {
             artifact: "Decision Support Tool",
@@ -357,6 +422,10 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
             core_workflow: "Enter a few options, score them with a visible rubric, and review the recommended next step.",
             mvp_boundary: `Compare up to 5 options with one scoring rubric — no saved sessions, no collaborative features.`,
             validation_plan: `Score 3 real ${primary.toLowerCase()} options and confirm the ranking matches expert intuition.`,
+            skills: ["decision framework design", "comparative UX", "transparent scoring"],
+            tools: ["TypeScript", "React", "lightweight scoring logic"],
+            impressiveness: 7,
+            finishability: 9,
           },
           {
             artifact: "Comparison Lab",
@@ -367,6 +436,10 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
             core_workflow: "Load a scenario set, compare outputs, and save the most important takeaway.",
             mvp_boundary: `Load up to 3 scenarios from manual input — no file import, no real-time collaboration.`,
             validation_plan: `Compare 2 real ${primary.toLowerCase()} scenarios and confirm the takeaway summary is shareable and accurate.`,
+            skills: ["scenario comparison", "information design", "domain communication"],
+            tools: ["TypeScript", "React", "simple charting"],
+            impressiveness: 8,
+            finishability: 8,
           },
         ];
 
@@ -379,6 +452,10 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
       why_it_fits: item.why,
       difficulty,
       estimated_weeks: index === 1 ? estimatedWeeks + 1 : estimatedWeeks,
+      skills_demonstrated: item.skills,
+      tools_needed: item.tools,
+      impressiveness_score: item.impressiveness,
+      finishability_score: item.finishability,
       track_payload_json: {
         target_user: item.target_user,
         problem_statement: item.problem_statement,
@@ -406,6 +483,10 @@ function buildResearchFallbackOptions(context: GenerationContext): Recommendatio
       evidence_plan: `Use one accessible ${primary.toLowerCase()} dataset or source set.`,
       scope_boundaries: `Limit to one factor, one dataset, and one outcome measure — no multi-factor models or longitudinal tracking.`,
       limitation_note: `Findings are correlational within a single dataset and may not generalize beyond the ${primary.toLowerCase()} context studied.`,
+      skills: ["question formulation", "evidence framing", "data interpretation"],
+      tools: ["spreadsheet or notebook", "public dataset", "citation manager"],
+      impressiveness: 8,
+      finishability: 8,
     },
     {
       title: `Comparing two practical approaches to ${primary}`,
@@ -417,6 +498,10 @@ function buildResearchFallbackOptions(context: GenerationContext): Recommendatio
       evidence_plan: `Use one literature matrix plus a small comparison table in ${primary.toLowerCase()}.`,
       scope_boundaries: `Compare exactly two approaches on one criterion — no meta-analysis, no original data collection.`,
       limitation_note: `Comparison is limited to published evidence and may miss practitioner-specific context in ${primary.toLowerCase()}.`,
+      skills: ["literature synthesis", "comparative reasoning", "research writing"],
+      tools: ["Google Scholar", "shared notes", "comparison matrix"],
+      impressiveness: 7,
+      finishability: 9,
     },
     {
       title: `Building a small benchmark for better ${primary} decisions`,
@@ -428,6 +513,10 @@ function buildResearchFallbackOptions(context: GenerationContext): Recommendatio
       evidence_plan: `Use a small curated case set tied to ${primary.toLowerCase()}.`,
       scope_boundaries: `One rubric, one case set of 5-10 items — no inter-rater reliability testing, no large-scale validation.`,
       limitation_note: `Rubric validity is limited to the curated case set and has not been tested across diverse ${primary.toLowerCase()} contexts.`,
+      skills: ["evaluation framework design", "case-based analysis", "limitations framing"],
+      tools: ["spreadsheet", "curated case set", "writing doc"],
+      impressiveness: 8,
+      finishability: 8,
     },
   ];
 
@@ -440,6 +529,10 @@ function buildResearchFallbackOptions(context: GenerationContext): Recommendatio
       why_it_fits: item.why,
       difficulty,
       estimated_weeks: estimatedWeeks,
+      skills_demonstrated: item.skills,
+      tools_needed: item.tools,
+      impressiveness_score: item.impressiveness,
+      finishability_score: item.finishability,
       track_payload_json: {
         research_question: item.research_question,
         hypothesis_or_focus: item.hypothesis_or_focus,
@@ -604,10 +697,6 @@ function buildFallbackStepGuidance(
       `Verify against the validation check: ${step.validation_check.toLowerCase()}.`,
       `Review the scope guardrail: ${step.scope_guardrail.toLowerCase()}.`,
     ],
-    deliverables: [
-      step.deliverable,
-      "A dated progress note that explains what changed and what still feels uncertain.",
-    ],
     pitfalls: [
       "Spending too long polishing before the first rough version exists.",
       "Letting the scope drift beyond what this single step is supposed to prove.",
@@ -641,14 +730,61 @@ function normalizeRoadmapSteps(roadmap: RoadmapOverview): RoadmapOverview {
   };
 }
 
-export async function runOptionsGeneration(context: GenerationContext): Promise<PipelineResult<RecommendationBatch>> {
+export async function runProfileNormalization(input: {
+  projectTrack: ProjectTrack;
+  rawIntake: Record<string, unknown>;
+  feedback?: PromptFeedbackItem[];
+}): Promise<PipelineResult<GenerationContext>> {
+  try {
+    const result = await generateStructuredOutput({
+      stage: "normalize",
+      schema: input.projectTrack === "research" ? ResearchGenerationContextSchema : SoftwareGenerationContextSchema,
+      schemaName: `${input.projectTrack}_normalized_context`,
+      systemPrompt: buildNormalizeSystemPrompt(input.projectTrack),
+      userPrompt: buildNormalizeUserPrompt(input),
+      validator: (parsed) => normalizedContextIssues(parsed),
+    });
+
+    return {
+      parsed: result.parsed,
+      raw: result.raw,
+      metrics: result.metrics,
+      citations: result.citations,
+      refusal: result.refusal,
+    };
+  } catch (error) {
+    console.warn("normalize generation failed, using deterministic context", { error: error instanceof Error ? error.message : error });
+    const parsed = buildGenerationContext({
+      projectTrack: input.projectTrack,
+      rawIntake: input.rawIntake,
+    });
+    const metrics = getFailureMetrics(error, "normalize");
+
+    return {
+      parsed,
+      raw: {
+        source: "fallback",
+        stage: "normalize",
+        reason: error instanceof Error ? error.message : "Unknown error",
+      },
+      metrics: { ...metrics, fallback_used: true },
+      citations: [],
+      refusal: null,
+    };
+  }
+}
+
+export async function runOptionsGeneration(
+  context: GenerationContext,
+  feedback?: PromptFeedbackItem[],
+): Promise<PipelineResult<RecommendationBatch>> {
   try {
     const result = await generateStructuredOutput({
       stage: "options",
       schema: RecommendationBatchSchema,
       schemaName: `${context.project_track}_options`,
       systemPrompt: buildOptionsSystemPrompt(context.project_track),
-      userPrompt: buildOptionsUserPrompt(context),
+      userPrompt: buildOptionsUserPrompt(context, feedback),
       validator: (parsed) => optionIssues(parsed, context),
     });
 
@@ -681,6 +817,7 @@ export async function runOptionsGeneration(context: GenerationContext): Promise<
 export async function runRoadmapGeneration(input: {
   context: GenerationContext;
   selectedOption: ProjectOption;
+  feedback?: PromptFeedbackItem[];
 }): Promise<PipelineResult<RoadmapOverview>> {
   try {
     const webSearch = detectRoadmapWebSearchPolicy(input);
@@ -694,6 +831,7 @@ export async function runRoadmapGeneration(input: {
           projectTrack: input.context.project_track,
           context: input.context,
           selectedOption: input.selectedOption,
+          feedback: input.feedback,
         }),
         webSearch,
       ),
@@ -734,6 +872,7 @@ export async function runStepGuidanceGeneration(input: {
   step: RoadmapStep;
   previousStep?: RoadmapStep;
   nextStep?: RoadmapStep;
+  feedback?: PromptFeedbackItem[];
 }): Promise<PipelineResult<StepGuidance>> {
   try {
     const webSearch = detectStepGuidanceWebSearchPolicy(input);

@@ -7,6 +7,7 @@ import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/
 import { runStepGuidanceGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage, coerceStoredProjectOption } from "@/lib/ai/storage";
+import { getStepGuidanceFeedback } from "@/lib/db/queries/generation-feedback";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
 import { getGenerationVersion, type GenerationCitation, type GenerationMetrics } from "@/lib/ai/client";
 import { trackEvent } from "@/lib/analytics/track";
@@ -143,7 +144,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       stage = "check-cache";
       const { data: cachedGuidance } = await supabase
         .from("milestone_guidance")
-        .select("guidance_json, generation_version, raw_model_output_json")
+        .select("id, guidance_json, generation_version, raw_model_output_json")
         .eq("milestone_id", milestone.id)
         .maybeSingle();
 
@@ -154,6 +155,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           const cachedMetrics = getStoredMetrics(cachedGuidance.raw_model_output_json);
           return NextResponse.json(
             {
+              milestone_guidance_id: cachedGuidance.id,
               guidance: parsed,
               cache_hit: true,
               timings: {
@@ -270,6 +272,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     const previousStep = roadmapOverview.steps.find((step) => step.order_index === milestone.order_index - 1);
     const nextStep = roadmapOverview.steps.find((step) => step.order_index === milestone.order_index + 1);
 
+    stage = "load-feedback";
+    const feedback = await getStepGuidanceFeedback({
+      userId: user.id,
+      projectId: project.id,
+      milestoneId: milestone.id,
+    });
+
     stage = "generate-guidance";
     const generated = await runStepGuidanceGeneration({
       context: generationContext,
@@ -278,10 +287,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       step: currentStep,
       previousStep,
       nextStep,
+      feedback,
     });
 
     stage = "store-guidance";
-    const { error: upsertError } = await supabase.from("milestone_guidance").upsert(
+    const { data: storedGuidance, error: upsertError } = await supabase.from("milestone_guidance").upsert(
       {
         milestone_id: milestone.id,
         guidance_json: generated.parsed,
@@ -296,9 +306,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         generation_version: generated.metrics.generation_version,
       },
       { onConflict: "milestone_id" },
-    );
+    ).select("id").single();
 
-    if (upsertError) {
+    if (upsertError || !storedGuidance) {
       throw new Error(upsertError.message);
     }
 
@@ -324,6 +334,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     return NextResponse.json(
       {
+        milestone_guidance_id: storedGuidance.id,
         guidance: generated.parsed,
         cache_hit: false,
         timings: routeMetadata,

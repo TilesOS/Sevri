@@ -6,6 +6,7 @@ import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { runRoadmapGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildMilestoneInsert, buildRoadmapStorageArtifacts, coerceStoredProjectOption } from "@/lib/ai/storage";
+import { getRoadmapFeedback } from "@/lib/db/queries/generation-feedback";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 import { sendEmail } from "@/lib/email/resend";
@@ -129,10 +130,19 @@ export async function POST(request: Request) {
       track_payload_json: recommendation.track_payload_json,
     });
 
+    stage = "load-feedback";
+    const feedback = await getRoadmapFeedback({
+      userId: user.id,
+      projectId: project.id,
+      normalizedProfileId: recommendation.normalized_profile_id,
+      selectedRecommendationId: recommendation.id,
+    });
+
     stage = "generate-roadmap";
     const generated = await runRoadmapGeneration({
       context,
       selectedOption,
+      feedback,
     });
 
     const storageArtifacts = buildRoadmapStorageArtifacts({

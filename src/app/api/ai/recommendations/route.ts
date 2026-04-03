@@ -3,10 +3,9 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
-import { buildGenerationContext } from "@/lib/ai/generation-context";
-import { getRouteGenerationMetadata, getWeeklyHoursForStorage, runOptionsGeneration } from "@/lib/ai/pipelines";
-import { getGenerationVersion } from "@/lib/ai/client";
+import { getRouteGenerationMetadata, getWeeklyHoursForStorage, runOptionsGeneration, runProfileNormalization } from "@/lib/ai/pipelines";
 import { getRecommendationGenerationCount, getLatestProjectTrack } from "@/lib/db/queries/recommendations";
+import { getRecommendationFeedback } from "@/lib/db/queries/generation-feedback";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { canGenerateRecommendations } from "@/lib/usage/limits";
 import { trackEvent } from "@/lib/analytics/track";
@@ -28,28 +27,6 @@ function getErrorDetails(error: unknown) {
   } catch {
     return "Unknown error";
   }
-}
-
-function finishabilityScore(riskFlags: string[]) {
-  let score = 9;
-
-  if (riskFlags.includes("too_little_time")) {
-    score -= 2;
-  }
-
-  if (riskFlags.includes("too_ambitious")) {
-    score -= 1;
-  }
-
-  if (riskFlags.includes("too_advanced")) {
-    score -= 1;
-  }
-
-  return Math.max(6, score);
-}
-
-function impressivenessScore(projectTrack: "software" | "research") {
-  return projectTrack === "research" ? 8 : 7;
 }
 
 export async function POST(request: Request) {
@@ -122,11 +99,16 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: `Complete ${activeTrack} onboarding first` }, { status: 400 });
     }
 
-    stage = "build-context";
-    const context = buildGenerationContext({
+    stage = "load-feedback";
+    const feedback = await getRecommendationFeedback(user.id, activeTrack);
+
+    stage = "normalize-context";
+    const normalized = await runProfileNormalization({
       projectTrack: intake.project_track === "research" ? "research" : "software",
       rawIntake: (intake.raw_answers_json as Record<string, unknown>) ?? {},
+      feedback,
     });
+    const context = normalized.parsed;
 
     stage = "store-context-snapshot";
     const { data: contextSnapshot, error: snapshotError } = await supabase
@@ -141,9 +123,11 @@ export async function POST(request: Request) {
         risk_flags: context.risk_flags,
         track_payload_json: context.track_payload_json,
         raw_model_output_json: {
-          source: "deterministic-context",
-          generation_version: getGenerationVersion(),
           context,
+          response: normalized.raw,
+          citations: normalized.citations,
+          refusal: normalized.refusal,
+          metrics: normalized.metrics,
         },
       })
       .select("id")
@@ -154,10 +138,8 @@ export async function POST(request: Request) {
     }
 
     stage = "generate-options";
-    const generated = await runOptionsGeneration(context);
+    const generated = await runOptionsGeneration(context, feedback);
     const weeklyHours = getWeeklyHoursForStorage(context);
-    const optionImpressiveness = impressivenessScore(context.project_track);
-    const optionFinishability = finishabilityScore(context.risk_flags);
 
     const payload = generated.parsed.recommendations.map((recommendation) => ({
       user_id: user.id,
@@ -170,10 +152,10 @@ export async function POST(request: Request) {
       difficulty: recommendation.difficulty,
       estimated_weeks: recommendation.estimated_weeks,
       weekly_hours: weeklyHours,
-      skills_demonstrated: [],
-      tools_needed: [],
-      impressiveness_score: optionImpressiveness,
-      finishability_score: optionFinishability,
+      skills_demonstrated: recommendation.skills_demonstrated,
+      tools_needed: recommendation.tools_needed,
+      impressiveness_score: recommendation.impressiveness_score,
+      finishability_score: recommendation.finishability_score,
       authenticity_note: context.summary,
       track_payload_json: recommendation.track_payload_json,
       raw_model_output_json: {
@@ -216,14 +198,22 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         project_track: activeTrack,
+        normalized_profile_id: contextSnapshot.id,
         recommendations: (insertedRecommendations ?? []).map((recommendation) => ({
           id: recommendation.id,
+          normalized_profile_id: recommendation.normalized_profile_id,
           project_track: recommendation.project_track === "research" ? "research" : "software",
           title: recommendation.title,
           summary: recommendation.summary,
           why_it_fits: recommendation.rationale,
           difficulty: recommendation.difficulty,
           estimated_weeks: recommendation.estimated_weeks,
+          weekly_hours: recommendation.weekly_hours,
+          skills_demonstrated: recommendation.skills_demonstrated,
+          tools_needed: recommendation.tools_needed,
+          impressiveness_score: recommendation.impressiveness_score,
+          finishability_score: recommendation.finishability_score,
+          authenticity_note: recommendation.authenticity_note,
           track_payload_json: recommendation.track_payload_json,
         })),
         timings: routeMetadata,

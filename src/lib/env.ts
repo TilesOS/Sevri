@@ -12,6 +12,7 @@ const serverEnvSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
   OPENAI_MODEL: z.string().default("gpt-4.1-mini"),
   OPENAI_FALLBACK_MODEL: z.string().default("gpt-4.1-mini"),
+  OPENAI_NORMALIZE_MODEL: z.string().optional(),
   OPENAI_STAGE1_MODEL: z.string().optional(),
   OPENAI_STAGE2_MODEL: z.string().optional(),
   OPENAI_STAGE3_MODEL: z.string().optional(),

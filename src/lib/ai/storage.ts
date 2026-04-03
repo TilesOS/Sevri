@@ -16,11 +16,31 @@ interface StoredRecommendationRow {
   rationale: string;
   difficulty: string;
   estimated_weeks: number;
+  skills_demonstrated?: string[];
+  tools_needed?: string[];
+  impressiveness_score?: number;
+  finishability_score?: number;
   track_payload_json: unknown;
 }
 
 function asString(value: unknown, fallback: string) {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+}
+
+function coerceDifficulty(value: unknown) {
+  if (value === "advanced" || value === "intermediate" || value === "beginner") {
+    return value;
+  }
+
+  if (value === "intermediate_advanced") {
+    return "advanced";
+  }
+
+  if (value === "beginner_intermediate") {
+    return "beginner";
+  }
+
+  return "beginner";
 }
 
 export function coerceStoredProjectOption(row: StoredRecommendationRow): ProjectOption {
@@ -35,8 +55,12 @@ export function coerceStoredProjectOption(row: StoredRecommendationRow): Project
       title: row.title,
       summary: row.summary,
       why_it_fits: row.rationale,
-      difficulty: row.difficulty,
+      difficulty: coerceDifficulty(row.difficulty),
       estimated_weeks: row.estimated_weeks,
+      skills_demonstrated: row.skills_demonstrated?.length ? row.skills_demonstrated : ["research design", "evidence synthesis"],
+      tools_needed: row.tools_needed?.length ? row.tools_needed : ["spreadsheet", "notes doc"],
+      impressiveness_score: typeof row.impressiveness_score === "number" ? row.impressiveness_score : 7,
+      finishability_score: typeof row.finishability_score === "number" ? row.finishability_score : 8,
       track_payload_json: {
         research_question: asString(rawPayload.research_question, "What is the key factor?"),
         hypothesis_or_focus: asString(rawPayload.hypothesis_or_focus, "One factor has an outsized effect on the outcome."),
@@ -54,8 +78,12 @@ export function coerceStoredProjectOption(row: StoredRecommendationRow): Project
     title: row.title,
     summary: row.summary,
     why_it_fits: row.rationale,
-    difficulty: row.difficulty,
+    difficulty: coerceDifficulty(row.difficulty),
     estimated_weeks: row.estimated_weeks,
+    skills_demonstrated: row.skills_demonstrated?.length ? row.skills_demonstrated : ["product scoping", "workflow design"],
+    tools_needed: row.tools_needed?.length ? row.tools_needed : ["TypeScript", "React"],
+    impressiveness_score: typeof row.impressiveness_score === "number" ? row.impressiveness_score : 7,
+    finishability_score: typeof row.finishability_score === "number" ? row.finishability_score : 8,
     track_payload_json: {
       target_user: asString(rawPayload.target_user, "users of this tool"),
       problem_statement: asString(rawPayload.problem_statement, "Users need a better workflow."),
@@ -144,13 +172,31 @@ export function buildRoadmapStorageArtifacts(input: {
       input.selectedOption.project_track === "research"
         ? `Keep the work centered on ${input.selectedOption.track_payload_json.research_question.toLowerCase()} and do not expand beyond the current evidence plan.`
         : `Keep the MVP centered on ${input.selectedOption.track_payload_json.core_workflow.toLowerCase()} and avoid optional feature creep.`,
-    repoStructure: [] as Array<{ path: string; purpose: string }>,
+    repoStructure:
+      input.selectedOption.project_track === "research"
+        ? [
+            { path: "notes/question-brief.md", purpose: "Lock the question, scope boundaries, and success criteria." },
+            { path: "analysis/workspace.md", purpose: "Track the evidence plan, analysis steps, and findings." },
+            { path: "deliverables/final-brief.md", purpose: "Package the final narrative, visuals, and limitations." },
+          ]
+        : [
+            { path: "src/app/page.tsx", purpose: "Primary demo surface for the core workflow." },
+            { path: "src/lib/core.ts", purpose: "Core workflow logic and validation rules." },
+            { path: "docs/demo-script.md", purpose: "Narrative for demoing the product and its proof of value." },
+          ],
     readmeDraft: `# ${input.roadmap.project_title}\n\n## Overview\n${input.roadmap.short_overview}\n\n## Roadmap\n${stepLines}\n`,
-    stretchGoals: [] as string[],
+    stretchGoals: input.roadmap.cut_if_behind.map((item) => `Stretch later: ${item}`),
     explanationGuide: {
       elevator_pitch: `${input.roadmap.project_title} is a focused ${input.context.project_track} project built around ${input.selectedOption.summary.toLowerCase()}`,
-      resume_bullets: [] as string[],
-      interview_talking_points: [] as string[],
+      resume_bullets: [
+        `Built ${input.roadmap.project_title} to address ${input.selectedOption.summary.toLowerCase()}.`,
+        `Scoped the MVP around ${input.roadmap.steps[0]?.deliverable.toLowerCase() ?? "one concrete deliverable"} and validated progress against explicit milestones.`,
+      ],
+      interview_talking_points: [
+        `Why this project fit the user's domain: ${input.selectedOption.why_it_fits}`,
+        `How scope stayed honest: ${input.roadmap.cut_if_behind.join("; ")}`,
+        `What success looks like: ${input.roadmap.success_criteria.join("; ")}`,
+      ],
     },
     trackPayloadJson: {
       project_brief: input.roadmap.project_brief,

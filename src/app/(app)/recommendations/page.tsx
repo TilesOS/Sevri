@@ -40,6 +40,7 @@ export default async function RecommendationsPage({
       activeTrack={activeTrack}
       initialRecommendations={recommendations.map((item) => ({
         ...item,
+        normalized_profile_id: item.normalized_profile_id,
         project_track: asProjectTrack(item.project_track),
         why_it_fits: item.rationale,
         weekly_hours: item.weekly_hours,

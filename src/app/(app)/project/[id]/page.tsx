@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { MilestoneChecklist } from "@/components/project/milestone-checklist";
 import { GenerateRoadmapButton } from "@/components/project/generate-roadmap-button";
+import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 
 function totalEstimatedRange(milestones: Array<{ rough_time_estimate?: string | null }>) {
   if (milestones.length === 0) {
@@ -123,6 +124,17 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           { label: "Core workflow", value: getPayloadString(optionSeed.core_workflow, "Protect the first workflow that makes the project feel real.") },
         ];
   const keyDeliverables = milestones.slice(0, 3).map((milestone) => milestone.deliverable);
+  const explanationGuide =
+    workspace.roadmap.explanation_guide && typeof workspace.roadmap.explanation_guide === "object"
+      ? (workspace.roadmap.explanation_guide as Record<string, unknown>)
+      : {};
+  const resumeBullets = Array.isArray(explanationGuide.resume_bullets)
+    ? explanationGuide.resume_bullets.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+  const talkingPoints = Array.isArray(explanationGuide.interview_talking_points)
+    ? explanationGuide.interview_talking_points.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+  const elevatorPitch = getPayloadString(explanationGuide.elevator_pitch, "");
 
   return (
     <div className="space-y-8">
@@ -210,6 +222,46 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
             ))}
           </div>
         </Card>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+        <Card className="space-y-4">
+          <p className="editorial-kicker">Explain the project</p>
+          <h2 className="text-3xl font-semibold text-ink">Keep the story as sharp as the execution plan.</h2>
+          {elevatorPitch ? (
+            <div className="rounded-lg bg-canvas p-4">
+              <p className="editorial-kicker">Elevator pitch</p>
+              <p className="mt-2 text-sm leading-6 text-ink-soft">{elevatorPitch}</p>
+            </div>
+          ) : null}
+          {resumeBullets.length ? (
+            <div className="space-y-3">
+              <p className="editorial-kicker">Resume bullets</p>
+              <ul className="space-y-2 text-sm leading-6 text-ink-soft">
+                {resumeBullets.map((bullet) => (
+                  <li key={bullet}>- {bullet}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {talkingPoints.length ? (
+            <div className="space-y-3">
+              <p className="editorial-kicker">Talking points</p>
+              <ul className="space-y-2 text-sm leading-6 text-ink-soft">
+                {talkingPoints.map((point) => (
+                  <li key={point}>- {point}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </Card>
+
+        <GenerationFeedbackForm
+          stage="roadmap"
+          roadmapId={workspace.roadmap.id}
+          title="How did this roadmap feel?"
+          description="Optional. Share what felt right, too generic, too ambitious, or missing before you move into execution."
+        />
       </div>
 
       {hasFullRoadmapAccess ? (

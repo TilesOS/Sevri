@@ -8,6 +8,7 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type {
@@ -36,6 +37,11 @@ interface RouteErrorBody {
   upgrade_url?: string;
 }
 
+interface GuidanceSlot {
+  guidance: StepGuidance;
+  guidanceId: string;
+}
+
 type SubmissionSlot =
   | { status: "unloaded" }
   | { status: "loading" }
@@ -54,6 +60,7 @@ type SubmissionSlot =
   | {
       status: "completed";
       submission: StoredMilestoneSubmission;
+      evaluationId: string;
       evaluation: WorkEvaluation;
     };
 
@@ -102,6 +109,7 @@ function buildSubmissionSlot(body: MilestoneEvaluationResponse | null | undefine
     return {
       status: "completed",
       submission: currentSubmission,
+      evaluationId: currentEvaluation.id ?? "",
       evaluation: currentEvaluation.evaluation,
     };
   }
@@ -139,7 +147,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
   const router = useRouter();
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [guidanceById, setGuidanceById] = useState<Record<string, StepGuidance>>({});
+  const [guidanceById, setGuidanceById] = useState<Record<string, GuidanceSlot>>({});
   const [guidancePendingId, setGuidancePendingId] = useState<string | null>(null);
   const [guidanceErrorById, setGuidanceErrorById] = useState<Record<string, string>>({});
   const [toggleError, setToggleError] = useState<string | null>(null);
@@ -181,10 +189,10 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
     });
 
     const body = (await response.json().catch(() => null)) as
-      | ({ guidance?: StepGuidance } & RouteErrorBody)
+      | ({ guidance?: StepGuidance; milestone_guidance_id?: string } & RouteErrorBody)
       | null;
 
-    if (!response.ok || !body?.guidance) {
+    if (!response.ok || !body?.guidance || !body.milestone_guidance_id) {
       setGuidanceErrorById((current) => ({
         ...current,
         [milestoneId]: body?.error ?? "Failed to load step guidance.",
@@ -193,7 +201,13 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
       return;
     }
 
-    setGuidanceById((current) => ({ ...current, [milestoneId]: body.guidance! }));
+    setGuidanceById((current) => ({
+      ...current,
+      [milestoneId]: {
+        guidance: body.guidance!,
+        guidanceId: body.milestone_guidance_id!,
+      },
+    }));
     setExpandedId(milestoneId);
     setGuidancePendingId(null);
   }
@@ -316,7 +330,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
         <div>
           <h2 className="text-2xl font-semibold text-ink">Milestones</h2>
           <p className="text-sm leading-6 text-ink-soft">
-            Open any milestone when you need premium guidance. Deliverables and pitfalls stay visible so scope drift feels obvious.
+            Open any milestone when you need premium guidance. The checklist, pitfalls, and done-when bar keep the finishable version visible.
           </p>
         </div>
       </div>
@@ -326,7 +340,8 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
       <ul className="divide-y divide-line">
         {milestones.map((milestone) => {
           const isExpanded = expandedId === milestone.id;
-          const guidance = guidanceById[milestone.id];
+          const guidanceSlot = guidanceById[milestone.id];
+          const guidance = guidanceSlot?.guidance;
           const isGuidancePending = guidancePendingId === milestone.id;
           const guidanceError = guidanceErrorById[milestone.id];
           const slot = submissionById[milestone.id];
@@ -407,13 +422,9 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
                         <p className="mt-3 text-sm leading-6 text-ink-soft">{guidance.what_to_do_now}</p>
                       </Card>
 
-                      <div className="grid gap-4 lg:grid-cols-2">
+                      <div className="grid gap-4">
                         <GuidanceBlock title="Detailed checklist" tone="default">
                           <GuidanceList items={guidance.checklist} />
-                        </GuidanceBlock>
-
-                        <GuidanceBlock title="Deliverables" tone="primary">
-                          <GuidanceList items={guidance.deliverables} />
                         </GuidanceBlock>
                       </div>
 
@@ -436,6 +447,15 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
                           <p className="text-sm leading-6 text-paper/72">{guidance.encouragement}</p>
                         </GuidanceBlock>
                       </div>
+
+                      {guidanceSlot ? (
+                        <GenerationFeedbackForm
+                          stage="step_guidance"
+                          milestoneGuidanceId={guidanceSlot.guidanceId}
+                          title="How did this guidance feel?"
+                          description="Optional. Share what felt useful, generic, missing, or too heavy before you submit work."
+                        />
+                      ) : null}
 
                       <div className="border-t border-line pt-5">
                         <SubmissionSection
@@ -514,6 +534,7 @@ function SubmissionSection({
         ) : (
           <EvaluationResult
             submission={slot.submission}
+            evaluationId={slot.evaluationId}
             evaluation={slot.evaluation}
             onResubmit={onResubmit}
           />
@@ -549,6 +570,7 @@ function SubmissionSection({
                     : "Your newest submission failed to evaluate, so Sevri is keeping the last completed evaluation visible."
                 }
                 submission={fallbackEvaluation.submission}
+                evaluationId={fallbackEvaluation.evaluation_id}
                 evaluation={fallbackEvaluation.evaluation}
               />
             ) : null}
@@ -731,12 +753,14 @@ function CurrentSubmissionStatusCard({
 
 function EvaluationResult({
   submission,
+  evaluationId,
   evaluation,
   onResubmit,
   title = "Your evaluation",
   note,
 }: {
   submission: StoredMilestoneSubmission;
+  evaluationId?: string;
   evaluation: WorkEvaluation;
   onResubmit?: () => void;
   title?: string;
@@ -814,6 +838,15 @@ function EvaluationResult({
           Not quite ready to mark complete - address the gaps above first.
         </p>
       )}
+
+      {evaluationId ? (
+        <GenerationFeedbackForm
+          stage="work_evaluation"
+          submissionEvaluationId={evaluationId}
+          title="How did this evaluation feel?"
+          description="Optional. This does not change the verdict. It only helps Sevri improve future coaching and review quality."
+        />
+      ) : null}
     </Card>
   );
 }

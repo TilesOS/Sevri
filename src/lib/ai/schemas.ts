@@ -14,18 +14,14 @@ export const RiskFlagSchema = z.enum([
 
 export const SkillAssessmentSchema = z.enum(["beginner", "intermediate", "advanced"]);
 
-export const DifficultySchema = z.enum([
-  "beginner",
-  "beginner_intermediate",
-  "intermediate",
-  "intermediate_advanced",
-]);
+export const DifficultySchema = z.enum(["beginner", "intermediate", "advanced"]);
 
 const CommonGenerationContextPayloadSchema = z.object({
   domain_brief: z.string().min(30),
   anchor_interests: z.array(z.string().min(2)).min(1).max(8),
   goal_signal: z.string().min(12),
   resource_snapshot: z.string().min(12),
+  anti_generic_warnings: z.array(z.string().min(6)).min(2).max(6),
   scope_guardrails: z.array(z.string().min(3)).min(2).max(6),
   focus_signal: z.string().min(12),
   target_outcome: z.string().min(3),
@@ -41,7 +37,7 @@ const SoftwareGenerationContextPayloadSchema = CommonGenerationContextPayloadSch
 
 const ResearchGenerationContextPayloadSchema = CommonGenerationContextPayloadSchema.extend({
   research_readiness: z.string().min(8),
-  mentor_resource_notes: z.string().min(8),
+  methodology_guidance: z.string().min(8),
   viable_methodologies: z.array(z.string().min(4)).min(2).max(4),
 });
 
@@ -92,6 +88,10 @@ const BaseProjectOptionSchema = z.object({
   why_it_fits: z.string().min(24).max(220),
   difficulty: DifficultySchema,
   estimated_weeks: z.number().int().min(2).max(20),
+  skills_demonstrated: z.array(z.string().min(2).max(60)).min(2).max(8),
+  tools_needed: z.array(z.string().min(2).max(60)).min(2).max(8),
+  impressiveness_score: z.number().int().min(1).max(10),
+  finishability_score: z.number().int().min(1).max(10),
 });
 
 export const SoftwareProjectOptionSchema = BaseProjectOptionSchema.extend({
@@ -141,7 +141,6 @@ export const StepGuidanceEmailSchema = z.object({
 export const StepGuidanceSchema = z.object({
   what_to_do_now: z.string().min(40).max(260),
   checklist: z.array(z.string().min(8).max(180)).min(4).max(8),
-  deliverables: z.array(z.string().min(6).max(180)).min(2).max(5),
   pitfalls: z.array(z.string().min(8).max(180)).min(2).max(5),
   tools_resources: z.array(z.string().min(4).max(180)).min(3).max(6),
   done_when: z.array(z.string().min(8).max(180)).min(2).max(4),
