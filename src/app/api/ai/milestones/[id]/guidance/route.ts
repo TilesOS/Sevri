@@ -9,7 +9,13 @@ import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage, coerceStoredProjectOption } from "@/lib/ai/storage";
 import { getStepGuidanceFeedback } from "@/lib/db/queries/generation-feedback";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
-import { getGenerationVersion, type GenerationCitation, type GenerationMetrics } from "@/lib/ai/client";
+import {
+  getGenerationFailureMessage,
+  getGenerationFailureStatus,
+  getGenerationVersion,
+  type GenerationCitation,
+  type GenerationMetrics,
+} from "@/lib/ai/client";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 
@@ -346,11 +352,21 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     console.error("milestone guidance failed", { stage, error });
     captureServerError(error, { route: "ai/milestones/guidance", stage });
     const details = getErrorDetails(error);
-    const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
+    const status =
+      error instanceof z.ZodError && stage === "parse-request"
+        ? 400
+        : stage === "generate-guidance"
+          ? getGenerationFailureStatus(error)
+          : 500;
 
     return NextResponse.json(
       {
-        error: status === 400 ? "Invalid request payload" : "Failed to generate step guidance",
+        error:
+          status === 400
+            ? "Invalid request payload"
+            : stage === "generate-guidance"
+              ? getGenerationFailureMessage(error, "Failed to generate step guidance")
+              : "Failed to generate step guidance",
         stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },

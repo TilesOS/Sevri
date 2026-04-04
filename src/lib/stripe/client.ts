@@ -1,7 +1,7 @@
 import Stripe from "stripe";
-import { getServerEnv } from "@/lib/env";
+import { getStripeEnv } from "@/lib/env";
 
-const env = getServerEnv();
+const env = getStripeEnv();
 
 export const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
   typescript: true,

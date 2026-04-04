@@ -6,6 +6,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/feature-access";
 import { runWorkEvaluation, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
+import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage } from "@/lib/ai/storage";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
@@ -79,7 +80,18 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function getPipelineFailureMessage(raw: unknown) {
   if (raw && typeof raw === "object" && "reason" in raw && typeof raw.reason === "string" && raw.reason.trim()) {
-    return `Evaluation could not be completed. ${raw.reason.trim()}`;
+    const reason = raw.reason.trim();
+
+    try {
+      const parsed = JSON.parse(reason) as { message?: string };
+      if (typeof parsed.message === "string" && parsed.message.trim().length > 0) {
+        return `Evaluation could not be completed. ${parsed.message.trim()}`;
+      }
+    } catch {
+      // Keep the original reason when it is not JSON.
+    }
+
+    return `Evaluation could not be completed. ${reason}`;
   }
 
   return "Evaluation could not be completed. Your submission was saved, but you will need to submit another version to retry.";
@@ -415,16 +427,22 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         submissionFilename: body.submission_filename,
       });
 
-      if (generated.metrics.fallback_used) {
+      const generatedRaw = generated.raw && typeof generated.raw === "object"
+        ? (generated.raw as Record<string, unknown>)
+        : null;
+      const generatedSource = typeof generatedRaw?.source === "string" ? generatedRaw.source : null;
+
+      if (generatedSource === "fallback") {
+        const failureMessage = getPipelineFailureMessage(generated.raw);
         stage = "mark-evaluation-failed";
         await markEvaluationFailed(
           adminSupabase,
           persistedRecord.evaluation_id,
-          getPipelineFailureMessage(generated.raw),
+          failureMessage,
           stage,
         );
 
-        return NextResponse.json(await buildEvaluationResponse(supabase, milestone.id), { status: 200 });
+        return NextResponse.json({ error: failureMessage }, { status: 502 });
       }
 
       stage = "mark-evaluation-completed";
@@ -474,18 +492,25 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
       return NextResponse.json(await buildEvaluationResponse(supabase, milestone.id), { status: 200 });
     } catch (evaluationError) {
-      stage = "mark-evaluation-failed";
-      await markEvaluationFailed(
-        adminSupabase,
-        persistedRecord.evaluation_id,
+      const failureMessage = getGenerationFailureMessage(
+        evaluationError,
         getErrorMessage(
           evaluationError,
           "Evaluation failed, but your submission was saved. Submit another version to retry.",
         ),
+      );
+      stage = "mark-evaluation-failed";
+      await markEvaluationFailed(
+        adminSupabase,
+        persistedRecord.evaluation_id,
+        failureMessage,
         stage,
       );
 
-      return NextResponse.json(await buildEvaluationResponse(supabase, milestone.id), { status: 200 });
+      return NextResponse.json(
+        { error: failureMessage },
+        { status: getGenerationFailureStatus(evaluationError) },
+      );
     }
   } catch (error) {
     console.error("work evaluation failed", { stage, error });

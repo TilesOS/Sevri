@@ -1,11 +1,11 @@
 import type Stripe from "stripe";
-import { getServerEnv } from "@/lib/env";
+import { getStripeEnv } from "@/lib/env";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { upsertSubscription } from "@/lib/db/mutations/subscriptions";
 import { trackEvent } from "@/lib/analytics/track";
 
-const env = getServerEnv();
+const env = getStripeEnv();
 
 function planFromSubscription(subscription: Stripe.Subscription): "free" | "pro_monthly" {
   const activePriceIds = subscription.items.data.map((item) => item.price.id);

@@ -19,7 +19,6 @@ import {
   type WebSearchPolicy,
 } from "@/lib/ai/client";
 import {
-  buildGenerationContext,
   estimateWeeksFromContext,
   estimateWeeklyHoursFromContext,
   getDomainFamilyFromContext,
@@ -393,6 +392,8 @@ function fallbackDifficulty(context: GenerationContext) {
   return "beginner" as const;
 }
 
+// Retained for potential future offline fallback strategy work.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildSoftwareFallbackOptions(context: GenerationContext): RecommendationBatch {
   const primary = getPrimaryAnchor(context);
   const family = getDomainFamilyFromContext(context);
@@ -573,6 +574,8 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
   });
 }
 
+// Retained for potential future offline fallback strategy work.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildResearchFallbackOptions(context: GenerationContext): RecommendationBatch {
   const primary = getPrimaryAnchor(context);
   const estimatedWeeks = estimateWeeksFromContext(context) + 1;
@@ -684,6 +687,8 @@ function buildResearchFallbackOptions(context: GenerationContext): Recommendatio
   });
 }
 
+// Retained for potential future offline fallback strategy work.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildFallbackRoadmap(context: GenerationContext, selectedOption: ProjectOption): RoadmapOverview {
   if (selectedOption.project_track === "research") {
     const payload = selectedOption.track_payload_json;
@@ -910,6 +915,8 @@ function buildFallbackRoadmap(context: GenerationContext, selectedOption: Projec
   });
 }
 
+// Retained for potential future offline fallback strategy work.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function buildFallbackStepGuidance(
   context: GenerationContext,
   step: RoadmapStep,
@@ -968,83 +975,44 @@ export async function runProfileNormalization(input: {
   rawIntake: Record<string, unknown>;
   feedback?: PromptFeedbackItem[];
 }): Promise<PipelineResult<GenerationContext>> {
-  try {
-    const result = await generateStructuredOutput({
-      stage: "normalize",
-      schema: input.projectTrack === "research" ? ResearchGenerationContextSchema : SoftwareGenerationContextSchema,
-      schemaName: `${input.projectTrack}_normalized_context`,
-      systemPrompt: buildNormalizeSystemPrompt(input.projectTrack),
-      userPrompt: buildNormalizeUserPrompt(input),
-      validator: (parsed) => normalizedContextIssues(parsed),
-    });
+  const result = await generateStructuredOutput({
+    stage: "normalize",
+    schema: input.projectTrack === "research" ? ResearchGenerationContextSchema : SoftwareGenerationContextSchema,
+    schemaName: `${input.projectTrack}_normalized_context`,
+    systemPrompt: buildNormalizeSystemPrompt(input.projectTrack),
+    userPrompt: buildNormalizeUserPrompt(input),
+    validator: (parsed) => normalizedContextIssues(parsed),
+  });
 
-    return {
-      parsed: result.parsed,
-      raw: result.raw,
-      metrics: result.metrics,
-      citations: result.citations,
-      refusal: result.refusal,
-    };
-  } catch (error) {
-    console.warn("normalize generation failed, using deterministic context", { error: error instanceof Error ? error.message : error });
-    const parsed = buildGenerationContext({
-      projectTrack: input.projectTrack,
-      rawIntake: input.rawIntake,
-    });
-    const metrics = getFailureMetrics(error, "normalize");
-
-    return {
-      parsed,
-      raw: {
-        source: "fallback",
-        stage: "normalize",
-        reason: error instanceof Error ? error.message : "Unknown error",
-      },
-      metrics: { ...metrics, fallback_used: true },
-      citations: [],
-      refusal: null,
-    };
-  }
+  return {
+    parsed: result.parsed,
+    raw: result.raw,
+    metrics: result.metrics,
+    citations: result.citations,
+    refusal: result.refusal,
+  };
 }
 
 export async function runOptionsGeneration(
   context: GenerationContext,
   feedback?: PromptFeedbackItem[],
 ): Promise<PipelineResult<RecommendationBatch>> {
-  try {
-    const result = await generateStructuredOutput({
-      stage: "options",
-      schema: RecommendationBatchSchema,
-      schemaName: `${context.project_track}_options`,
-      systemPrompt: buildOptionsSystemPrompt(context.project_track),
-      userPrompt: buildOptionsUserPrompt(context, feedback),
-      validator: (parsed) => optionIssues(parsed, context),
-    });
+  const result = await generateStructuredOutput({
+    stage: "options",
+    schema: RecommendationBatchSchema,
+    schemaName: `${context.project_track}_options`,
+    systemPrompt: buildOptionsSystemPrompt(context.project_track),
+    userPrompt: buildOptionsUserPrompt(context, feedback),
+    validator: (parsed) => optionIssues(parsed, context),
+  });
 
-    return {
-      parsed: result.parsed,
-      raw: result.raw,
-      metrics: result.metrics,
-      citations: result.citations,
-      refusal: result.refusal,
-    };
-  } catch (error) {
-    console.warn("options generation failed, using fallback", { error: error instanceof Error ? error.message : error });
-    const parsed = context.project_track === "research" ? buildResearchFallbackOptions(context) : buildSoftwareFallbackOptions(context);
-    const metrics = getFailureMetrics(error, "options");
-
-    return {
-      parsed,
-      raw: {
-        source: "fallback",
-        stage: "options",
-        reason: error instanceof Error ? error.message : "Unknown error",
-      },
-      metrics: { ...metrics, fallback_used: true },
-      citations: [],
-      refusal: null,
-    };
-  }
+  return {
+    parsed: result.parsed,
+    raw: result.raw,
+    metrics: result.metrics,
+    citations: result.citations,
+    refusal: result.refusal,
+  };
 }
 
 export async function runRoadmapGeneration(input: {
@@ -1052,50 +1020,32 @@ export async function runRoadmapGeneration(input: {
   selectedOption: ProjectOption;
   feedback?: PromptFeedbackItem[];
 }): Promise<PipelineResult<RoadmapOverview>> {
-  try {
-    const webSearch = detectRoadmapWebSearchPolicy(input);
-    const result = await generateStructuredOutput({
-      stage: "roadmap",
-      schema: RoadmapOverviewSchema,
-      schemaName: `${input.context.project_track}_roadmap_overview`,
-      systemPrompt: buildRoadmapSystemPrompt(input.context.project_track),
-      userPrompt: appendExternalSearchGuidance(
-        buildRoadmapUserPrompt({
-          projectTrack: input.context.project_track,
-          context: input.context,
-          selectedOption: input.selectedOption,
-          feedback: input.feedback,
-        }),
-        webSearch,
-      ),
-      validator: (parsed) => roadmapIssues(parsed, input.selectedOption, input.context),
+  const webSearch = detectRoadmapWebSearchPolicy(input);
+  const result = await generateStructuredOutput({
+    stage: "roadmap",
+    schema: RoadmapOverviewSchema,
+    schemaName: `${input.context.project_track}_roadmap_overview`,
+    systemPrompt: buildRoadmapSystemPrompt(input.context.project_track),
+    userPrompt: appendExternalSearchGuidance(
+      buildRoadmapUserPrompt({
+        projectTrack: input.context.project_track,
+        context: input.context,
+        selectedOption: input.selectedOption,
+        feedback: input.feedback,
+      }),
       webSearch,
-    });
+    ),
+    validator: (parsed) => roadmapIssues(parsed, input.selectedOption, input.context),
+    webSearch,
+  });
 
-    return {
-      parsed: normalizeRoadmapSteps(result.parsed),
-      raw: result.raw,
-      metrics: result.metrics,
-      citations: result.citations,
-      refusal: result.refusal,
-    };
-  } catch (error) {
-    console.warn("roadmap generation failed, using fallback", { error: error instanceof Error ? error.message : error });
-    const parsed = buildFallbackRoadmap(input.context, input.selectedOption);
-    const metrics = getFailureMetrics(error, "roadmap");
-
-    return {
-      parsed,
-      raw: {
-        source: "fallback",
-        stage: "roadmap",
-        reason: error instanceof Error ? error.message : "Unknown error",
-      },
-      metrics: { ...metrics, fallback_used: true },
-      citations: [],
-      refusal: null,
-    };
-  }
+  return {
+    parsed: normalizeRoadmapSteps(result.parsed),
+    raw: result.raw,
+    metrics: result.metrics,
+    citations: result.citations,
+    refusal: result.refusal,
+  };
 }
 
 export async function runStepGuidanceGeneration(input: {
@@ -1107,42 +1057,24 @@ export async function runStepGuidanceGeneration(input: {
   nextStep?: RoadmapStep;
   feedback?: PromptFeedbackItem[];
 }): Promise<PipelineResult<StepGuidance>> {
-  try {
-    const webSearch = detectStepGuidanceWebSearchPolicy(input);
-    const result = await generateStructuredOutput({
-      stage: "step_guidance",
-      schema: StepGuidanceSchema,
-      schemaName: `${input.context.project_track}_step_guidance`,
-      systemPrompt: buildStepGuidanceSystemPrompt(input.context.project_track, input.step.order_index, input.roadmap.steps.length),
-      userPrompt: appendExternalSearchGuidance(buildStepGuidanceUserPrompt(input), webSearch),
-      validator: (parsed) => stepGuidanceIssues(parsed, input.step, input.context),
-      webSearch,
-    });
+  const webSearch = detectStepGuidanceWebSearchPolicy(input);
+  const result = await generateStructuredOutput({
+    stage: "step_guidance",
+    schema: StepGuidanceSchema,
+    schemaName: `${input.context.project_track}_step_guidance`,
+    systemPrompt: buildStepGuidanceSystemPrompt(input.context.project_track, input.step.order_index, input.roadmap.steps.length),
+    userPrompt: appendExternalSearchGuidance(buildStepGuidanceUserPrompt(input), webSearch),
+    validator: (parsed) => stepGuidanceIssues(parsed, input.step, input.context),
+    webSearch,
+  });
 
-    return {
-      parsed: result.parsed,
-      raw: result.raw,
-      metrics: result.metrics,
-      citations: result.citations,
-      refusal: result.refusal,
-    };
-  } catch (error) {
-    console.warn("step guidance generation failed, using fallback", { error: error instanceof Error ? error.message : error, step_title: input.step.title });
-    const parsed = buildFallbackStepGuidance(input.context, input.step, input.roadmap);
-    const metrics = getFailureMetrics(error, "step_guidance");
-
-    return {
-      parsed,
-      raw: {
-        source: "fallback",
-        stage: "step_guidance",
-        reason: error instanceof Error ? error.message : "Unknown error",
-      },
-      metrics: { ...metrics, fallback_used: true },
-      citations: [],
-      refusal: null,
-    };
-  }
+  return {
+    parsed: result.parsed,
+    raw: result.raw,
+    metrics: result.metrics,
+    citations: result.citations,
+    refusal: result.refusal,
+  };
 }
 
 export async function runWorkEvaluation(input: {

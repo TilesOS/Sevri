@@ -4,6 +4,7 @@ import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { getRouteGenerationMetadata, getWeeklyHoursForStorage, runOptionsGeneration, runProfileNormalization } from "@/lib/ai/pipelines";
+import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
 import { getRecommendationGenerationCount, getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getRecommendationFeedback } from "@/lib/db/queries/generation-feedback";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
@@ -224,10 +225,20 @@ export async function POST(request: Request) {
     console.error("recommendations failed", { stage, error });
     captureServerError(error, { route: "ai/recommendations", stage });
     const details = getErrorDetails(error);
-    const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
+    const status =
+      error instanceof z.ZodError && stage === "parse-request"
+        ? 400
+        : stage === "normalize-context" || stage === "generate-options"
+          ? getGenerationFailureStatus(error)
+          : 500;
     return NextResponse.json(
       {
-        error: status === 400 ? "Invalid request payload" : "Failed to generate recommendations",
+        error:
+          status === 400
+            ? "Invalid request payload"
+            : stage === "normalize-context" || stage === "generate-options"
+              ? getGenerationFailureMessage(error, "Failed to generate recommendations")
+              : "Failed to generate recommendations",
         stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },

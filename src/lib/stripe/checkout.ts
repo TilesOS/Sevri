@@ -1,10 +1,10 @@
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
-import { getServerEnv, clientEnv } from "@/lib/env";
+import { getStripeEnv, clientEnv } from "@/lib/env";
 import { stripe } from "@/lib/stripe/client";
 import { upsertSubscription } from "@/lib/db/mutations/subscriptions";
 
 export async function createCheckoutSession(userId: string, email?: string | null) {
-  const env = getServerEnv();
+  const env = getStripeEnv();
   const supabase = createAdminSupabaseClient();
 
   const { data: existingSubscription } = await supabase

@@ -4,6 +4,7 @@ import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { runRoadmapGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
+import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildMilestoneInsert, buildRoadmapStorageArtifacts, coerceStoredProjectOption } from "@/lib/ai/storage";
 import { getRoadmapFeedback } from "@/lib/db/queries/generation-feedback";
@@ -247,11 +248,21 @@ export async function POST(request: Request) {
     console.error("roadmap failed", { stage, error });
     captureServerError(error, { route: "ai/roadmap", stage });
     const details = getErrorDetails(error);
-    const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
+    const status =
+      error instanceof z.ZodError && stage === "parse-request"
+        ? 400
+        : stage === "generate-roadmap"
+          ? getGenerationFailureStatus(error)
+          : 500;
 
     return NextResponse.json(
       {
-        error: status === 400 ? "Invalid request payload" : "Failed to generate roadmap",
+        error:
+          status === 400
+            ? "Invalid request payload"
+            : stage === "generate-roadmap"
+              ? getGenerationFailureMessage(error, "Failed to generate roadmap")
+              : "Failed to generate roadmap",
         stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },

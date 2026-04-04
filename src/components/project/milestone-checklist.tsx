@@ -269,6 +269,15 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
           ...prev,
           [milestoneId]: body?.error ?? "Failed to save your submission.",
         }));
+        try {
+          const recovered = await fetchSubmissionState(milestoneId);
+          setSubmissionById((prev) => ({
+            ...prev,
+            [milestoneId]: buildSubmissionSlot(recovered),
+          }));
+        } catch {
+          // Keep the prior submission state if recovery fails.
+        }
         setEvaluationPendingId(null);
         return;
       }

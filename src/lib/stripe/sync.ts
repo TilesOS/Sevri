@@ -1,10 +1,10 @@
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
-import { getServerEnv } from "@/lib/env";
+import { getStripeEnv } from "@/lib/env";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { upsertSubscription } from "@/lib/db/mutations/subscriptions";
 
-const env = getServerEnv();
+const env = getStripeEnv();
 
 const ACTIVE_STATUSES = new Set<Stripe.Subscription.Status>(["active", "trialing", "past_due", "unpaid"]);
 

@@ -1,7 +1,7 @@
 import { Resend } from "resend";
-import { getServerEnv } from "@/lib/env";
+import { getEmailEnv } from "@/lib/env";
 
-const env = getServerEnv();
+const env = getEmailEnv();
 const resend = new Resend(env.RESEND_API_KEY);
 
 const DEFAULT_FROM = "Sevri <no-reply@sevri.app>";

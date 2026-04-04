@@ -2,13 +2,23 @@ import OpenAI from "openai";
 import { zodTextFormat } from "openai/helpers/zod";
 import type { ParsedResponse } from "openai/resources/responses/responses";
 import { z } from "zod";
-import { getServerEnv } from "@/lib/env";
+import { getAIEnv } from "@/lib/env";
 
-const env = getServerEnv();
+const env = getAIEnv();
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
 export type GenerationStage = "options" | "roadmap" | "step_guidance" | "work_evaluation" | "normalize" | "legacy";
 export type WebSearchReason = "recency_sensitive" | "source_seeking" | "user_requested_current";
+export type GenerationFailureKind =
+  | "auth"
+  | "incomplete"
+  | "model_access"
+  | "no_parsed_content"
+  | "provider"
+  | "rate_limit"
+  | "refusal"
+  | "validation"
+  | "unknown";
 
 export interface GenerationCitation {
   title?: string;
@@ -42,6 +52,13 @@ export interface GenerationMetrics {
   refusal_detected: boolean;
 }
 
+export interface GenerationFailureDetails {
+  kind: GenerationFailureKind;
+  message: string;
+  raw: unknown;
+  metrics: GenerationMetrics;
+}
+
 interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   schema: TSchema;
   schemaName?: string;
@@ -58,6 +75,9 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
 }
 
 const GENERATION_VERSION = "responses-v1";
+const ACCESS_DENIED_PATTERN = /does not have access to model/i;
+const RATE_LIMIT_PATTERN = /\b429\b|rate limit/i;
+const AUTH_PATTERN = /\b401\b|invalid api key|incorrect api key|authentication/i;
 
 function supportsReasoningEffort(model: string) {
   return model.toLowerCase().startsWith("gpt-5");
@@ -103,26 +123,151 @@ function resolveStageModel(stage: GenerationStage | string, explicitModel?: stri
 
 function getStageDefaults(stage: GenerationStage | string) {
   if (stage === "normalize") {
-    return { maxCompletionTokens: 1400, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 2400, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
   if (stage === "options") {
-    return { maxCompletionTokens: 1600, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 4000, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
   if (stage === "roadmap") {
-    return { maxCompletionTokens: 2400, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 5200, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
   if (stage === "step_guidance") {
-    return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 4600, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
   if (stage === "work_evaluation") {
-    return { maxCompletionTokens: 900, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
-  return { maxCompletionTokens: 1200, maxRetries: 2, reasoningEffort: undefined };
+  return { maxCompletionTokens: 1800, maxRetries: 2, reasoningEffort: undefined };
+}
+
+function getRetryTokenBudget(maxCompletionTokens: number) {
+  return Math.min(maxCompletionTokens + 1600, 8000);
+}
+
+function getFailureKindFromMessage(message: string): GenerationFailureKind {
+  if (ACCESS_DENIED_PATTERN.test(message)) {
+    return "model_access";
+  }
+
+  if (RATE_LIMIT_PATTERN.test(message)) {
+    return "rate_limit";
+  }
+
+  if (AUTH_PATTERN.test(message)) {
+    return "auth";
+  }
+
+  return "provider";
+}
+
+function buildFailureMetrics(input: {
+  stage: GenerationStage | string;
+  model: string;
+  attemptCount: number;
+  totalAiMs: number;
+  totalValidationMs: number;
+  promptChars: number;
+  outputChars: number;
+  fallbackModelUsed: string | null;
+  validatorFailed: boolean;
+  validatorIssueCount: number;
+  refusalDetected: boolean;
+}): GenerationMetrics {
+  return {
+    stage: input.stage,
+    generation_version: GENERATION_VERSION,
+    model: input.model,
+    attempt_count: input.attemptCount,
+    ai_total_ms: Math.round(input.totalAiMs),
+    validation_ms: Math.round(input.totalValidationMs),
+    prompt_chars: input.promptChars,
+    output_chars: input.outputChars,
+    fallback_used: input.fallbackModelUsed !== null,
+    fallback_model_used: input.fallbackModelUsed,
+    validator_failed: input.validatorFailed,
+    validator_issue_count: input.validatorIssueCount,
+    tool_used: false,
+    web_search_used: false,
+    citation_count: 0,
+    refusal_detected: input.refusalDetected,
+  };
+}
+
+export class StructuredGenerationError extends Error {
+  readonly details: GenerationFailureDetails;
+
+  constructor(details: GenerationFailureDetails) {
+    super(details.message);
+    this.name = "StructuredGenerationError";
+    this.details = details;
+  }
+}
+
+export function getGenerationFailureDetails(error: unknown): GenerationFailureDetails | null {
+  if (error instanceof StructuredGenerationError) {
+    return error.details;
+  }
+
+  return null;
+}
+
+export function getGenerationFailureStatus(error: unknown) {
+  const details = getGenerationFailureDetails(error);
+  if (!details) {
+    return 500;
+  }
+
+  if (details.kind === "rate_limit") {
+    return 429;
+  }
+
+  if (details.kind === "auth" || details.kind === "model_access") {
+    return 503;
+  }
+
+  return 502;
+}
+
+export function getGenerationFailureMessage(error: unknown, fallback: string) {
+  const details = getGenerationFailureDetails(error);
+  if (!details) {
+    return fallback;
+  }
+
+  if (details.kind === "model_access") {
+    return "AI generation is temporarily unavailable because the configured model is not enabled for this project.";
+  }
+
+  if (details.kind === "rate_limit") {
+    return "AI generation is temporarily rate-limited. Please retry in a moment.";
+  }
+
+  if (details.kind === "incomplete" || details.kind === "no_parsed_content") {
+    return "AI generation could not finish the structured response. Please retry.";
+  }
+
+  if (details.kind === "auth") {
+    return "AI generation is temporarily unavailable due to an authentication issue.";
+  }
+
+  if (details.kind === "refusal") {
+    return "AI generation refused this request. Please revise the input and try again.";
+  }
+
+  if (details.kind === "validation") {
+    return "AI generation returned an invalid response. Please retry.";
+  }
+
+  return fallback;
+}
+
+function logGenerationAttempt(event: string, payload: Record<string, unknown>) {
+  console.info(`[ai] ${event}`, payload);
 }
 
 function buildRepairPrompt(feedback: string) {
@@ -270,9 +415,19 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   let refusalDetected = false;
   let lastFallbackModelUsed: string | null = null;
   let lastRaw: unknown = null;
+  let lastFailureKind: GenerationFailureKind = "unknown";
 
   for (const modelName of modelsToTry) {
     let repairFeedback: string | null = null;
+    let tokenBudget = maxCompletionTokens;
+    let tokenBudgetRetried = false;
+
+    logGenerationAttempt("model-start", {
+      stage,
+      model: modelName,
+      primary_model: primaryModel,
+      fallback_candidate: modelName !== primaryModel,
+    });
 
     for (let attempt = 0; attempt <= maxRetries; attempt += 1) {
       attemptCount += 1;
@@ -291,7 +446,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       const request = {
         model: modelName,
         input: messages,
-        max_output_tokens: maxCompletionTokens,
+        max_output_tokens: tokenBudget,
         ...(supportsReasoningEffort(modelName) && (input.reasoningEffort ?? defaults.reasoningEffort)
           ? { reasoning: { effort: input.reasoningEffort ?? defaults.reasoningEffort } }
           : {}),
@@ -310,6 +465,16 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       const startedAt = performance.now();
 
       try {
+        logGenerationAttempt("attempt-start", {
+          stage,
+          attempt: attemptCount,
+          attempt_in_model: attempt + 1,
+          requested_model: modelName,
+          max_output_tokens: tokenBudget,
+          reasoning_effort: supportsReasoningEffort(modelName) ? input.reasoningEffort ?? defaults.reasoningEffort ?? null : null,
+          repair_feedback: repairFeedback !== null,
+        });
+
         const response = (await openai.responses.parse(request as never)) as ParsedResponse<z.infer<TSchema>>;
 
         totalAiMs += performance.now() - startedAt;
@@ -320,25 +485,100 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         const raw = buildRawResponse(response, citations, refusal, input.webSearch);
         lastRaw = raw;
         lastOutputChars = JSON.stringify(response.output_parsed ?? response.output_text ?? "").length;
+        const incompleteReason = response.incomplete_details?.reason ?? null;
+
+        logGenerationAttempt("attempt-finish", {
+          stage,
+          attempt: attemptCount,
+          requested_model: modelName,
+          actual_model: response.model,
+          status: response.status,
+          incomplete_reason: incompleteReason,
+          usage: response.usage ?? null,
+          output_chars: lastOutputChars,
+          fallback_candidate: modelName !== primaryModel,
+        });
 
         if (refusal) {
           refusalDetected = true;
-          lastError = `${modelName}: Model refusal: ${refusal}`;
-          if (modelName !== primaryModel) {
-            lastFallbackModelUsed = modelName;
+          throw new StructuredGenerationError({
+            kind: "refusal",
+            message: `${modelName}: Model refusal: ${refusal}`,
+            raw,
+            metrics: buildFailureMetrics({
+              stage,
+              model: primaryModel,
+              attemptCount,
+              totalAiMs,
+              totalValidationMs,
+              promptChars: lastPromptChars,
+              outputChars: lastOutputChars,
+              fallbackModelUsed: modelName !== primaryModel ? modelName : lastFallbackModelUsed,
+              validatorFailed,
+              validatorIssueCount,
+              refusalDetected: true,
+            }),
+          });
+        }
+
+        if (response.status === "incomplete") {
+          lastError = `${modelName}: Response incomplete${incompleteReason ? ` (${incompleteReason})` : ""}`;
+
+          if (incompleteReason === "max_output_tokens" && !tokenBudgetRetried) {
+            tokenBudget = getRetryTokenBudget(tokenBudget);
+            tokenBudgetRetried = true;
+            console.warn("[ai] retrying after incomplete response", {
+              stage,
+              attempt: attemptCount,
+              requested_model: modelName,
+              actual_model: response.model,
+              previous_max_output_tokens: request.max_output_tokens,
+              retry_max_output_tokens: tokenBudget,
+            });
+            continue;
           }
-          break;
+
+          throw new StructuredGenerationError({
+            kind: "incomplete",
+            message: lastError,
+            raw,
+            metrics: buildFailureMetrics({
+              stage,
+              model: primaryModel,
+              attemptCount,
+              totalAiMs,
+              totalValidationMs,
+              promptChars: lastPromptChars,
+              outputChars: lastOutputChars,
+              fallbackModelUsed: modelName !== primaryModel ? modelName : lastFallbackModelUsed,
+              validatorFailed,
+              validatorIssueCount,
+              refusalDetected,
+            }),
+          });
         }
 
         const parsed = response.output_parsed;
         if (!parsed) {
           lastError = `${modelName}: Model returned no parsed content`;
-          repairFeedback = lastError;
-          if (attempt === maxRetries) {
-            break;
-          }
-
-          continue;
+          throw new StructuredGenerationError({
+            kind: "no_parsed_content",
+            message: lastError,
+            raw,
+            metrics: buildFailureMetrics({
+              stage,
+              model: primaryModel,
+              attemptCount,
+              totalAiMs,
+              totalValidationMs,
+              promptChars: lastPromptChars,
+              outputChars: lastOutputChars,
+              fallbackModelUsed: modelName !== primaryModel ? modelName : lastFallbackModelUsed,
+              validatorFailed,
+              validatorIssueCount,
+              refusalDetected,
+            }),
+          });
         }
 
         const validationStartedAt = performance.now();
@@ -350,6 +590,12 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
           validatorIssueCount += validationIssues.length;
           lastError = `${modelName}: Output validation failed: ${validationIssues.join(" | ")}`;
           repairFeedback = validationIssues.map((issue) => `- ${issue}`).join("\n");
+          console.warn("[ai] validation retry requested", {
+            stage,
+            attempt: attemptCount,
+            requested_model: modelName,
+            issue_count: validationIssues.length,
+          });
           if (attempt === maxRetries) {
             break;
           }
@@ -382,12 +628,73 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
           },
         };
       } catch (error) {
+        if (error instanceof StructuredGenerationError) {
+          lastFailureKind = error.details.kind;
+          lastError = error.details.message;
+          lastRaw = error.details.raw;
+          lastOutputChars = error.details.metrics.output_chars;
+          refusalDetected = refusalDetected || error.details.metrics.refusal_detected;
+
+          if (modelName !== primaryModel) {
+            lastFallbackModelUsed = modelName;
+          }
+
+          console.warn("[ai] structured-attempt-error", {
+            stage,
+            attempt: attemptCount,
+            requested_model: modelName,
+            kind: error.details.kind,
+            error: error.details.message,
+          });
+
+          if (error.details.kind === "auth") {
+            throw error;
+          }
+
+          break;
+        }
+
         totalAiMs += performance.now() - startedAt;
         lastError = error instanceof Error ? `${modelName}: ${error.message}` : `${modelName}: Unknown generation error`;
         repairFeedback = lastError;
 
+        const failureKind = getFailureKindFromMessage(lastError);
+        lastFailureKind = failureKind;
+        console.warn("[ai] attempt-error", {
+          stage,
+          attempt: attemptCount,
+          requested_model: modelName,
+          error: lastError,
+          kind: failureKind,
+        });
+
         if (modelName !== primaryModel) {
           lastFallbackModelUsed = modelName;
+        }
+
+        if (failureKind === "auth") {
+          throw new StructuredGenerationError({
+            kind: failureKind,
+            message: lastError,
+            raw: lastRaw,
+            metrics: buildFailureMetrics({
+              stage,
+              model: primaryModel,
+              attemptCount,
+              totalAiMs,
+              totalValidationMs,
+              promptChars: lastPromptChars,
+              outputChars: lastOutputChars,
+              fallbackModelUsed: lastFallbackModelUsed,
+              validatorFailed,
+              validatorIssueCount,
+              refusalDetected,
+            }),
+          });
+        }
+
+        if (failureKind === "model_access" || failureKind === "rate_limit") {
+          break;
         }
 
         if (attempt === maxRetries) {
@@ -397,30 +704,24 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
     }
   }
 
-  throw new Error(
-    JSON.stringify({
-      message: lastError,
-      raw: lastRaw,
-      metrics: {
-        stage,
-        generation_version: GENERATION_VERSION,
-        model: primaryModel,
-        attempt_count: attemptCount,
-        ai_total_ms: Math.round(totalAiMs),
-        validation_ms: Math.round(totalValidationMs),
-        prompt_chars: lastPromptChars,
-        output_chars: lastOutputChars,
-        fallback_used: lastFallbackModelUsed !== null,
-        fallback_model_used: lastFallbackModelUsed,
-        validator_failed: validatorFailed,
-        validator_issue_count: validatorIssueCount,
-        tool_used: false,
-        web_search_used: false,
-        citation_count: 0,
-        refusal_detected: refusalDetected,
-      } satisfies GenerationMetrics,
+  throw new StructuredGenerationError({
+    kind: validatorFailed ? "validation" : lastFailureKind,
+    message: lastError,
+    raw: lastRaw,
+    metrics: buildFailureMetrics({
+      stage,
+      model: primaryModel,
+      attemptCount,
+      totalAiMs,
+      totalValidationMs,
+      promptChars: lastPromptChars,
+      outputChars: lastOutputChars,
+      fallbackModelUsed: lastFallbackModelUsed,
+      validatorFailed,
+      validatorIssueCount,
+      refusalDetected,
     }),
-  );
+  });
 }
 
 export function getGenerationVersion() {
