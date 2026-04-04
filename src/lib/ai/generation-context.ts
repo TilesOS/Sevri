@@ -340,7 +340,7 @@ function buildSoftwareContext(rawIntake: Record<string, unknown>) {
   });
 }
 
-export function buildResearchMethodPool(methodPreference: string, family: DomainFamily): [string, string] {
+function buildResearchMethodPool(methodPreference: string, family: DomainFamily): [string, string] {
   if (methodPreference === "experiment") {
     if (family === "ai") return ["controlled prompt or model comparison study", "small A/B test on model outputs"];
     if (family === "science") return ["small controlled lab or field experiment", "simulation-backed comparison study"];
@@ -348,8 +348,8 @@ export function buildResearchMethodPool(methodPreference: string, family: Domain
   }
 
   if (methodPreference === "survey based") {
-    if (family === "science") return ["domain-specific survey instrument", "questionnaire with lightweight secondary analysis"];
-    return ["focused survey with structured instrument", "questionnaire with lightweight secondary analysis"];
+    if (family === "science") return ["structured expert interview with coding", "domain-specific survey instrument"];
+    return ["focused survey with structured instrument", "survey with lightweight secondary analysis"];
   }
 
   if (methodPreference === "literature review") {

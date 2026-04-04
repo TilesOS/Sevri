@@ -53,11 +53,16 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   model?: string;
   fallbackModels?: string[];
   maxCompletionTokens?: number;
+  temperature?: number;
   reasoningEffort?: "low" | "medium" | "high";
   webSearch?: WebSearchPolicy;
 }
 
 const GENERATION_VERSION = "responses-v1";
+
+function supportsTemperatureOverride(model: string) {
+  return !model.toLowerCase().startsWith("gpt-5");
+}
 
 function supportsReasoningEffort(model: string) {
   return model.toLowerCase().startsWith("gpt-5");
@@ -103,26 +108,26 @@ function resolveStageModel(stage: GenerationStage | string, explicitModel?: stri
 
 function getStageDefaults(stage: GenerationStage | string) {
   if (stage === "normalize") {
-    return { maxCompletionTokens: 1400, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 1400, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.25 };
   }
 
   if (stage === "options") {
-    return { maxCompletionTokens: 1600, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 1600, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.75 };
   }
 
   if (stage === "roadmap") {
-    return { maxCompletionTokens: 2400, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 2400, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.55 };
   }
 
   if (stage === "step_guidance") {
-    return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.6 };
   }
 
   if (stage === "work_evaluation") {
-    return { maxCompletionTokens: 900, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 900, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.2 };
   }
 
-  return { maxCompletionTokens: 1200, maxRetries: 2, reasoningEffort: undefined };
+  return { maxCompletionTokens: 1200, maxRetries: 2, reasoningEffort: undefined, temperature: 0.3 };
 }
 
 function buildRepairPrompt(feedback: string) {
@@ -241,43 +246,6 @@ function buildRawResponse<TParsed>(
   };
 }
 
-export function buildStructuredGenerationRequest<TSchema extends z.ZodTypeAny>(input: {
-  generationInput: StructuredGenerationInput<TSchema>;
-  modelName: string;
-  maxCompletionTokens: number;
-  defaults: ReturnType<typeof getStageDefaults>;
-  repairFeedback?: string | null;
-}) {
-  const { generationInput, modelName, maxCompletionTokens, defaults, repairFeedback } = input;
-  const messages: Array<{ role: "system" | "user"; content: string }> = [
-    { role: "system", content: generationInput.systemPrompt },
-    { role: "user", content: generationInput.userPrompt },
-  ];
-
-  if (repairFeedback) {
-    messages.push({ role: "user", content: buildRepairPrompt(repairFeedback) });
-  }
-
-  return {
-    model: modelName,
-    input: messages,
-    max_output_tokens: maxCompletionTokens,
-    ...(supportsReasoningEffort(modelName) && (generationInput.reasoningEffort ?? defaults.reasoningEffort)
-      ? { reasoning: { effort: generationInput.reasoningEffort ?? defaults.reasoningEffort } }
-      : {}),
-    text: {
-      format: zodTextFormat(generationInput.schema, generationInput.schemaName ?? `sevri_${String(generationInput.stage ?? "legacy")}`),
-    },
-    ...(generationInput.webSearch?.enabled
-      ? {
-          tools: [buildWebSearchTool(generationInput.webSearch)],
-          include: ["web_search_call.action.sources"],
-          tool_choice: "auto" as const,
-        }
-      : {}),
-  };
-}
-
 export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   input: StructuredGenerationInput<TSchema>,
 ): Promise<{
@@ -316,13 +284,34 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       lastPromptChars =
         input.systemPrompt.length + input.userPrompt.length + (repairFeedback ? repairFeedback.length : 0);
 
-      const request = buildStructuredGenerationRequest({
-        generationInput: input,
-        modelName,
-        maxCompletionTokens,
-        defaults,
-        repairFeedback,
-      });
+      const messages: Array<{ role: "system" | "user"; content: string }> = [
+        { role: "system", content: input.systemPrompt },
+        { role: "user", content: input.userPrompt },
+      ];
+
+      if (repairFeedback) {
+        messages.push({ role: "user", content: buildRepairPrompt(repairFeedback) });
+      }
+
+      const request = {
+        model: modelName,
+        input: messages,
+        max_output_tokens: maxCompletionTokens,
+        ...(supportsTemperatureOverride(modelName) ? { temperature: input.temperature ?? defaults.temperature ?? 0.3 } : {}),
+        ...(supportsReasoningEffort(modelName) && (input.reasoningEffort ?? defaults.reasoningEffort)
+          ? { reasoning: { effort: input.reasoningEffort ?? defaults.reasoningEffort } }
+          : {}),
+        text: {
+          format: zodTextFormat(input.schema, input.schemaName ?? `sevri_${String(stage)}`),
+        },
+        ...(input.webSearch?.enabled
+          ? {
+              tools: [buildWebSearchTool(input.webSearch)],
+              include: ["web_search_call.action.sources"],
+              tool_choice: "auto",
+            }
+          : {}),
+      };
 
       const startedAt = performance.now();
 
