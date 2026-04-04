@@ -10,8 +10,8 @@ const clientEnvSchema = z.object({
 const serverEnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
   OPENAI_API_KEY: z.string().min(1),
-  OPENAI_MODEL: z.string().default("gpt-4.1-mini"),
-  OPENAI_FALLBACK_MODEL: z.string().default("gpt-4.1-mini"),
+  OPENAI_MODEL: z.string().default("gpt-5.4-mini"),
+  OPENAI_FALLBACK_MODEL: z.string().default("gpt-5-mini"),
   OPENAI_NORMALIZE_MODEL: z.string().optional(),
   OPENAI_STAGE1_MODEL: z.string().optional(),
   OPENAI_STAGE2_MODEL: z.string().optional(),
