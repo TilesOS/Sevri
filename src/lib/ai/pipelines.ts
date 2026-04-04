@@ -240,7 +240,163 @@ const GENERIC_TITLE_PATTERNS = [
   /^universal\s/i,
 ];
 
-function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
+const SIGNAL_STOPWORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "at",
+  "be",
+  "build",
+  "by",
+  "can",
+  "concrete",
+  "defend",
+  "deliver",
+  "easy",
+  "evidence",
+  "experience",
+  "for",
+  "from",
+  "goal",
+  "goals",
+  "in",
+  "into",
+  "it",
+  "its",
+  "keep",
+  "make",
+  "matches",
+  "of",
+  "on",
+  "or",
+  "plan",
+  "portfolio",
+  "project",
+  "real",
+  "research",
+  "ship",
+  "student",
+  "students",
+  "that",
+  "the",
+  "their",
+  "this",
+  "to",
+  "with",
+]);
+
+type ResearchMethodFamily = "survey" | "interview" | "experiment" | "literature" | "secondary_analysis";
+
+type SoftwareFallbackTemplate = {
+  artifact: string;
+  summary: string;
+  why: string;
+  target_user: string;
+  problem_statement: string;
+  core_workflow: string;
+  mvp_boundary: string;
+  validation_plan: string;
+  skills: string[];
+  tools: string[];
+  impressiveness: number;
+  finishability: number;
+};
+
+type ResearchFallbackTemplate = {
+  title: string;
+  summary: string;
+  why: string;
+  research_question: string;
+  hypothesis_or_focus: string;
+  methodology: string;
+  evidence_plan: string;
+  scope_boundaries: string;
+  limitation_note: string;
+  skills: string[];
+  tools: string[];
+  impressiveness: number;
+  finishability: number;
+};
+
+const RESTRICTED_PRIMARY_DATA_PATTERN =
+  /\b(public datasets?|public data|published papers?|published sources?|secondary data|literature only|source set|google scholar|no lab access|no interviews?)\b/i;
+
+function normalizeIssueText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function tokenizeSignalText(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .toLowerCase()
+        .match(/[a-z0-9]+/g)
+        ?.filter((token) => {
+          if (SIGNAL_STOPWORDS.has(token)) {
+            return false;
+          }
+
+          return /\d/.test(token) || token.length >= 4;
+        }) ?? [],
+    ),
+  );
+}
+
+function hasSignalReference(text: string, signals: string[]) {
+  const normalized = text.toLowerCase();
+  const textTokens = new Set(tokenizeSignalText(text));
+
+  return signals.some((signal) => {
+    const normalizedSignal = normalizeIssueText(signal).toLowerCase();
+    if (!normalizedSignal) {
+      return false;
+    }
+
+    if (normalizedSignal.length >= 18 && normalized.includes(normalizedSignal)) {
+      return true;
+    }
+
+    const signalTokens = tokenizeSignalText(signal);
+    if (signalTokens.length === 0) {
+      return false;
+    }
+
+    const overlap = signalTokens.filter((token) => textTokens.has(token)).length;
+    return overlap >= Math.min(2, signalTokens.length);
+  });
+}
+
+function getOptionShapeKey(recommendation: ProjectOption) {
+  return recommendation.project_track === "research"
+    ? `${recommendation.track_payload_json.methodology.toLowerCase()}|${recommendation.track_payload_json.research_question.toLowerCase().slice(0, 80)}`
+    : `${recommendation.track_payload_json.target_user.toLowerCase().slice(0, 80)}|${recommendation.track_payload_json.problem_statement.toLowerCase().slice(0, 80)}|${recommendation.track_payload_json.core_workflow.toLowerCase().slice(0, 80)}`;
+}
+
+function getConcreteResourceReference(context: GenerationContext) {
+  const combined = `${context.track_payload_json.resource_snapshot} ${context.track_payload_json.constraints_summary}`;
+  const constrainedPhrase = combined.match(
+    /(public datasets?[^.;]*|published papers?[^.;]*|published sources?[^.;]*|secondary data[^.;]*|no lab access[^.;]*|no interviews?[^.;]*|limited[^.;]*|\d+h\/week[^.;]*)/i,
+  )?.[0];
+
+  if (constrainedPhrase) {
+    return normalizeIssueText(constrainedPhrase.replace(/[.;]+$/g, ""));
+  }
+
+  return `${context.track_payload_json.weekly_hours}h/week with ${context.skill_assessment} experience`;
+}
+
+function hasRequiredWhyItFitsContextReference(text: string, context: GenerationContext) {
+  const goalSignals = [context.track_payload_json.goal_signal, `${context.track_payload_json.target_outcome} goal`];
+  const resourceSignals = [
+    context.track_payload_json.resource_snapshot,
+    context.track_payload_json.constraints_summary,
+    getConcreteResourceReference(context),
+  ];
+
+  return hasSignalReference(text, goalSignals) || hasSignalReference(text, resourceSignals);
+}
+
+export function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
   const anchors = context.track_payload_json.anchor_interests;
   const allowStudentThemes = studentThemesAllowed(JSON.stringify(context));
   const titles = new Set<string>();
@@ -249,10 +405,7 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
 
   batch.recommendations.forEach((recommendation, index) => {
     const content = `${recommendation.title} ${recommendation.summary} ${recommendation.why_it_fits} ${JSON.stringify(recommendation.track_payload_json)}`;
-    const shapeKey =
-      recommendation.project_track === "research"
-        ? `${recommendation.track_payload_json.methodology.toLowerCase()}|${recommendation.track_payload_json.research_question.toLowerCase().slice(0, 80)}`
-        : `${recommendation.track_payload_json.target_user.toLowerCase().slice(0, 80)}|${recommendation.track_payload_json.problem_statement.toLowerCase().slice(0, 80)}|${recommendation.track_payload_json.core_workflow.toLowerCase().slice(0, 80)}`;
+    const shapeKey = getOptionShapeKey(recommendation);
 
     if (titles.has(recommendation.title.toLowerCase())) {
       issues.push(`Option ${index + 1} duplicates another title.`);
@@ -280,6 +433,10 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
 
     if (!hasGrounding(recommendation.why_it_fits, anchors)) {
       issues.push(`Option ${index + 1} why_it_fits should reference the student's domain language.`);
+    }
+
+    if (!hasRequiredWhyItFitsContextReference(recommendation.why_it_fits, context)) {
+      issues.push(`Option ${index + 1} why_it_fits should mention the student's goal or a concrete resource or constraint.`);
     }
 
     if (recommendation.finishability_score >= 9 && context.risk_flags.some((flag) => flag === "too_little_time" || flag === "too_ambitious")) {
@@ -393,14 +550,150 @@ function fallbackDifficulty(context: GenerationContext) {
   return "beginner" as const;
 }
 
-function buildSoftwareFallbackOptions(context: GenerationContext): RecommendationBatch {
+function fallbackDifficultyLadder(context: GenerationContext): ProjectOption["difficulty"][] {
+  if (context.skill_assessment === "advanced") {
+    return ["intermediate", "advanced", "advanced"];
+  }
+
+  if (context.skill_assessment === "intermediate") {
+    return ["beginner", "intermediate", "advanced"];
+  }
+
+  return ["beginner", "beginner", "intermediate"];
+}
+
+function buildEstimatedWeeks(base: number, slotIndex: number) {
+  return Math.min(20, base + slotIndex);
+}
+
+function repairFallbackTitle(title: string, anchor: string) {
+  if (!GENERIC_TITLE_PATTERNS.some((pattern) => pattern.test(title))) {
+    return title;
+  }
+
+  const cleaned = title.replace(/^smart\s|^ai[- ]powered\s|^automated\s|^intelligent\s|^universal\s/gi, "").trim();
+  return `${anchor} ${cleaned || "Project"}`.trim();
+}
+
+function repairWhyItFitsText(original: string, context: GenerationContext, slotIndex: number) {
+  const anchor = context.track_payload_json.anchor_interests[slotIndex % context.track_payload_json.anchor_interests.length]
+    ?? getPrimaryAnchor(context).toLowerCase();
+  const targetOutcome = context.track_payload_json.target_outcome;
+  const resourceReference = getConcreteResourceReference(context);
+  const base = normalizeIssueText(original).replace(/[.?!]+$/g, "");
+  const additions = [
+    `It stays grounded in ${anchor}.`,
+    `It supports the student's ${targetOutcome} goal.`,
+    `It matches ${resourceReference}.`,
+  ];
+
+  return normalizeIssueText(`${base}. ${additions.join(" ")}`).slice(0, 360);
+}
+
+function classifyResearchMethodFamily(method: string): ResearchMethodFamily {
+  const normalized = method.toLowerCase();
+
+  if (/(interview|focus group|thematic analysis|oral history)/.test(normalized)) {
+    return "interview";
+  }
+
+  if (/(survey|questionnaire)/.test(normalized)) {
+    return "survey";
+  }
+
+  if (/(experiment|a\/b test|controlled|lab|field experiment|simulation-backed comparison study)/.test(normalized)) {
+    return "experiment";
+  }
+
+  if (/(literature|review|synthesis|gap analysis)/.test(normalized)) {
+    return "literature";
+  }
+
+  return "secondary_analysis";
+}
+
+function hasPrimaryDataConstraint(context: Extract<GenerationContext, { project_track: "research" }>) {
+  if (context.risk_flags.includes("resource_constraint")) {
+    return true;
+  }
+
+  return RESTRICTED_PRIMARY_DATA_PATTERN.test(
+    `${context.track_payload_json.resource_snapshot} ${context.track_payload_json.constraints_summary}`,
+  );
+}
+
+function getAllowedResearchMethodFamilies(context: Extract<GenerationContext, { project_track: "research" }>) {
+  return new Set(context.track_payload_json.viable_methodologies.map((method) => classifyResearchMethodFamily(method)));
+}
+
+function requiresPrimaryDataCollection(template: ResearchFallbackTemplate) {
+  const normalized = `${template.summary} ${template.evidence_plan} ${template.scope_boundaries}`
+    .toLowerCase()
+    .replace(/\bno (new )?participant recruitment\b/g, "")
+    .replace(/\bno new data collection\b/g, "")
+    .replace(/\bno interviews?\b/g, "")
+    .replace(/\bno field study\b/g, "");
+
+  return /\b(interview|recruit respondents|recruit participants|collect responses|fieldwork|live questionnaire|new survey responses|conduct 4-6 structured interviews)\b/i.test(
+    normalized,
+  );
+}
+
+function canAddFallbackOption(
+  recommendations: ProjectOption[],
+  candidate: ProjectOption,
+  context: GenerationContext,
+  replaceIndex?: number,
+) {
+  const nextRecommendations = recommendations.filter((_, index) => index !== replaceIndex);
+  const lowerTitle = candidate.title.toLowerCase();
+  const shapeKey = getOptionShapeKey(candidate);
+
+  if (nextRecommendations.some((recommendation) => recommendation.title.toLowerCase() === lowerTitle)) {
+    return false;
+  }
+
+  if (nextRecommendations.some((recommendation) => getOptionShapeKey(recommendation) === shapeKey)) {
+    return false;
+  }
+
+  if (context.project_track === "software" && candidate.project_track === "software") {
+    const targetUser = candidate.track_payload_json.target_user.toLowerCase().slice(0, 60);
+    if (
+      nextRecommendations.some(
+        (recommendation) =>
+          recommendation.project_track === "software"
+          && recommendation.track_payload_json.target_user.toLowerCase().slice(0, 60) === targetUser,
+      )
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function getIssueOptionIndices(issues: string[]) {
+  return Array.from(
+    new Set(
+      issues
+        .map((issue) => issue.match(/^Option (\d+)/)?.[1])
+        .filter((value): value is string => Boolean(value))
+        .map((value) => Number(value) - 1)
+        .filter((value) => value >= 0 && value < 3),
+    ),
+  );
+}
+
+function buildOrderedPool<T>(pool: T[], seed: number) {
+  return selectFromPool(pool, seed, pool.length);
+}
+
+function getSoftwareFallbackTemplates(context: GenerationContext) {
   const primary = getPrimaryAnchor(context);
   const family = getDomainFamilyFromContext(context);
-  const estimatedWeeks = estimateWeeksFromContext(context);
-  const difficulty = fallbackDifficulty(context);
-  const seed = contextSeed(context);
 
-  const hardwarePool = [
+  const hardwarePool: SoftwareFallbackTemplate[] = [
     {
       artifact: "Trace Explorer",
       summary: `Build a focused tool for comparing ${primary.toLowerCase()} tradeoffs with visible benchmark or trace outputs.`,
@@ -473,7 +766,7 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
     },
   ];
 
-  const generalPool = [
+  const generalPool: SoftwareFallbackTemplate[] = [
     {
       artifact: "Workflow Analyzer",
       summary: `Build a focused product that improves one recurring ${primary.toLowerCase()} workflow with a visible output.`,
@@ -546,40 +839,61 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
     },
   ];
 
-  const pool = family === "hardware" ? hardwarePool : generalPool;
-  const recipe = selectFromPool(pool, seed, 3);
+  const conservativePool: SoftwareFallbackTemplate[] = [
+    {
+      artifact: "Review Console",
+      summary: `Build a narrow review surface that helps people inspect one recurring ${primary.toLowerCase()} workflow with clearer outputs.`,
+      why: `This fits because it keeps the scope tight while giving the student a domain-grounded artifact they can demo and defend.`,
+      target_user: `students reviewing ${primary.toLowerCase()} work`,
+      problem_statement: `Users need a clearer way to inspect one ${primary.toLowerCase()} workflow without juggling scattered notes.`,
+      core_workflow: "Load one case, review the result, and record the next action in one place.",
+      mvp_boundary: `One review flow for one ${primary.toLowerCase()} case type with a compact notes panel.`,
+      validation_plan: `Run the console on 3 realistic ${primary.toLowerCase()} cases and confirm the review flow stays clear.`,
+      skills: ["review workflow design", "information clarity", "product scoping"],
+      tools: ["TypeScript", "React", "manual case set"],
+      impressiveness: 7,
+      finishability: 8,
+    },
+    {
+      artifact: "Decision Workbook",
+      summary: `Create a structured decision helper for one recurring ${primary.toLowerCase()} choice with a transparent scoring flow.`,
+      why: `This fits because it connects the student's interests to a clear, explainable product with visible reasoning.`,
+      target_user: `practitioners comparing ${primary.toLowerCase()} options`,
+      problem_statement: `Users need a more transparent way to compare a few ${primary.toLowerCase()} options without ad hoc scoring.`,
+      core_workflow: "Enter options, score them with one rubric, and review the recommendation with supporting notes.",
+      mvp_boundary: `One scoring rubric for up to 5 options with no saved projects or sharing features.`,
+      validation_plan: `Score 3 realistic ${primary.toLowerCase()} options and confirm the recommendation is understandable.`,
+      skills: ["decision modeling", "transparent scoring", "domain communication"],
+      tools: ["TypeScript", "React", "lightweight scoring logic"],
+      impressiveness: 7,
+      finishability: 9,
+    },
+    {
+      artifact: "Input Checker",
+      summary: `Build a focused checker that catches common ${primary.toLowerCase()} mistakes before they slow down the rest of the workflow.`,
+      why: `This fits because it delivers visible value quickly while staying grounded in a real domain pain point.`,
+      target_user: `beginners working with ${primary.toLowerCase()} inputs`,
+      problem_statement: `Common ${primary.toLowerCase()} input mistakes are hard to catch manually and waste time later in the workflow.`,
+      core_workflow: "Paste one input, run the checks, and review a short list of issues with next-step guidance.",
+      mvp_boundary: `Validate one input type against a small ruleset with no auto-fix or batch mode.`,
+      validation_plan: `Run the checker on 5 realistic ${primary.toLowerCase()} inputs with known issues and confirm the report is accurate.`,
+      skills: ["validation logic", "error communication", "domain modeling"],
+      tools: ["TypeScript", "React", "rule engine"],
+      impressiveness: 7,
+      finishability: 9,
+    },
+  ];
 
-  return RecommendationBatchSchema.parse({
-    recommendations: recipe.map((item, index) => ({
-      id: `${slugify(primary)}-${slugify(item.artifact)}`,
-      project_track: "software" as const,
-      title: `${primary} ${item.artifact}`,
-      summary: item.summary,
-      why_it_fits: item.why,
-      difficulty,
-      estimated_weeks: index === 1 ? estimatedWeeks + 1 : estimatedWeeks,
-      skills_demonstrated: item.skills,
-      tools_needed: item.tools,
-      impressiveness_score: item.impressiveness,
-      finishability_score: item.finishability,
-      track_payload_json: {
-        target_user: item.target_user,
-        problem_statement: item.problem_statement,
-        core_workflow: item.core_workflow,
-        mvp_boundary: item.mvp_boundary,
-        validation_plan: item.validation_plan,
-      },
-    })),
-  });
+  return {
+    ordered: buildOrderedPool(family === "hardware" ? hardwarePool : generalPool, contextSeed(context)),
+    conservative: conservativePool,
+  };
 }
 
-function buildResearchFallbackOptions(context: GenerationContext): RecommendationBatch {
+function getResearchFallbackTemplates(context: Extract<GenerationContext, { project_track: "research" }>) {
   const primary = getPrimaryAnchor(context);
-  const estimatedWeeks = estimateWeeksFromContext(context) + 1;
-  const difficulty = fallbackDifficulty(context);
-  const seed = contextSeed(context);
 
-  const pool = [
+  const pool: ResearchFallbackTemplate[] = [
     {
       title: `What most strongly influences outcomes in ${primary}?`,
       summary: `Design a student-scale study that tests one narrow question in ${primary.toLowerCase()} with a believable evidence plan.`,
@@ -657,31 +971,314 @@ function buildResearchFallbackOptions(context: GenerationContext): Recommendatio
     },
   ];
 
-  const recipe = selectFromPool(pool, seed, 3);
+  const conservativePool: ResearchFallbackTemplate[] = [
+    {
+      title: `Survey signals behind ${primary} choices`,
+      summary: `Use published questionnaire results or validated survey instruments to study one concrete decision pattern in ${primary.toLowerCase()} with simple descriptive analysis.`,
+      why: `This fits because it keeps the evidence path accessible while still producing a defensible, survey-shaped research artifact.`,
+      research_question: `Which factors most influence routine ${primary.toLowerCase()} choices in published or validated survey evidence?`,
+      hypothesis_or_focus: `Published questionnaire evidence can reveal a small set of recurring factors that shape ${primary.toLowerCase()} decisions.`,
+      methodology: "focused survey with structured instrument",
+      evidence_plan: `Use one published survey dataset or validated questionnaire in ${primary.toLowerCase()} and summarize the response patterns with simple counts.`,
+      scope_boundaries: `One survey source, one audience segment, and one decision context with no new participant recruitment or interviews.`,
+      limitation_note: `The findings are limited to one published or validated survey source and should be interpreted as exploratory.`,
+      skills: ["survey design", "descriptive analysis", "limitations framing"],
+      tools: ["survey instrument library", "spreadsheet", "writing doc"],
+      impressiveness: 7,
+      finishability: 8,
+    },
+    {
+      title: `Questionnaire patterns already visible in ${primary}`,
+      summary: `Compare one or two published questionnaire sources in ${primary.toLowerCase()} to show which survey signals stay consistent.`,
+      why: `This fits because it uses survey-style reasoning without assuming the student can recruit respondents from scratch.`,
+      research_question: `Which survey patterns remain most consistent across existing ${primary.toLowerCase()} questionnaire sources?`,
+      hypothesis_or_focus: `A small group of survey indicators in ${primary.toLowerCase()} remain stable across existing questionnaire sources.`,
+      methodology: "questionnaire with lightweight secondary analysis",
+      evidence_plan: `Use one or two existing questionnaire sources tied to ${primary.toLowerCase()} and compare the most relevant response patterns.`,
+      scope_boundaries: `Two published questionnaire sources at most with no new data collection or interviews.`,
+      limitation_note: `The comparison is limited to the wording and sampling choices of the selected questionnaire sources.`,
+      skills: ["questionnaire analysis", "comparative reasoning", "scope control"],
+      tools: ["published questionnaire source", "spreadsheet", "writing doc"],
+      impressiveness: 7,
+      finishability: 8,
+    },
+    {
+      title: `Designing a stronger survey lens for ${primary}`,
+      summary: `Evaluate how existing survey instruments in ${primary.toLowerCase()} frame one practical question and propose a tighter instrument design.`,
+      why: `This fits because it stays survey-based while remaining realistic for a student working from published instruments and public evidence.`,
+      research_question: `How well do current survey instruments capture one practical ${primary.toLowerCase()} question, and what should change?`,
+      hypothesis_or_focus: `Existing survey instruments in ${primary.toLowerCase()} miss one practical factor that a tighter questionnaire design could capture.`,
+      methodology: "focused survey with structured instrument",
+      evidence_plan: `Review a small set of published survey instruments in ${primary.toLowerCase()} and compare how each measures the same practical factor.`,
+      scope_boundaries: `Three published instruments at most with no new deployment, interviews, or validation study.`,
+      limitation_note: `The instrument critique is limited to published wording and does not test new survey performance.`,
+      skills: ["survey instrument review", "measurement critique", "research writing"],
+      tools: ["published survey instruments", "comparison matrix", "writing doc"],
+      impressiveness: 7,
+      finishability: 8,
+    },
+    {
+      title: `What public data already reveals about ${primary}`,
+      summary: `Analyze one accessible source set to answer a narrow question in ${primary.toLowerCase()} without requiring new data collection.`,
+      why: `This fits because it keeps access realistic while giving the student a concrete, evidence-based question to answer.`,
+      research_question: `What pattern in public ${primary.toLowerCase()} data most strongly explains one meaningful outcome?`,
+      hypothesis_or_focus: `One measurable factor in accessible ${primary.toLowerCase()} data explains more variation than common intuition suggests.`,
+      methodology: "secondary data analysis",
+      evidence_plan: `Use one public dataset or source set tied to ${primary.toLowerCase()} and analyze a single outcome relationship.`,
+      scope_boundaries: `One dataset, one relationship, and one outcome measure with no new participant data.`,
+      limitation_note: `The findings are limited to one accessible source set and do not establish causality.`,
+      skills: ["data framing", "evidence interpretation", "scope control"],
+      tools: ["spreadsheet or notebook", "public dataset", "citation manager"],
+      impressiveness: 8,
+      finishability: 8,
+    },
+    {
+      title: `A small simulation experiment for ${primary}`,
+      summary: `Run a tightly scoped simulation or controlled comparison in ${primary.toLowerCase()} without needing participant recruitment or lab access.`,
+      why: `This fits because it keeps the experiment family available while staying realistic for limited-access student work.`,
+      research_question: `What changes when one controllable factor in ${primary.toLowerCase()} is varied inside a small simulation or benchmark setup?`,
+      hypothesis_or_focus: `One controllable factor in ${primary.toLowerCase()} creates a measurable difference inside a small simulation or benchmark setup.`,
+      methodology: "simulation-backed comparison study",
+      evidence_plan: `Use one simple simulation, benchmark, or controlled output comparison tied to ${primary.toLowerCase()} and vary a single factor.`,
+      scope_boundaries: `One factor, one simulation or benchmark setup, and one output measure with no participant recruitment or field study.`,
+      limitation_note: `The findings are limited to a simplified simulation or benchmark setup and may not generalize to full real-world conditions.`,
+      skills: ["experimental framing", "controlled comparison", "results interpretation"],
+      tools: ["simulation or benchmark setup", "spreadsheet or notebook", "writing doc"],
+      impressiveness: 8,
+      finishability: 8,
+    },
+    {
+      title: `Controlled comparison of ${primary} strategies`,
+      summary: `Design a small controlled comparison in ${primary.toLowerCase()} that tests one factor at a time using accessible materials or model outputs.`,
+      why: `This fits because it preserves a real experiment shape without assuming special facilities or participant access.`,
+      research_question: `Which of two narrow ${primary.toLowerCase()} strategies performs better when one factor is controlled at a time?`,
+      hypothesis_or_focus: `One narrow ${primary.toLowerCase()} strategy consistently performs better than another under a controlled setup.`,
+      methodology: "small controlled experiment",
+      evidence_plan: `Use a small controlled setup, benchmark, or model-output comparison in ${primary.toLowerCase()} and record one output metric across repeated runs.`,
+      scope_boundaries: `Two strategies, one controlled setup, and one metric with no participant recruitment or large-scale testing.`,
+      limitation_note: `The controlled comparison is limited to a simplified setup and should be read as exploratory rather than definitive.`,
+      skills: ["experimental control", "comparison design", "results framing"],
+      tools: ["benchmark or controlled setup", "spreadsheet", "writing doc"],
+      impressiveness: 8,
+      finishability: 8,
+    },
+    {
+      title: `A/B-style output test for ${primary}`,
+      summary: `Use a small A/B-style comparison on accessible materials in ${primary.toLowerCase()} to evaluate one narrow intervention.`,
+      why: `This fits because it gives the student an experiment-shaped project that still respects realistic access limits.`,
+      research_question: `Does one narrow intervention improve a specific ${primary.toLowerCase()} outcome inside an A/B-style comparison?`,
+      hypothesis_or_focus: `A small intervention in ${primary.toLowerCase()} improves one specific outcome inside an A/B-style comparison.`,
+      methodology: "small A/B test on model outputs",
+      evidence_plan: `Prepare one A/B-style comparison using accessible outputs, texts, or benchmark materials tied to ${primary.toLowerCase()} and score one outcome difference.`,
+      scope_boundaries: `One intervention, one output comparison, and one scoring rule with no live participant recruitment.`,
+      limitation_note: `The A/B-style comparison reflects a narrow setup and should not be interpreted as a broad causal claim.`,
+      skills: ["A/B comparison design", "evaluation framing", "scope control"],
+      tools: ["comparison rubric", "accessible output set", "spreadsheet"],
+      impressiveness: 7,
+      finishability: 8,
+    },
+    {
+      title: `Where the literature still disagrees on ${primary}`,
+      summary: `Synthesize a small, recent source set in ${primary.toLowerCase()} to show where evidence converges, diverges, or stays incomplete.`,
+      why: `This fits because it produces a polished, defensible artifact without depending on special access or primary data collection.`,
+      research_question: `Where does recent ${primary.toLowerCase()} literature agree, and where do the strongest disagreements remain?`,
+      hypothesis_or_focus: `Recent ${primary.toLowerCase()} sources converge on a few core patterns while leaving one practical disagreement unresolved.`,
+      methodology: "structured literature synthesis",
+      evidence_plan: `Review a focused set of recent ${primary.toLowerCase()} papers and organize them by agreement, disagreement, and missing evidence.`,
+      scope_boundaries: `One sub-question, one source window, and one synthesis matrix with no exhaustive review claims.`,
+      limitation_note: `The synthesis is limited to the selected source window and does not claim exhaustive coverage.`,
+      skills: ["literature synthesis", "evidence comparison", "research writing"],
+      tools: ["Google Scholar", "source matrix", "writing doc"],
+      impressiveness: 7,
+      finishability: 9,
+    },
+  ];
 
-  return RecommendationBatchSchema.parse({
-    recommendations: recipe.map((item, index) => ({
-      id: `${slugify(primary)}-research-${index + 1}`,
-      project_track: "research" as const,
-      title: item.title,
-      summary: item.summary,
-      why_it_fits: item.why,
-      difficulty,
-      estimated_weeks: estimatedWeeks,
-      skills_demonstrated: item.skills,
-      tools_needed: item.tools,
-      impressiveness_score: item.impressiveness,
-      finishability_score: item.finishability,
-      track_payload_json: {
-        research_question: item.research_question,
-        hypothesis_or_focus: item.hypothesis_or_focus,
-        methodology: item.methodology,
-        evidence_plan: item.evidence_plan,
-        scope_boundaries: item.scope_boundaries,
-        limitation_note: item.limitation_note,
-      },
-    })),
-  });
+  return {
+    ordered: buildOrderedPool(pool, contextSeed(context)),
+    conservative: conservativePool,
+  };
+}
+
+function buildSoftwareFallbackOption(
+  context: GenerationContext,
+  template: SoftwareFallbackTemplate,
+  slotIndex: number,
+): Extract<ProjectOption, { project_track: "software" }> {
+  const baseWeeks = estimateWeeksFromContext(context);
+  const difficulty = fallbackDifficultyLadder(context)[slotIndex] ?? fallbackDifficulty(context);
+  const title = repairFallbackTitle(`${getPrimaryAnchor(context)} ${template.artifact}`, getPrimaryAnchor(context));
+
+  return {
+    id: `${slugify(getPrimaryAnchor(context))}-${slugify(template.artifact)}-${slotIndex + 1}`,
+    project_track: "software",
+    title,
+    summary: template.summary,
+    why_it_fits: repairWhyItFitsText(template.why, context, slotIndex),
+    difficulty,
+    estimated_weeks: buildEstimatedWeeks(baseWeeks, slotIndex),
+    skills_demonstrated: template.skills,
+    tools_needed: template.tools,
+    impressiveness_score: template.impressiveness,
+    finishability_score: template.finishability,
+    track_payload_json: {
+      target_user: template.target_user,
+      problem_statement: template.problem_statement,
+      core_workflow: template.core_workflow,
+      mvp_boundary: template.mvp_boundary,
+      validation_plan: template.validation_plan,
+    },
+  };
+}
+
+function buildResearchFallbackOption(
+  context: Extract<GenerationContext, { project_track: "research" }>,
+  template: ResearchFallbackTemplate,
+  slotIndex: number,
+): Extract<ProjectOption, { project_track: "research" }> {
+  const baseWeeks = estimateWeeksFromContext(context) + 1;
+  const difficulty = fallbackDifficultyLadder(context)[slotIndex] ?? fallbackDifficulty(context);
+  const title = repairFallbackTitle(template.title, getPrimaryAnchor(context));
+
+  return {
+    id: `${slugify(getPrimaryAnchor(context))}-research-${slugify(title)}-${slotIndex + 1}`,
+    project_track: "research",
+    title,
+    summary: template.summary,
+    why_it_fits: repairWhyItFitsText(template.why, context, slotIndex),
+    difficulty,
+    estimated_weeks: buildEstimatedWeeks(baseWeeks, slotIndex),
+    skills_demonstrated: template.skills,
+    tools_needed: template.tools,
+    impressiveness_score: template.impressiveness,
+    finishability_score: template.finishability,
+    track_payload_json: {
+      research_question: template.research_question,
+      hypothesis_or_focus: template.hypothesis_or_focus,
+      methodology: template.methodology,
+      evidence_plan: template.evidence_plan,
+      scope_boundaries: template.scope_boundaries,
+      limitation_note: template.limitation_note,
+    },
+  };
+}
+
+function isResearchTemplateFeasible(
+  template: ResearchFallbackTemplate,
+  context: Extract<GenerationContext, { project_track: "research" }>,
+) {
+  const family = classifyResearchMethodFamily(template.methodology);
+  const allowedFamilies = getAllowedResearchMethodFamilies(context);
+
+  if (!allowedFamilies.has(family)) {
+    return false;
+  }
+
+  if (hasPrimaryDataConstraint(context) && requiresPrimaryDataCollection(template)) {
+    return false;
+  }
+
+  return true;
+}
+
+function nextFallbackReplacement(
+  remaining: ProjectOption[],
+  recommendations: ProjectOption[],
+  context: GenerationContext,
+  replaceIndex: number,
+) {
+  while (remaining.length > 0) {
+    const next = remaining.shift();
+    if (!next) {
+      break;
+    }
+
+    if (canAddFallbackOption(recommendations, next, context, replaceIndex)) {
+      return next;
+    }
+  }
+
+  return null;
+}
+
+function assembleFallbackBatch(candidates: ProjectOption[], context: GenerationContext) {
+  const remaining = [...candidates];
+  const selected: ProjectOption[] = [];
+
+  while (selected.length < 3 && remaining.length > 0) {
+    const candidate = remaining.shift();
+    if (!candidate) {
+      break;
+    }
+
+    if (canAddFallbackOption(selected, candidate, context)) {
+      selected.push(candidate);
+    }
+  }
+
+  if (selected.length < 3) {
+    throw new Error("Deterministic fallback pool exhausted before a safe batch could be assembled.");
+  }
+
+  let guard = 0;
+  while (guard < candidates.length + 3) {
+    const batch = RecommendationBatchSchema.parse({ recommendations: selected });
+    const issues = optionIssues(batch, context);
+    if (issues.length === 0) {
+      return batch;
+    }
+
+    const failingIndices = getIssueOptionIndices(issues);
+    let changed = false;
+
+    for (const index of failingIndices) {
+      const repaired = {
+        ...selected[index],
+        title: repairFallbackTitle(selected[index].title, getPrimaryAnchor(context)),
+        why_it_fits: repairWhyItFitsText(selected[index].why_it_fits, context, index),
+      } as ProjectOption;
+      selected[index] = repaired;
+      changed = true;
+    }
+
+    const repairedBatch = RecommendationBatchSchema.parse({ recommendations: selected });
+    const repairedIssues = optionIssues(repairedBatch, context);
+    if (repairedIssues.length === 0) {
+      return repairedBatch;
+    }
+
+    for (const index of getIssueOptionIndices(repairedIssues)) {
+      const replacement = nextFallbackReplacement(remaining, selected, context, index);
+      if (replacement) {
+        selected[index] = replacement;
+        changed = true;
+      }
+    }
+
+    if (!changed) {
+      break;
+    }
+
+    guard += 1;
+  }
+
+  return RecommendationBatchSchema.parse({ recommendations: selected });
+}
+
+export function buildDeterministicFallbackOptions(context: GenerationContext): RecommendationBatch {
+  if (context.project_track === "research") {
+    const { ordered, conservative } = getResearchFallbackTemplates(context);
+    const candidates = [
+      ...ordered.filter((template) => isResearchTemplateFeasible(template, context)),
+      ...conservative.filter((template) => isResearchTemplateFeasible(template, context)),
+    ].map((template, index) => buildResearchFallbackOption(context, template, index % 3));
+
+    return assembleFallbackBatch(candidates, context);
+  }
+
+  const { ordered, conservative } = getSoftwareFallbackTemplates(context);
+  const candidates = [...ordered, ...conservative].map((template, index) => buildSoftwareFallbackOption(context, template, index % 3));
+  return assembleFallbackBatch(candidates, context);
 }
 
 function buildFallbackRoadmap(context: GenerationContext, selectedOption: ProjectOption): RoadmapOverview {
@@ -1030,7 +1627,7 @@ export async function runOptionsGeneration(
     };
   } catch (error) {
     console.warn("options generation failed, using fallback", { error: error instanceof Error ? error.message : error });
-    const parsed = context.project_track === "research" ? buildResearchFallbackOptions(context) : buildSoftwareFallbackOptions(context);
+    const parsed = buildDeterministicFallbackOptions(context);
     const metrics = getFailureMetrics(error, "options");
 
     return {
