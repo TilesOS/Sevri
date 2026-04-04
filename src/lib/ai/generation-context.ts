@@ -270,25 +270,35 @@ function getRiskFlags(rawIntake: Record<string, unknown>, projectTrack: ProjectT
   return Array.from(riskFlags);
 }
 
-function buildSoftwareProblemLenses(family: DomainFamily) {
-  if (family === "hardware") {
-    return [
-      "Translate domain tradeoffs into a comparison tool or simulator.",
-      "Prefer a workflow with observable outputs over a broad platform.",
-    ];
-  }
+function buildSoftwareProblemLenses(family: DomainFamily, anchors: string[], rawIntake: Record<string, unknown>) {
+  const primaryAnchor = anchors[0]?.toLowerCase() ?? "the domain";
+  const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
 
-  if (family === "photonics") {
-    return [
-      "Turn a modeling or sweep workflow into a usable analysis surface.",
-      "Keep the project focused on one comparison path and one visual output.",
-    ];
-  }
+  const baseLens =
+    family === "hardware"
+      ? `Translate ${primaryAnchor} tradeoffs into a comparison tool or simulator.`
+      : family === "photonics"
+        ? `Turn a ${primaryAnchor} modeling or sweep workflow into a usable analysis surface.`
+        : family === "security"
+          ? `Build a focused ${primaryAnchor} detection, analysis, or audit tool with clear visual output.`
+          : family === "ai"
+            ? `Create a ${primaryAnchor} evaluation, comparison, or debugging surface with visible results.`
+            : `Solve a specific ${primaryAnchor} workflow pain point for one clear user.`;
 
-  return [
-    "Solve a domain-specific workflow pain point for one clear user.",
-    "Prefer tools with visible before-and-after value.",
-  ];
+  const anchorLens = anchors.length >= 2
+    ? `Connect ${anchors[0].toLowerCase()} with ${anchors[1].toLowerCase()} in a way that produces a unique, domain-grounded tool.`
+    : `Dig deeper into ${primaryAnchor} — find the sub-problem that a generic tool misses.`;
+
+  const outcomeLens =
+    targetOutcome === "internship"
+      ? "Build something that demonstrates the engineering judgment an interviewer would ask about."
+      : targetOutcome === "college apps"
+        ? "Produce a project with a clear narrative arc — problem, approach, result — that reads well in an application essay."
+        : targetOutcome === "learning"
+          ? "Prioritize a project where the student learns a new technique by applying it to their domain."
+          : "Prefer tools with visible before-and-after value that photograph well in a portfolio.";
+
+  return [baseLens, anchorLens, outcomeLens].slice(0, 3);
 }
 
 function buildSoftwareContext(rawIntake: Record<string, unknown>) {
@@ -321,13 +331,35 @@ function buildSoftwareContext(rawIntake: Record<string, unknown>) {
       constraints_summary: buildConstraintsSummary(rawIntake),
       weekly_hours: weeklyHours,
       project_style_fit: asString(rawIntake.preferred_project_style, "focused software tool"),
-      problem_lenses: buildSoftwareProblemLenses(family),
+      problem_lenses: buildSoftwareProblemLenses(family, interpretedInterests, rawIntake),
       delivery_bias:
         skill === "beginner"
           ? "Favor a narrow tool with one useful output."
           : "Favor a scoped product with one defensible workflow and a strong demo path.",
     },
   });
+}
+
+function buildResearchMethodPool(methodPreference: string, family: DomainFamily): [string, string] {
+  if (methodPreference === "experiment") {
+    if (family === "ai") return ["controlled prompt or model comparison study", "small A/B test on model outputs"];
+    if (family === "science") return ["small controlled lab or field experiment", "simulation-backed comparison study"];
+    return ["small controlled experiment", "simulation-backed comparison"];
+  }
+
+  if (methodPreference === "survey based") {
+    if (family === "science") return ["structured expert interview with coding", "domain-specific survey instrument"];
+    return ["focused survey with structured instrument", "survey with lightweight secondary analysis"];
+  }
+
+  if (methodPreference === "literature review") {
+    if (family === "ai") return ["systematic review of recent model evaluations", "scoped literature synthesis with gap analysis"];
+    return ["focused systematic review", "structured literature synthesis"];
+  }
+
+  if (family === "ai") return ["secondary dataset or benchmark analysis", "comparative model evaluation on curated inputs"];
+  if (family === "science") return ["secondary dataset analysis with domain-specific variables", "focused observational comparison"];
+  return ["secondary data analysis", "focused literature review"];
 }
 
 function buildResearchContext(rawIntake: Record<string, unknown>) {
@@ -338,6 +370,7 @@ function buildResearchContext(rawIntake: Record<string, unknown>) {
   const weeklyHours = getWeeklyHours(rawIntake);
   const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
   const methodPreference = String(rawIntake.methodology_preference ?? "data_analysis").replace(/_/g, " ");
+  const family = detectDomainFamily(interpretedInterests);
 
   return ResearchGenerationContextSchema.parse({
     project_track: "research",
@@ -364,12 +397,7 @@ function buildResearchContext(rawIntake: Record<string, unknown>) {
           ? "The student can handle a moderately technical method if the scope stays narrow."
           : "Keep the method simple enough that the student can defend each step clearly.",
       methodology_guidance: `Preferred method is ${methodPreference}. Choose the cleanest evidence path that matches the student's actual access.`,
-      viable_methodologies:
-        methodPreference === "experiment"
-          ? ["small controlled experiment", "simulation-backed comparison"]
-          : methodPreference === "survey based"
-            ? ["focused survey", "survey with lightweight secondary analysis"]
-            : ["secondary data analysis", "focused literature review"],
+      viable_methodologies: buildResearchMethodPool(methodPreference, family),
     },
   });
 }

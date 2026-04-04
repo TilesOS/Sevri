@@ -73,6 +73,24 @@ interface PipelineResult<T> {
   refusal: string | null;
 }
 
+function contextSeed(context: GenerationContext): number {
+  const str = context.summary + context.track_payload_json.domain_brief;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
+
+function selectFromPool<T>(pool: T[], seed: number, count: number): T[] {
+  const indices = Array.from({ length: pool.length }, (_, i) => i);
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = (seed + i * 31) % (i + 1);
+    [indices[i], indices[j]] = [indices[j], indices[i]];
+  }
+  return indices.slice(0, count).map((i) => pool[i]);
+}
+
 function buildFallbackMetrics(stage: GenerationMetrics["stage"], model = "deterministic-fallback"): GenerationMetrics {
   return {
     stage,
@@ -210,6 +228,18 @@ function containsBlockedTheme(text: string, allowStudentThemes: boolean) {
   return STUDENT_THEME_PATTERNS.some((pattern) => pattern.test(text));
 }
 
+const GENERIC_TITLE_PATTERNS = [
+  /^smart\s/i,
+  /^ai[- ]powered\s/i,
+  /^automated\s/i,
+  /\bplatform$/i,
+  /\bhub$/i,
+  /\bsuite$/i,
+  /\bmanager$/i,
+  /^intelligent\s/i,
+  /^universal\s/i,
+];
+
 function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
   const anchors = context.track_payload_json.anchor_interests;
   const allowStudentThemes = studentThemesAllowed(JSON.stringify(context));
@@ -244,6 +274,14 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
       issues.push(`Option ${index + 1} drifts into generic blocked themes.`);
     }
 
+    if (GENERIC_TITLE_PATTERNS.some((pattern) => pattern.test(recommendation.title))) {
+      issues.push(`Option ${index + 1} uses a generic title pattern — make it specific to the domain.`);
+    }
+
+    if (!hasGrounding(recommendation.why_it_fits, anchors)) {
+      issues.push(`Option ${index + 1} why_it_fits should reference the student's domain language.`);
+    }
+
     if (recommendation.finishability_score >= 9 && context.risk_flags.some((flag) => flag === "too_little_time" || flag === "too_ambitious")) {
       issues.push(`Option ${index + 1} overstates finishability for the student's constraints.`);
     }
@@ -259,6 +297,15 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
 
   if (new Set(batch.recommendations.map((recommendation) => recommendation.estimated_weeks)).size < 2) {
     issues.push("The batch needs more timeline differentiation.");
+  }
+
+  if (context.project_track === "software") {
+    const targetUsers = batch.recommendations
+      .filter((r): r is typeof r & { project_track: "software" } => r.project_track === "software")
+      .map((r) => r.track_payload_json.target_user.toLowerCase().slice(0, 60));
+    if (new Set(targetUsers).size < 2) {
+      issues.push("At least two options should target different users or user segments.");
+    }
   }
 
   return issues;
@@ -351,97 +398,156 @@ function buildSoftwareFallbackOptions(context: GenerationContext): Recommendatio
   const family = getDomainFamilyFromContext(context);
   const estimatedWeeks = estimateWeeksFromContext(context);
   const difficulty = fallbackDifficulty(context);
+  const seed = contextSeed(context);
 
-  const recipe =
-    family === "hardware"
-      ? [
-          {
-            artifact: "Trace Explorer",
-            summary: `Build a focused tool for comparing ${primary.toLowerCase()} tradeoffs with visible benchmark or trace outputs.`,
-            why: `This fits because it stays inside ${primary.toLowerCase()} and turns a technical workflow into one clear, demoable product.`,
-            target_user: `students or hobbyists exploring ${primary.toLowerCase()} tradeoffs`,
-            problem_statement: `Users need a better way to compare ${primary.toLowerCase()} decisions without scattered notes.`,
-            core_workflow: "Load a small case set, compare outputs, and review the most important tradeoff in one place.",
-            mvp_boundary: `One comparison view for a single ${primary.toLowerCase()} tradeoff with tabular output — no multi-project support, no advanced visualization.`,
-            validation_plan: `Demo the tool on one realistic ${primary.toLowerCase()} case set and confirm the comparison output is understandable to a peer.`,
-            skills: ["product scoping", "domain translation", "comparative analysis"],
-            tools: ["TypeScript", "React", "manual dataset input"],
-            impressiveness: 8,
-            finishability: 7,
-          },
-          {
-            artifact: "Verification Review Board",
-            summary: `Create a scoped review dashboard for tracking failures, expected behavior, and fixes in ${primary.toLowerCase()} work.`,
-            why: `This fits because it proves practical systems judgment without expanding into a broad platform.`,
-            target_user: `students validating ${primary.toLowerCase()} experiments or builds`,
-            problem_statement: `Users need a better way to track failing cases and review progress in ${primary.toLowerCase()} work.`,
-            core_workflow: "Capture a failing case, label the issue, and log the next action in a single review flow.",
-            mvp_boundary: `Track up to 20 failure cases with labels and next-action notes — no automated test integration, no CI pipeline hooks.`,
-            validation_plan: `Log 5 real failure cases from a ${primary.toLowerCase()} project and confirm the review flow surfaces the right next action.`,
-            skills: ["debugging workflow design", "quality triage", "UI information architecture"],
-            tools: ["TypeScript", "React", "local storage or Supabase"],
-            impressiveness: 7,
-            finishability: 8,
-          },
-          {
-            artifact: "Architecture Comparison Lab",
-            summary: `Ship a narrow comparison surface that explains how small ${primary.toLowerCase()} changes affect results.`,
-            why: `This fits because it turns a hard-to-explain topic into a concrete product with visible output.`,
-            target_user: `learners or builders studying ${primary.toLowerCase()}`,
-            problem_statement: `Users need a clear way to compare a few ${primary.toLowerCase()} configurations side by side.`,
-            core_workflow: "Choose two or three configurations, run the comparison, and export the key result summary.",
-            mvp_boundary: `Compare up to 3 configurations with one output metric — no batch runs, no configuration history.`,
-            validation_plan: `Run a side-by-side comparison on 2 real ${primary.toLowerCase()} configurations and confirm the summary is accurate.`,
-            skills: ["systems thinking", "tradeoff analysis", "technical communication"],
-            tools: ["TypeScript", "charts", "manual configuration input"],
-            impressiveness: 8,
-            finishability: 7,
-          },
-        ]
-      : [
-          {
-            artifact: "Workflow Analyzer",
-            summary: `Build a focused product that improves one recurring ${primary.toLowerCase()} workflow with a visible output.`,
-            why: `This fits because it stays tied to the student's real interests and keeps the MVP centered on one useful action.`,
-            target_user: `people working on recurring ${primary.toLowerCase()} tasks`,
-            problem_statement: `Users need a better way to handle one common ${primary.toLowerCase()} workflow without manual glue work.`,
-            core_workflow: "Capture a key input, run one core flow, and return one useful domain-specific output.",
-            mvp_boundary: `One input type, one analysis flow, one output format — no batch processing, no multi-workflow support.`,
-            validation_plan: `Run the tool on 3 realistic ${primary.toLowerCase()} inputs and confirm the output saves time compared to the manual process.`,
-            skills: ["workflow modeling", "product scoping", "domain-specific UX"],
-            tools: ["TypeScript", "React", "manual test cases"],
-            impressiveness: 7,
-            finishability: 8,
-          },
-          {
-            artifact: "Decision Support Tool",
-            summary: `Create a narrow decision helper for comparing a small set of ${primary.toLowerCase()} options.`,
-            why: `This fits because it is finishable, grounded, and easy to explain to mentors or reviewers.`,
-            target_user: `students or practitioners making ${primary.toLowerCase()} decisions`,
-            problem_statement: `Users need a more transparent way to compare a few ${primary.toLowerCase()} choices.`,
-            core_workflow: "Enter a few options, score them with a visible rubric, and review the recommended next step.",
-            mvp_boundary: `Compare up to 5 options with one scoring rubric — no saved sessions, no collaborative features.`,
-            validation_plan: `Score 3 real ${primary.toLowerCase()} options and confirm the ranking matches expert intuition.`,
-            skills: ["decision framework design", "comparative UX", "transparent scoring"],
-            tools: ["TypeScript", "React", "lightweight scoring logic"],
-            impressiveness: 7,
-            finishability: 9,
-          },
-          {
-            artifact: "Comparison Lab",
-            summary: `Ship a scoped comparison workspace that makes ${primary.toLowerCase()} tradeoffs easier to inspect and share.`,
-            why: `This fits because it produces a clean demo without requiring a huge feature surface.`,
-            target_user: `people comparing ${primary.toLowerCase()} results or strategies`,
-            problem_statement: `Users need a lightweight way to compare a few ${primary.toLowerCase()} scenarios with clear outputs.`,
-            core_workflow: "Load a scenario set, compare outputs, and save the most important takeaway.",
-            mvp_boundary: `Load up to 3 scenarios from manual input — no file import, no real-time collaboration.`,
-            validation_plan: `Compare 2 real ${primary.toLowerCase()} scenarios and confirm the takeaway summary is shareable and accurate.`,
-            skills: ["scenario comparison", "information design", "domain communication"],
-            tools: ["TypeScript", "React", "simple charting"],
-            impressiveness: 8,
-            finishability: 8,
-          },
-        ];
+  const hardwarePool = [
+    {
+      artifact: "Trace Explorer",
+      summary: `Build a focused tool for comparing ${primary.toLowerCase()} tradeoffs with visible benchmark or trace outputs.`,
+      why: `This fits because it stays inside ${primary.toLowerCase()} and turns a technical workflow into one clear, demoable product.`,
+      target_user: `students or hobbyists exploring ${primary.toLowerCase()} tradeoffs`,
+      problem_statement: `Users need a better way to compare ${primary.toLowerCase()} decisions without scattered notes.`,
+      core_workflow: "Load a small case set, compare outputs, and review the most important tradeoff in one place.",
+      mvp_boundary: `One comparison view for a single ${primary.toLowerCase()} tradeoff with tabular output — no multi-project support, no advanced visualization.`,
+      validation_plan: `Demo the tool on one realistic ${primary.toLowerCase()} case set and confirm the comparison output is understandable to a peer.`,
+      skills: ["product scoping", "domain translation", "comparative analysis"],
+      tools: ["TypeScript", "React", "manual dataset input"],
+      impressiveness: 8,
+      finishability: 7,
+    },
+    {
+      artifact: "Verification Review Board",
+      summary: `Create a scoped review dashboard for tracking failures, expected behavior, and fixes in ${primary.toLowerCase()} work.`,
+      why: `This fits because it proves practical systems judgment without expanding into a broad platform.`,
+      target_user: `students validating ${primary.toLowerCase()} experiments or builds`,
+      problem_statement: `Users need a better way to track failing cases and review progress in ${primary.toLowerCase()} work.`,
+      core_workflow: "Capture a failing case, label the issue, and log the next action in a single review flow.",
+      mvp_boundary: `Track up to 20 failure cases with labels and next-action notes — no automated test integration, no CI pipeline hooks.`,
+      validation_plan: `Log 5 real failure cases from a ${primary.toLowerCase()} project and confirm the review flow surfaces the right next action.`,
+      skills: ["debugging workflow design", "quality triage", "UI information architecture"],
+      tools: ["TypeScript", "React", "local storage or Supabase"],
+      impressiveness: 7,
+      finishability: 8,
+    },
+    {
+      artifact: "Architecture Comparison Lab",
+      summary: `Ship a narrow comparison surface that explains how small ${primary.toLowerCase()} changes affect results.`,
+      why: `This fits because it turns a hard-to-explain topic into a concrete product with visible output.`,
+      target_user: `learners or builders studying ${primary.toLowerCase()}`,
+      problem_statement: `Users need a clear way to compare a few ${primary.toLowerCase()} configurations side by side.`,
+      core_workflow: "Choose two or three configurations, run the comparison, and export the key result summary.",
+      mvp_boundary: `Compare up to 3 configurations with one output metric — no batch runs, no configuration history.`,
+      validation_plan: `Run a side-by-side comparison on 2 real ${primary.toLowerCase()} configurations and confirm the summary is accurate.`,
+      skills: ["systems thinking", "tradeoff analysis", "technical communication"],
+      tools: ["TypeScript", "charts", "manual configuration input"],
+      impressiveness: 8,
+      finishability: 7,
+    },
+    {
+      artifact: "Config Diff Viewer",
+      summary: `Build a tool that highlights meaningful differences between ${primary.toLowerCase()} configurations and explains their impact.`,
+      why: `This fits because it makes invisible technical differences visible, which is a strong demo and a useful daily tool.`,
+      target_user: `engineers or students reviewing ${primary.toLowerCase()} configuration changes`,
+      problem_statement: `Users struggle to spot which ${primary.toLowerCase()} configuration changes actually matter.`,
+      core_workflow: "Upload or paste two configurations, diff them, and highlight the changes with impact annotations.",
+      mvp_boundary: `Diff two configurations with one annotation layer — no version history, no team sharing.`,
+      validation_plan: `Diff 3 pairs of real ${primary.toLowerCase()} configurations and confirm the highlights match expert judgment.`,
+      skills: ["diff algorithm design", "technical communication", "domain-specific annotation"],
+      tools: ["TypeScript", "React", "diff library"],
+      impressiveness: 7,
+      finishability: 9,
+    },
+    {
+      artifact: "Constraint Checker",
+      summary: `Create a lightweight validator that catches common ${primary.toLowerCase()} constraint violations before they become expensive bugs.`,
+      why: `This fits because it produces immediate, visible value — catch a mistake before it costs hours of debugging.`,
+      target_user: `students or engineers building ${primary.toLowerCase()} projects`,
+      problem_statement: `Common ${primary.toLowerCase()} constraint violations are easy to miss during manual review.`,
+      core_workflow: "Input a specification or configuration, run constraint checks, and surface violations with explanations.",
+      mvp_boundary: `Check one specification type against 5-10 common constraints — no auto-fix, no CI integration.`,
+      validation_plan: `Run the checker on 3 real ${primary.toLowerCase()} specs with known violations and confirm all are caught.`,
+      skills: ["validation logic", "error reporting UX", "domain constraint modeling"],
+      tools: ["TypeScript", "React", "rule engine"],
+      impressiveness: 8,
+      finishability: 8,
+    },
+  ];
+
+  const generalPool = [
+    {
+      artifact: "Workflow Analyzer",
+      summary: `Build a focused product that improves one recurring ${primary.toLowerCase()} workflow with a visible output.`,
+      why: `This fits because it stays tied to the student's real interests and keeps the MVP centered on one useful action.`,
+      target_user: `people working on recurring ${primary.toLowerCase()} tasks`,
+      problem_statement: `Users need a better way to handle one common ${primary.toLowerCase()} workflow without manual glue work.`,
+      core_workflow: "Capture a key input, run one core flow, and return one useful domain-specific output.",
+      mvp_boundary: `One input type, one analysis flow, one output format — no batch processing, no multi-workflow support.`,
+      validation_plan: `Run the tool on 3 realistic ${primary.toLowerCase()} inputs and confirm the output saves time compared to the manual process.`,
+      skills: ["workflow modeling", "product scoping", "domain-specific UX"],
+      tools: ["TypeScript", "React", "manual test cases"],
+      impressiveness: 7,
+      finishability: 8,
+    },
+    {
+      artifact: "Decision Support Tool",
+      summary: `Create a narrow decision helper for comparing a small set of ${primary.toLowerCase()} options.`,
+      why: `This fits because it is finishable, grounded, and easy to explain to mentors or reviewers.`,
+      target_user: `students or practitioners making ${primary.toLowerCase()} decisions`,
+      problem_statement: `Users need a more transparent way to compare a few ${primary.toLowerCase()} choices.`,
+      core_workflow: "Enter a few options, score them with a visible rubric, and review the recommended next step.",
+      mvp_boundary: `Compare up to 5 options with one scoring rubric — no saved sessions, no collaborative features.`,
+      validation_plan: `Score 3 real ${primary.toLowerCase()} options and confirm the ranking matches expert intuition.`,
+      skills: ["decision framework design", "comparative UX", "transparent scoring"],
+      tools: ["TypeScript", "React", "lightweight scoring logic"],
+      impressiveness: 7,
+      finishability: 9,
+    },
+    {
+      artifact: "Comparison Lab",
+      summary: `Ship a scoped comparison workspace that makes ${primary.toLowerCase()} tradeoffs easier to inspect and share.`,
+      why: `This fits because it produces a clean demo without requiring a huge feature surface.`,
+      target_user: `people comparing ${primary.toLowerCase()} results or strategies`,
+      problem_statement: `Users need a lightweight way to compare a few ${primary.toLowerCase()} scenarios with clear outputs.`,
+      core_workflow: "Load a scenario set, compare outputs, and save the most important takeaway.",
+      mvp_boundary: `Load up to 3 scenarios from manual input — no file import, no real-time collaboration.`,
+      validation_plan: `Compare 2 real ${primary.toLowerCase()} scenarios and confirm the takeaway summary is shareable and accurate.`,
+      skills: ["scenario comparison", "information design", "domain communication"],
+      tools: ["TypeScript", "React", "simple charting"],
+      impressiveness: 8,
+      finishability: 8,
+    },
+    {
+      artifact: "Input Validator",
+      summary: `Build a focused checker that catches common ${primary.toLowerCase()} mistakes before they propagate through a workflow.`,
+      why: `This fits because it delivers immediate, tangible value — preventing errors the student has likely encountered firsthand.`,
+      target_user: `beginners or intermediate practitioners in ${primary.toLowerCase()}`,
+      problem_statement: `Common ${primary.toLowerCase()} input errors are tedious to catch manually and often surface too late.`,
+      core_workflow: "Paste or upload an input, run validation rules, and see a clear report of issues with fix suggestions.",
+      mvp_boundary: `Validate one input type against 5-10 rules — no auto-fix, no batch processing.`,
+      validation_plan: `Run the validator on 5 realistic ${primary.toLowerCase()} inputs with known errors and confirm all are caught.`,
+      skills: ["validation logic design", "error communication", "domain modeling"],
+      tools: ["TypeScript", "React", "rule engine"],
+      impressiveness: 7,
+      finishability: 9,
+    },
+    {
+      artifact: "Progress Tracker",
+      summary: `Create a lightweight dashboard that visualizes progress through a multi-step ${primary.toLowerCase()} process.`,
+      why: `This fits because it solves a real frustration — losing track of where you are in a complex ${primary.toLowerCase()} workflow.`,
+      target_user: `students or self-directed learners working through ${primary.toLowerCase()} projects`,
+      problem_statement: `Users lose track of progress and next steps when working through multi-step ${primary.toLowerCase()} processes.`,
+      core_workflow: "Define steps, mark progress, and see a visual summary of what is done and what remains.",
+      mvp_boundary: `Track one project with up to 10 steps — no collaboration, no notifications.`,
+      validation_plan: `Track a real ${primary.toLowerCase()} project through at least 3 steps and confirm the progress view is accurate and motivating.`,
+      skills: ["state management", "progress visualization", "user motivation design"],
+      tools: ["TypeScript", "React", "local storage"],
+      impressiveness: 6,
+      finishability: 9,
+    },
+  ];
+
+  const pool = family === "hardware" ? hardwarePool : generalPool;
+  const recipe = selectFromPool(pool, seed, 3);
 
   return RecommendationBatchSchema.parse({
     recommendations: recipe.map((item, index) => ({
@@ -471,8 +577,9 @@ function buildResearchFallbackOptions(context: GenerationContext): Recommendatio
   const primary = getPrimaryAnchor(context);
   const estimatedWeeks = estimateWeeksFromContext(context) + 1;
   const difficulty = fallbackDifficulty(context);
+  const seed = contextSeed(context);
 
-  const recipe = [
+  const pool = [
     {
       title: `What most strongly influences outcomes in ${primary}?`,
       summary: `Design a student-scale study that tests one narrow question in ${primary.toLowerCase()} with a believable evidence plan.`,
@@ -518,7 +625,39 @@ function buildResearchFallbackOptions(context: GenerationContext): Recommendatio
       impressiveness: 8,
       finishability: 8,
     },
+    {
+      title: `Mapping the evidence gaps in ${primary}`,
+      summary: `Conduct a focused gap analysis of existing ${primary.toLowerCase()} literature to identify what questions remain unanswered.`,
+      why: `This fits because a gap analysis is inherently original — the student produces a unique contribution by synthesizing what exists and naming what is missing.`,
+      research_question: `What are the most significant evidence gaps in current ${primary.toLowerCase()} research?`,
+      hypothesis_or_focus: `Existing ${primary.toLowerCase()} literature clusters around well-studied questions while leaving practical sub-questions under-examined.`,
+      methodology: "structured literature gap analysis",
+      evidence_plan: `Systematically review 15-25 recent ${primary.toLowerCase()} sources and categorize them by question addressed.`,
+      scope_boundaries: `Review one sub-area of ${primary.toLowerCase()} using one database — no exhaustive systematic review.`,
+      limitation_note: `Gap analysis is limited to sources available in the chosen database and publication window.`,
+      skills: ["literature mapping", "gap identification", "synthesis writing"],
+      tools: ["Google Scholar", "categorization spreadsheet", "writing doc"],
+      impressiveness: 7,
+      finishability: 9,
+    },
+    {
+      title: `How practitioners actually make ${primary} decisions`,
+      summary: `Interview or survey a small group of ${primary.toLowerCase()} practitioners to understand how real-world decisions diverge from published best practices.`,
+      why: `This fits because primary data collection — even at small scale — demonstrates research initiative and produces genuinely original findings.`,
+      research_question: `How do ${primary.toLowerCase()} practitioners make decisions in practice, and where do they diverge from published guidance?`,
+      hypothesis_or_focus: `Practitioners in ${primary.toLowerCase()} rely on heuristics and context-specific factors that published best practices do not capture.`,
+      methodology: "structured interviews with thematic analysis",
+      evidence_plan: `Conduct 4-6 structured interviews with ${primary.toLowerCase()} practitioners and code responses for themes.`,
+      scope_boundaries: `4-6 interviews within one practitioner group — no cross-group comparison, no longitudinal follow-up.`,
+      limitation_note: `Small sample size limits generalizability; findings reflect one practitioner group's perspective.`,
+      skills: ["interview design", "qualitative coding", "thematic analysis"],
+      tools: ["interview guide", "recording tool", "coding spreadsheet"],
+      impressiveness: 8,
+      finishability: 7,
+    },
   ];
+
+  const recipe = selectFromPool(pool, seed, 3);
 
   return RecommendationBatchSchema.parse({
     recommendations: recipe.map((item, index) => ({
@@ -613,10 +752,150 @@ function buildFallbackRoadmap(context: GenerationContext, selectedOption: Projec
   }
 
   const payload = selectedOption.track_payload_json;
+  const seed = contextSeed(context);
+  const brief = `This project builds a ${selectedOption.title.toLowerCase()} for ${payload.target_user.toLowerCase()}. The core problem is that ${payload.problem_statement.toLowerCase()}. The MVP centers on ${payload.core_workflow.toLowerCase()} within the boundary of ${payload.mvp_boundary.toLowerCase()}. The student will validate success by ${payload.validation_plan.toLowerCase()}, working ${context.track_payload_json.weekly_hours} hours per week over ${selectedOption.estimated_weeks} weeks.`;
+
+  const stepTemplates = [
+    // Template A: Scope → Data → Workflow → Validation → Polish
+    [
+      {
+        title: `Lock the ${selectedOption.title} scope`,
+        objective: "Define the user, problem, workflow, and exact MVP boundary before building features.",
+        deliverable: "Product scope brief with success rubric",
+        rough_time_estimate: "3-4 days",
+        validation_check: "The scope brief names the target user, core workflow, MVP boundary, and at least 2 success criteria.",
+        scope_guardrail: "Do not start building until the scope brief is written and reviewed.",
+      },
+      {
+        title: `Set up the ${selectedOption.title} data model`,
+        objective: "Build the smallest data model and input flow needed for the first usable version of the product.",
+        deliverable: "Working schema and input path",
+        rough_time_estimate: "1 week",
+        validation_check: "The input path accepts realistic data and the schema stores it correctly.",
+        scope_guardrail: "Only model data needed for the core workflow — no optional fields or future-proofing.",
+      },
+      {
+        title: `Build the ${payload.core_workflow.toLowerCase().slice(0, 50)} flow`,
+        objective: "Implement the end-to-end flow that turns real inputs into the product's useful output.",
+        deliverable: "Usable MVP workflow",
+        rough_time_estimate: "1-2 weeks",
+        validation_check: "A realistic input produces the expected output through the complete workflow.",
+        scope_guardrail: "Ship the happy path first — handle edge cases only after the main flow works.",
+      },
+      {
+        title: `Validate with real ${payload.target_user.toLowerCase().slice(0, 40)} inputs`,
+        objective: "Make the output understandable and test it on realistic examples from the domain.",
+        deliverable: "Validation-ready review screen or report",
+        rough_time_estimate: "1 week",
+        validation_check: "At least 3 realistic examples produce correct, understandable output.",
+        scope_guardrail: "Test with real domain data — do not build elaborate error handling before the happy path is validated.",
+      },
+      {
+        title: `Ship the ${selectedOption.title} demo`,
+        objective: "Tighten the final user path, fix rough edges, and prepare a clear demo or walkthrough.",
+        deliverable: "Demo-ready build and walkthrough notes",
+        rough_time_estimate: "4-5 days",
+        validation_check: "Someone unfamiliar with the project can follow the demo path and understand the product's value.",
+        scope_guardrail: "Polish only the demo path — do not add features or fix non-critical bugs.",
+      },
+    ],
+    // Template B: Prototype-first → User test → Rebuild → Integrate → Package
+    [
+      {
+        title: `Sketch the ${selectedOption.title} prototype`,
+        objective: "Build the fastest possible version that demonstrates the core value proposition — even if it is ugly or fragile.",
+        deliverable: "Working prototype that completes the core workflow once",
+        rough_time_estimate: "4-5 days",
+        validation_check: "The prototype can run one realistic input through the core flow and produce a visible output.",
+        scope_guardrail: "Use hardcoded values and shortcuts freely — the goal is speed, not quality.",
+      },
+      {
+        title: `Test the prototype on a real ${payload.target_user.toLowerCase().slice(0, 40)} scenario`,
+        objective: "Run the prototype on 2-3 realistic inputs and document what works, what breaks, and what is confusing.",
+        deliverable: "Test log with issues list and priority ranking",
+        rough_time_estimate: "3-4 days",
+        validation_check: "The test log has at least 3 tested scenarios with documented outcomes and a ranked issue list.",
+        scope_guardrail: "Do not fix issues during testing — just document them.",
+      },
+      {
+        title: `Rebuild the ${payload.core_workflow.toLowerCase().slice(0, 50)} properly`,
+        objective: "Replace the prototype's shortcuts with a reliable implementation that handles the issues found during testing.",
+        deliverable: "Production-quality core workflow",
+        rough_time_estimate: "1-2 weeks",
+        validation_check: "All priority issues from the test log are resolved and the workflow handles edge cases from testing.",
+        scope_guardrail: "Only fix issues discovered during testing — do not add new features.",
+      },
+      {
+        title: `Add the output and review layer`,
+        objective: "Make the output understandable and useful without explanation — add labels, summaries, or visual cues.",
+        deliverable: "Self-explanatory output view",
+        rough_time_estimate: "1 week",
+        validation_check: "A new user can understand the output without a walkthrough.",
+        scope_guardrail: "Focus on clarity of existing output — do not add new output types.",
+      },
+      {
+        title: `Package ${selectedOption.title} for demo`,
+        objective: "Prepare the final demo path and document what was built and why.",
+        deliverable: "Demo-ready build and brief write-up",
+        rough_time_estimate: "4-5 days",
+        validation_check: "Someone unfamiliar with the project can follow the demo and explain what it does.",
+        scope_guardrail: "Package what exists — do not add features.",
+      },
+    ],
+    // Template C: Vertical slice → Expand → Harden → Edge cases → Package
+    [
+      {
+        title: `Build one end-to-end slice of ${selectedOption.title}`,
+        objective: "Implement the thinnest possible version that goes from raw input to useful output for one specific case.",
+        deliverable: "Working vertical slice for one case",
+        rough_time_estimate: "1 week",
+        validation_check: "One realistic input goes through the entire pipeline and produces a correct, visible output.",
+        scope_guardrail: "Support exactly one input type and one output format — nothing more.",
+      },
+      {
+        title: `Expand the ${payload.core_workflow.toLowerCase().slice(0, 50)} to handle real variety`,
+        objective: "Generalize the vertical slice to handle 3-5 different realistic inputs without breaking.",
+        deliverable: "Expanded workflow passing on varied inputs",
+        rough_time_estimate: "1 week",
+        validation_check: "At least 3 different realistic inputs produce correct outputs through the full workflow.",
+        scope_guardrail: "Add variety in inputs, not features — the workflow shape should not change.",
+      },
+      {
+        title: `Harden the ${selectedOption.title} happy path`,
+        objective: "Fix the rough edges, error states, and confusing outputs that emerge with varied inputs.",
+        deliverable: "Stable happy path with clear error messages",
+        rough_time_estimate: "1 week",
+        validation_check: "All 5 test inputs produce correct or clearly-explained outputs with no silent failures.",
+        scope_guardrail: "Only handle errors that users will actually hit on the happy path.",
+      },
+      {
+        title: `Add the review and comparison view`,
+        objective: "Let the user see, compare, or evaluate the outputs in a way that makes the tool's value obvious.",
+        deliverable: "Review or comparison screen",
+        rough_time_estimate: "4-5 days",
+        validation_check: "A user can compare at least 2 outputs and understand which is better and why.",
+        scope_guardrail: "Build one comparison view — do not add filters, exports, or sharing.",
+      },
+      {
+        title: `Demo-ready ${selectedOption.title}`,
+        objective: "Polish the demo path and prepare a brief that explains the project's value.",
+        deliverable: "Demo walkthrough and project brief",
+        rough_time_estimate: "3-4 days",
+        validation_check: "A peer can follow the demo and summarize what the project does without help.",
+        scope_guardrail: "Polish only — no new features.",
+      },
+    ],
+  ];
+
+  const steps = stepTemplates[seed % stepTemplates.length].map((step, index) => ({
+    ...step,
+    order_index: index,
+  }));
+
   return RoadmapOverviewSchema.parse({
     project_title: selectedOption.title,
     short_overview: `${selectedOption.title} is a focused software roadmap built around ${payload.problem_statement.toLowerCase()} and a narrow MVP.`,
-    project_brief: `This project builds a ${selectedOption.title.toLowerCase()} for ${payload.target_user.toLowerCase()}. The core problem is that ${payload.problem_statement.toLowerCase()}. The MVP centers on ${payload.core_workflow.toLowerCase()} within the boundary of ${payload.mvp_boundary.toLowerCase()}. The student will validate success by ${payload.validation_plan.toLowerCase()}, working ${context.track_payload_json.weekly_hours} hours per week over ${selectedOption.estimated_weeks} weeks.`,
+    project_brief: brief,
     cut_if_behind: [
       "Visual polish beyond basic usability",
       "Secondary workflows beyond the core flow",
@@ -627,53 +906,7 @@ function buildFallbackRoadmap(context: GenerationContext, selectedOption: Projec
       `At least one user in the target group (${payload.target_user.toLowerCase()}) can complete the flow without guidance`,
       "The student can demo the project and explain the technical decisions behind it",
     ],
-    steps: [
-      {
-        order_index: 0,
-        title: `Lock the ${selectedOption.title} scope`,
-        objective: "Define the user, problem, workflow, and exact MVP boundary before building features.",
-        deliverable: "Product scope brief with success rubric",
-        rough_time_estimate: "3-4 days",
-        validation_check: "The scope brief names the target user, core workflow, MVP boundary, and at least 2 success criteria.",
-        scope_guardrail: "Do not start building until the scope brief is written and reviewed.",
-      },
-      {
-        order_index: 1,
-        title: "Set up the core data and inputs",
-        objective: "Build the smallest data model and input flow needed for the first usable version of the product.",
-        deliverable: "Working schema and input path",
-        rough_time_estimate: "1 week",
-        validation_check: "The input path accepts realistic data and the schema stores it correctly.",
-        scope_guardrail: "Only model data needed for the core workflow — no optional fields or future-proofing.",
-      },
-      {
-        order_index: 2,
-        title: "Build the main workflow",
-        objective: "Implement the end-to-end flow that turns real inputs into the product's useful output.",
-        deliverable: "Usable MVP workflow",
-        rough_time_estimate: "1-2 weeks",
-        validation_check: "A realistic input produces the expected output through the complete workflow.",
-        scope_guardrail: "Ship the happy path first — handle edge cases only after the main flow works.",
-      },
-      {
-        order_index: 3,
-        title: "Add review and validation",
-        objective: "Make the output understandable and test it on realistic examples from the domain.",
-        deliverable: "Validation-ready review screen or report",
-        rough_time_estimate: "1 week",
-        validation_check: "At least 3 realistic examples produce correct, understandable output.",
-        scope_guardrail: "Test with real domain data — do not build elaborate error handling before the happy path is validated.",
-      },
-      {
-        order_index: 4,
-        title: "Polish the demo path",
-        objective: "Tighten the final user path, fix rough edges, and prepare a clear demo or walkthrough.",
-        deliverable: "Demo-ready build and walkthrough notes",
-        rough_time_estimate: "4-5 days",
-        validation_check: "Someone unfamiliar with the project can follow the demo path and understand the product's value.",
-        scope_guardrail: "Polish only the demo path — do not add features or fix non-critical bugs.",
-      },
-    ],
+    steps,
   });
 }
 
@@ -880,7 +1113,7 @@ export async function runStepGuidanceGeneration(input: {
       stage: "step_guidance",
       schema: StepGuidanceSchema,
       schemaName: `${input.context.project_track}_step_guidance`,
-      systemPrompt: buildStepGuidanceSystemPrompt(input.context.project_track),
+      systemPrompt: buildStepGuidanceSystemPrompt(input.context.project_track, input.step.order_index, input.roadmap.steps.length),
       userPrompt: appendExternalSearchGuidance(buildStepGuidanceUserPrompt(input), webSearch),
       validator: (parsed) => stepGuidanceIssues(parsed, input.step, input.context),
       webSearch,

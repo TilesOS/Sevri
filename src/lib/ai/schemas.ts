@@ -84,8 +84,8 @@ const ResearchOptionSeedSchema = z.object({
 const BaseProjectOptionSchema = z.object({
   id: z.string().min(2).max(80),
   title: z.string().min(5).max(120),
-  summary: z.string().min(40).max(260),
-  why_it_fits: z.string().min(24).max(220),
+  summary: z.string().min(40).max(340),
+  why_it_fits: z.string().min(24).max(360),
   difficulty: DifficultySchema,
   estimated_weeks: z.number().int().min(2).max(20),
   skills_demonstrated: z.array(z.string().min(2).max(60)).min(2).max(8),

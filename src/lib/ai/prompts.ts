@@ -11,13 +11,32 @@ function formatFeedback(feedback: PromptFeedbackItem[] | undefined) {
     return "No prior user feedback is available for this stage.";
   }
 
-  return feedback
-    .map((item, index) => {
-      const note = item.notes?.trim() ? item.notes.trim() : "No written note.";
-      const label = item.contextLabel?.trim() ? ` (${item.contextLabel.trim()})` : "";
-      return `${index + 1}. ${item.signal.toUpperCase()}${label}: ${note}`;
-    })
-    .join("\n");
+  const grouped: Record<string, string[]> = { good: [], mixed: [], bad: [] };
+  for (const item of feedback) {
+    const note = item.notes?.trim() || "No written note.";
+    const label = item.contextLabel?.trim() ? ` [${item.contextLabel.trim()}]` : "";
+    grouped[item.signal].push(`${note}${label}`);
+  }
+
+  const parts: string[] = [];
+  if (grouped.bad.length > 0) {
+    parts.push(`DISLIKED: ${grouped.bad.join("; ")}`);
+  }
+  if (grouped.mixed.length > 0) {
+    parts.push(`MIXED: ${grouped.mixed.join("; ")}`);
+  }
+  if (grouped.good.length > 0) {
+    parts.push(`LIKED: ${grouped.good.join("; ")}`);
+  }
+
+  if (parts.length === 0) {
+    return "No prior user feedback is available for this stage.";
+  }
+
+  return [
+    "Prior feedback from this user (weight DISLIKED items most heavily):",
+    ...parts,
+  ].join("\n");
 }
 
 export function buildNormalizeSystemPrompt(projectTrack: ProjectTrack) {
@@ -54,50 +73,75 @@ export function buildNormalizeUserPrompt(input: {
   ].join("\n\n");
 }
 
-function formatContext(context: GenerationContext) {
-  if (context.project_track === "software") {
-    const payload = context.track_payload_json;
-    return [
-      `Track: ${context.project_track}`,
-      `Summary: ${context.summary}`,
-      `Skill level: ${context.skill_assessment}`,
-      `Anchors: ${payload.anchor_interests.join(", ")}`,
-      `Domain brief: ${payload.domain_brief}`,
-      `Goal: ${payload.goal_signal}`,
-      `Target outcome: ${payload.target_outcome}`,
-      `Resources: ${payload.resource_snapshot}`,
-      `Anti-generic warnings: ${payload.anti_generic_warnings.join(" | ")}`,
-      `Weekly hours: ${payload.weekly_hours}`,
-      `Constraints: ${payload.constraints_summary}`,
-      `Scope guardrails: ${payload.scope_guardrails.join(" | ")}`,
-      `Focus: ${payload.focus_signal}`,
-      `Project style: ${payload.project_style_fit}`,
-      `Problem lenses: ${payload.problem_lenses.join(" | ")}`,
-      `Delivery bias: ${payload.delivery_bias}`,
-      ...(context.risk_flags.length > 0 ? [`Risk flags: ${context.risk_flags.join(", ")}`] : []),
-    ].join("\n");
+function contextEmphasisSeed(context: GenerationContext): number {
+  const str = context.summary + context.track_payload_json.domain_brief;
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
   }
+  return Math.abs(hash);
+}
+
+const EMPHASIS_KEYS = [
+  ["goal_signal", "focus_signal"],
+  ["constraints_summary", "resource_snapshot"],
+  ["domain_brief", "anchor_interests"],
+  ["target_outcome", "focus_signal"],
+] as const;
+
+function formatContext(context: GenerationContext) {
+  const seed = contextEmphasisSeed(context);
+  const emphasizedKeys = new Set<string>(EMPHASIS_KEYS[seed % EMPHASIS_KEYS.length]);
 
   const payload = context.track_payload_json;
-  return [
-    `Track: ${context.project_track}`,
-    `Summary: ${context.summary}`,
-    `Skill level: ${context.skill_assessment}`,
-    `Anchors: ${payload.anchor_interests.join(", ")}`,
-    `Domain brief: ${payload.domain_brief}`,
-    `Goal: ${payload.goal_signal}`,
-    `Target outcome: ${payload.target_outcome}`,
-    `Resources: ${payload.resource_snapshot}`,
-    `Anti-generic warnings: ${payload.anti_generic_warnings.join(" | ")}`,
-    `Weekly hours: ${payload.weekly_hours}`,
-    `Constraints: ${payload.constraints_summary}`,
-    `Scope guardrails: ${payload.scope_guardrails.join(" | ")}`,
-    `Focus: ${payload.focus_signal}`,
-    `Readiness: ${payload.research_readiness}`,
-    `Method guidance: ${payload.methodology_guidance}`,
-    `Methods: ${payload.viable_methodologies.join(" | ")}`,
-    ...(context.risk_flags.length > 0 ? [`Risk flags: ${context.risk_flags.join(", ")}`] : []),
-  ].join("\n");
+
+  const fields: Array<[string, string, string]> = [
+    ["summary", "Summary", context.summary],
+    ["skill_assessment", "Skill level", context.skill_assessment],
+    ["anchor_interests", "Anchors", payload.anchor_interests.join(", ")],
+    ["domain_brief", "Domain brief", payload.domain_brief],
+    ["goal_signal", "Goal", payload.goal_signal],
+    ["target_outcome", "Target outcome", payload.target_outcome],
+    ["resource_snapshot", "Resources", payload.resource_snapshot],
+    ["anti_generic_warnings", "Anti-generic warnings", payload.anti_generic_warnings.join(" | ")],
+    ["weekly_hours", "Weekly hours", String(payload.weekly_hours)],
+    ["constraints_summary", "Constraints", payload.constraints_summary],
+    ["scope_guardrails", "Scope guardrails", payload.scope_guardrails.join(" | ")],
+    ["focus_signal", "Focus", payload.focus_signal],
+  ];
+
+  if (context.project_track === "software") {
+    const sw = context.track_payload_json;
+    fields.push(
+      ["project_style_fit", "Project style", sw.project_style_fit],
+      ["problem_lenses", "Problem lenses", sw.problem_lenses.join(" | ")],
+      ["delivery_bias", "Delivery bias", sw.delivery_bias],
+    );
+  } else {
+    const rs = context.track_payload_json;
+    fields.push(
+      ["research_readiness", "Readiness", rs.research_readiness],
+      ["methodology_guidance", "Method guidance", rs.methodology_guidance],
+      ["viable_methodologies", "Methods", rs.viable_methodologies.join(" | ")],
+    );
+  }
+
+  const emphasized: string[] = [];
+  const standard: string[] = [`Track: ${context.project_track}`];
+
+  for (const [key, label, value] of fields) {
+    if (emphasizedKeys.has(key)) {
+      emphasized.push(`PRIMARY FOCUS — ${label}: ${value}`);
+    } else {
+      standard.push(`${label}: ${value}`);
+    }
+  }
+
+  if (context.risk_flags.length > 0) {
+    standard.push(`Risk flags: ${context.risk_flags.join(", ")}`);
+  }
+
+  return [...emphasized, ...standard].join("\n");
 }
 
 export function buildOptionsSystemPrompt(projectTrack: ProjectTrack) {
@@ -106,22 +150,44 @@ export function buildOptionsSystemPrompt(projectTrack: ProjectTrack) {
       ? "target_user, problem_statement, core_workflow, mvp_boundary, validation_plan"
       : "research_question, hypothesis_or_focus, methodology, evidence_plan, scope_boundaries, limitation_note";
 
+  const diversityGuidance =
+    projectTrack === "software"
+      ? [
+          "The three options MUST differ along at least two of these axes: (1) target user persona, (2) problem domain angle, (3) technical approach or core technology, (4) project scope/ambition level, (5) output artifact type (tool vs dashboard vs API vs CLI vs data pipeline).",
+          "Option 1 should be the most focused and finishable. Option 2 should be the most technically interesting. Option 3 should target the most impressive portfolio outcome.",
+        ]
+      : [
+          "The three options MUST differ along at least two of these axes: (1) research question angle, (2) methodology, (3) evidence type (qualitative vs quantitative vs mixed), (4) scope/ambition level, (5) target deliverable format (paper vs poster vs dataset vs benchmark).",
+          "Option 1 should be the most tightly scoped and finishable. Option 2 should be the most methodologically rigorous. Option 3 should aim for the most impressive findings.",
+        ];
+
   return [
     `You generate concise ${projectTrack} project options for Sevri.`,
     "Return only JSON that matches the schema.",
     "Generate exactly 3 options.",
-    "Keep titles specific, summaries to 1-2 sentences, and why_it_fits to one sentence.",
+    "Keep titles specific and summaries to 1-2 sentences. Use why_it_fits to explain the connection between this student's specific background and the project — reference their domain anchors, constraints, or goals by name.",
     "Stay grounded in the student's real domain interests and constraints.",
     "Avoid generic student-life, study-habit, or productivity ideas unless the context explicitly supports them.",
     `Each option's track_payload_json must include all seed fields (${seedFields}) with concrete, project-specific values.`,
     "Also return skills_demonstrated, tools_needed, impressiveness_score, and finishability_score for every option.",
-    "Make the three options genuinely different in user/problem/workflow shape for software or question/method shape for research.",
+    ...diversityGuidance,
     "Scores must reflect the real time budget, skill level, and risk flags rather than generic optimism.",
     "These seed fields become the foundation for roadmap generation - make them specific enough to drive a real execution plan.",
   ].join(" ");
 }
 
+const CREATIVE_ANGLES = [
+  "Favor projects where the student builds something they would actually use in their own workflow.",
+  "Favor projects that produce a visual or interactive artifact — something you can screenshot or screen-record for a portfolio.",
+  "Favor projects that solve a problem the student has personally encountered or observed in their domain.",
+  "Favor projects that could impress a technical interviewer by demonstrating systems thinking or domain expertise.",
+  "Favor projects that produce a reusable tool or dataset that others in the domain could benefit from.",
+  "Favor projects where the core value is immediately visible in a 60-second demo.",
+];
+
 export function buildOptionsUserPrompt(context: GenerationContext, feedback?: PromptFeedbackItem[]) {
+  const angle = CREATIVE_ANGLES[contextEmphasisSeed(context) % CREATIVE_ANGLES.length];
+
   return [
     "Student context:",
     formatContext(context),
@@ -135,6 +201,8 @@ export function buildOptionsUserPrompt(context: GenerationContext, feedback?: Pr
     "- validation_plan (or limitation_note for research) must describe how the student proves the work succeeded.",
     "- Skills demonstrated should feel resume-relevant and specific to the option.",
     "- Tools needed should be realistic for the student's context, not an aspirational stack dump.",
+    "",
+    `Creative direction for this student: ${angle}`,
   ].join("\n\n");
 }
 
@@ -151,7 +219,7 @@ export function buildRoadmapSystemPrompt(projectTrack: ProjectTrack) {
     "cut_if_behind: 1-4 items the student can drop if they fall behind schedule. These must be specific to THIS project.",
     "success_criteria: 2-5 concrete conditions that define project success. Tie them to actual deliverables and evidence, not effort.",
     "",
-    "Do not use generic titles like 'Foundation Setup', 'Core Workflow', or 'Polish and Packaging'.",
+    "Do not use generic titles like 'Foundation Setup', 'Core Workflow', or 'Polish and Packaging'. Instead, use titles that name a specific project artifact, domain concept, or user-facing feature (e.g., 'Wire the Trace Parser', 'Score the Rubric Matrix', 'Ship the Comparison View'). The title should tell the student exactly WHAT they are building in this step.",
     "Every deliverable must be a concrete artifact, not a phase name.",
     "Do not include long rationale, README text, or extra sections.",
   ].join(" ");
@@ -189,7 +257,14 @@ export function buildRoadmapUserPrompt(input: {
   ].join("\n\n");
 }
 
-export function buildStepGuidanceSystemPrompt(projectTrack: ProjectTrack) {
+export function buildStepGuidanceSystemPrompt(projectTrack: ProjectTrack, stepIndex: number, totalSteps: number) {
+  const positionGuidance =
+    stepIndex === 0
+      ? "This is the FIRST step. Focus the guidance on getting started with confidence. Emphasize clarity of setup, early decision-making about tools and scope, and the psychological momentum of producing the first small artifact."
+      : stepIndex >= totalSteps - 1
+        ? "This is the FINAL step. Focus the guidance on finishing strong. Emphasize packaging the work for its intended audience, honest quality assessment, and creating a narrative about what was accomplished and why."
+        : "This is a MIDDLE step. Focus the guidance on maintaining momentum and quality. Emphasize connection to the previous deliverable, concrete progress markers, and scope discipline.";
+
   return [
     `You generate rich per-step guidance for Sevri ${projectTrack} projects.`,
     "Return only JSON that matches the schema.",
@@ -198,6 +273,7 @@ export function buildStepGuidanceSystemPrompt(projectTrack: ProjectTrack) {
     "Make the advice detailed enough to feel premium, but keep every bullet practical.",
     "The done_when criteria must tie directly to the step's validation_check - do not invent abstract completion conditions.",
     "Pitfalls must reference real risks specific to this project and step, not generic advice.",
+    positionGuidance,
   ].join(" ");
 }
 

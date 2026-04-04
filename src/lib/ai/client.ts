@@ -53,6 +53,7 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   model?: string;
   fallbackModels?: string[];
   maxCompletionTokens?: number;
+  temperature?: number;
   reasoningEffort?: "low" | "medium" | "high";
   webSearch?: WebSearchPolicy;
 }
@@ -107,26 +108,26 @@ function resolveStageModel(stage: GenerationStage | string, explicitModel?: stri
 
 function getStageDefaults(stage: GenerationStage | string) {
   if (stage === "normalize") {
-    return { maxCompletionTokens: 1400, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 1400, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.25 };
   }
 
   if (stage === "options") {
-    return { maxCompletionTokens: 1200, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 1600, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.75 };
   }
 
   if (stage === "roadmap") {
-    return { maxCompletionTokens: 1900, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 2400, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.55 };
   }
 
   if (stage === "step_guidance") {
-    return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.6 };
   }
 
   if (stage === "work_evaluation") {
-    return { maxCompletionTokens: 900, maxRetries: 1, reasoningEffort: "medium" as const };
+    return { maxCompletionTokens: 900, maxRetries: 1, reasoningEffort: "medium" as const, temperature: 0.2 };
   }
 
-  return { maxCompletionTokens: 1200, maxRetries: 2, reasoningEffort: undefined };
+  return { maxCompletionTokens: 1200, maxRetries: 2, reasoningEffort: undefined, temperature: 0.3 };
 }
 
 function buildRepairPrompt(feedback: string) {
@@ -296,7 +297,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         model: modelName,
         input: messages,
         max_output_tokens: maxCompletionTokens,
-        ...(supportsTemperatureOverride(modelName) ? { temperature: 0.3 } : {}),
+        ...(supportsTemperatureOverride(modelName) ? { temperature: input.temperature ?? defaults.temperature ?? 0.3 } : {}),
         ...(supportsReasoningEffort(modelName) && (input.reasoningEffort ?? defaults.reasoningEffort)
           ? { reasoning: { effort: input.reasoningEffort ?? defaults.reasoningEffort } }
           : {}),
