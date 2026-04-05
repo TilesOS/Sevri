@@ -95,7 +95,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         {error ?? (isLoading ? "Submitting form." : "")}
       </div>
 
-      <div className="space-y-4 py-1">
+      <div className="space-y-4">
         <div className="mx-auto w-full max-w-md space-y-4">
           <Button type="button" variant="outline" size="lg" fullWidth disabled={isLoading} onClick={handleGitHubSignIn}>
             Continue with GitHub

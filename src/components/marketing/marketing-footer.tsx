@@ -42,7 +42,7 @@ export function MarketingFooter() {
         <div className="grid gap-8 sm:grid-cols-2">
           <div className="space-y-3">
             <p className="text-sm font-semibold text-paper">Explore</p>
-            <div className="space-y-2 text-sm text-paper/72">
+            <div className="flex flex-col gap-2 text-sm text-paper/72">
               <FooterLink href="/">Home</FooterLink>
               <FooterLink href="/pricing">Pricing</FooterLink>
               <FooterLink href="/sign-in">Sign in</FooterLink>
@@ -51,7 +51,7 @@ export function MarketingFooter() {
           </div>
           <div className="space-y-3">
             <p className="text-sm font-semibold text-paper">Company</p>
-            <div className="space-y-2 text-sm text-paper/72">
+            <div className="flex flex-col gap-2 text-sm text-paper/72">
               {footerLinks.map((link) => (
                 <FooterLink key={link.href} href={link.href}>
                   {link.label}
