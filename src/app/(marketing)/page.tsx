@@ -7,15 +7,15 @@ import { StatCard } from "@/components/ui/stat-card";
 const processSteps = [
   {
     title: "Direction",
-    body: "Choose software or research, define the outcome you want, and make Sevri honest about your time budget.",
+    body: "Tell Sevri what you're drawn to, what you want to get out of it, and how much time you actually have.",
   },
   {
     title: "Comparison",
-    body: "Review three distinct options side by side with scope, difficulty, and why each one fits you.",
+    body: "See three options laid out side by side — what each one requires, how hard it is, and why it might be right for you.",
   },
   {
     title: "Execution",
-    body: "Turn the strongest option into a roadmap, keep milestones moving, and avoid the traps that stall students.",
+    body: "Turn the option you pick into a roadmap. Move through milestones. Dodge the scope creep that kills most student projects.",
   },
 ];
 
@@ -23,12 +23,12 @@ const outcomes = [
   {
     label: "3 compared directions",
     value: "3",
-    detail: "Concrete options that feel distinct, believable, and presentation-ready.",
+    detail: "Three actually different options to choose from - each an impressive path to showcase your interests.",
   },
   {
     label: "1 finishable roadmap",
     value: "1",
-    detail: "A scoped execution path once you choose the idea worth committing to.",
+    detail: "A real roadmap once you've picked your direction. Scoped to what you can actually do.",
   },
   {
     label: "4-step intake",
@@ -41,17 +41,17 @@ const faqs = [
   {
     question: "Is Sevri just another idea generator?",
     answer:
-      "No. The point is not novelty for its own sake. Sevri compares options based on finishability, fit, and whether the final work will actually say something about you.",
+      "No. The goal isn't to find something no one has done before. It's to find the right fit for you — something you can finish and actually feel proud of.",
   },
   {
     question: "Who is this built for?",
     answer:
-      "Ambitious high school and early college students who want serious software or research work, but need help choosing a scope they can truly complete.",
+      "High school and early college students who want to build something real, but aren't sure where to start or how to keep the scope from getting away from them.",
   },
   {
     question: "Do I need to know exactly what I want to build already?",
     answer:
-      "Not at all. The onboarding flow is designed to translate interests, available time, and goals into directions that are more concrete than a vague topic area.",
+      "Not at all. You just need to know what you're interested in and roughly how much time you have. Sevri handles the translation from fuzzy interest to concrete direction.",
   },
 ];
 
@@ -71,9 +71,9 @@ export default function HomePage() {
                 gets finished.
               </h1>
               <p className="max-w-2xl text-lg leading-8 text-paper/72">
-                Sevri helps driven students create software and research
-                projects that speak louder than any bullet point
-                on a college app, resume, or portfolio.
+                Sevri helps you pick the right project, scope it to
+                something you can finish, and end up with work
+                that&apos;s genuinely yours.
               </p>
             </div>
 
@@ -96,21 +96,21 @@ export default function HomePage() {
                 <p className="editorial-kicker text-paper/55">Tracks</p>
                 <p className="mt-3 text-3xl font-semibold text-paper">2</p>
                 <p className="mt-2 text-sm leading-6 text-paper/72">
-                  Software builds and research projects, each with a tailored intake.
+                  Two paths: software projects and research studies. Each with its own intake.
                 </p>
               </Card>
               <Card tone="contrast" className="border-contrast-line bg-paper/5">
                 <p className="editorial-kicker text-paper/55">Recommendation board</p>
                 <p className="mt-3 text-3xl font-semibold text-paper">3</p>
                 <p className="mt-2 text-sm leading-6 text-paper/72">
-                  Distinct directions you can compare before you commit.
+                  Three distinct directions, side by side, before you commit to one.
                 </p>
               </Card>
               <Card tone="contrast" className="border-contrast-line bg-paper/5">
                 <p className="editorial-kicker text-paper/55">Execution bias</p>
                 <p className="mt-3 text-3xl font-semibold text-paper">1</p>
                 <p className="mt-2 text-sm leading-6 text-paper/72">
-                  A single next move at a time, instead of abstract motivation.
+                  One clear next step at a time — not a wall of abstract advice.
                 </p>
               </Card>
             </div>
@@ -171,7 +171,7 @@ export default function HomePage() {
       <Section
         eyebrow="What you leave with"
         title="A sharper direction, not just more ideas."
-        description="Sevri is built to create momentum. The output should feel like the beginning of a real project, not the end of a brainstorming session."
+        description="When you're done, you should feel like you're starting something — not like you just finished thinking about it."
       >
         <div className="grid gap-4 md:grid-cols-3">
           {outcomes.map((outcome, index) => (
@@ -189,8 +189,8 @@ export default function HomePage() {
 
       <Section
         eyebrow="How it works"
-        title="A clean path from uncertainty to execution."
-        description="The experience stays intentionally narrow: choose a track, compare strong options, then keep moving through a roadmap with better pacing and clearer tradeoffs."
+        title="Three steps. No detours."
+        description="Pick a track, compare three real options, and start moving. Sevri doesn't ask you to have it figured out before you begin."
         className="bg-primary-soft"
       >
         <div className="grid gap-4 lg:grid-cols-3">
@@ -208,8 +208,8 @@ export default function HomePage() {
 
       <Section
         eyebrow="Two tracks"
-        title="Choose the kind of proof you want to create."
-        description="Both tracks lead to serious work. The difference is whether you want to ship a product experience or build a credible research argument."
+        title="Two tracks. One for builders, one for researchers."
+        description="Both lead to finished work you can stand behind. The question is whether you want to ship something or study something."
       >
         <div className="grid gap-4 lg:grid-cols-2">
           <Reveal>
@@ -219,9 +219,9 @@ export default function HomePage() {
                 Build something another person can actually use.
               </h3>
               <ul className="mt-6 space-y-3 text-sm leading-6 text-ink-soft">
-                <li>Target-user framing, problem definition, and core workflow.</li>
-                <li>Roadmaps that keep your first version finishable instead of overbuilt.</li>
-                <li>Stronger stories for portfolios, demos, and interviews.</li>
+                <li>Starts with who uses it and why — before you write a line of code.</li>
+                <li>Roadmaps sized for a first version, not a startup pitch.</li>
+                <li>Work that&apos;s easy to explain and worth showing.</li>
               </ul>
             </Card>
           </Reveal>
@@ -232,9 +232,9 @@ export default function HomePage() {
                 Turn curiosity into a question with a believable method.
               </h3>
               <ul className="mt-6 space-y-3 text-sm leading-6 text-ink-soft">
-                <li>Research questions shaped around evidence you can realistically gather.</li>
-                <li>Methodology and deliverable planning that respects your time and access.</li>
-                <li>Clearer foundations for papers, posters, and competition submissions.</li>
+                <li>Questions sized around data you can actually collect.</li>
+                <li>A method and timeline that fits your actual situation.</li>
+                <li>Something worth submitting — and worth talking about when you do.</li>
               </ul>
             </Card>
           </Reveal>
@@ -244,15 +244,15 @@ export default function HomePage() {
       <Section
         tone="contrast"
         eyebrow="Scope discipline"
-        title="Ambitious doesn’t have to mean impossible."
-        description="The best student projects feel slightly above your comfort zone, not wildly above your life. Sevri keeps that tension visible so you can finish with quality instead of drifting into an unfinished mess."
+        title="The project that gets finished is better than the one that doesn’t."
+        description="Most student projects stall because the scope was wrong from day one. Sevri keeps that pressure visible — so you can push yourself without losing the project entirely."
       >
         <div className="grid gap-4 lg:grid-cols-3">
           <Reveal>
             <Card tone="contrast" className="h-full border-contrast-line bg-paper/5">
               <p className="editorial-kicker text-paper/55">Comparison board</p>
               <p className="mt-3 text-xl font-semibold text-paper">
-                Quickest to ship, most ambitious, and balanced pick ribbons help you choose deliberately.
+                Quickest to ship, most ambitious, and balanced pick — three ribbons to help you choose with your eyes open.
               </p>
             </Card>
           </Reveal>
@@ -277,8 +277,8 @@ export default function HomePage() {
 
       <Section
         eyebrow="FAQ"
-        title="Questions ambitious students usually ask first."
-        description="If you’re trying to build work that survives real scrutiny, these are the practical questions that tend to matter."
+        title="Common questions."
+        description="The ones that come up before people start."
       >
         <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
           <div className="space-y-4">
@@ -295,11 +295,11 @@ export default function HomePage() {
             <Card tone="blush" className="h-full">
               <p className="editorial-kicker">Final call</p>
               <h3 className="mt-4 font-display text-4xl leading-none text-ink">
-                Start with a direction you can actually carry.
+                Start here. See what fits.
               </h3>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Use the free tier to run onboarding, compare your first recommendation board, and decide
-                whether Sevri should become your working space for the semester.
+                The free tier gets you through onboarding and your first recommendation board.
+                Try it — if it clicks, you&apos;ll know.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Button href="/sign-up" className="rounded-full px-6">

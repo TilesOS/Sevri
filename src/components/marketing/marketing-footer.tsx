@@ -20,8 +20,8 @@ export function MarketingFooter() {
               Finish something worth showing.
             </h2>
             <p className="max-w-2xl text-base leading-7 text-paper/72">
-              Sevri helps ambitious students choose the right software or research project, scope it honestly,
-              and follow through with work they can actually present with confidence.
+              Sevri helps you pick the right project, scope it to something real, and follow through —
+              so you end up with work you can actually show.
             </p>
           </div>
 
