@@ -58,7 +58,7 @@ const faqs = [
 export default function HomePage() {
   return (
     <>
-      <Section tone="contrast" className="overflow-hidden py-14 sm:py-20 lg:py-24">
+      <Section tone="contrast" className="contrast-grid overflow-hidden py-14 sm:py-20 lg:py-24">
         <div className="grid gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:items-center">
           <Reveal className="space-y-8">
             <div className="space-y-4">
