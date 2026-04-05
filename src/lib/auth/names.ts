@@ -13,6 +13,20 @@ function cleanName(value: unknown): string | null {
   return normalized.length >= 2 ? normalized : null;
 }
 
+function getUserMetadataNameCandidate(userMetadata?: Record<string, unknown> | null) {
+  if (!userMetadata) {
+    return null;
+  }
+
+  return (
+    cleanName(userMetadata.full_name) ??
+    cleanName(userMetadata.name) ??
+    cleanName(userMetadata.user_name) ??
+    cleanName(userMetadata.preferred_username) ??
+    cleanName(userMetadata.login)
+  );
+}
+
 function emailFallback(email?: string | null) {
   if (!email) {
     return "Sevri Student";
@@ -33,13 +47,13 @@ function emailFallback(email?: string | null) {
 }
 
 export function getUserMetadataFullName(userMetadata?: Record<string, unknown> | null) {
-  return cleanName(userMetadata?.full_name);
+  return getUserMetadataNameCandidate(userMetadata);
 }
 
 export function resolveStoredFullName(input: NameSourceInput) {
   return (
     cleanName(input.profileFullName) ??
-    getUserMetadataFullName(input.userMetadata) ??
+    getUserMetadataNameCandidate(input.userMetadata) ??
     emailFallback(input.email)
   );
 }
@@ -47,8 +61,7 @@ export function resolveStoredFullName(input: NameSourceInput) {
 export function resolveDisplayName(input: NameSourceInput) {
   return (
     cleanName(input.profileFullName) ??
-    getUserMetadataFullName(input.userMetadata) ??
-    input.email ??
-    "Sevri Student"
+    getUserMetadataNameCandidate(input.userMetadata) ??
+    emailFallback(input.email)
   );
 }

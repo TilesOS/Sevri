@@ -90,23 +90,21 @@ export function AuthForm({ mode }: AuthFormProps) {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
+    <form onSubmit={handleSubmit} className="space-y-5">
       <div aria-live="polite" className="sr-only">
         {error ?? (isLoading ? "Submitting form." : "")}
       </div>
 
-      {mode === "sign-in" ? (
-        <>
-          <Button type="button" variant="outline" size="lg" fullWidth disabled={isLoading} onClick={handleGitHubSignIn}>
-            Continue with GitHub
-          </Button>
-          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-ink-soft/80">
-            <span className="h-px flex-1 bg-line" />
-            <span>Or continue with email</span>
-            <span className="h-px flex-1 bg-line" />
-          </div>
-        </>
-      ) : null}
+      <div className="space-y-4 py-1">
+        <Button type="button" variant="outline" size="lg" fullWidth disabled={isLoading} onClick={handleGitHubSignIn}>
+          Continue with GitHub
+        </Button>
+        <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-ink-soft/80">
+          <span className="h-px flex-1 bg-line" />
+          <span>Or continue with email</span>
+          <span className="h-px flex-1 bg-line" />
+        </div>
+      </div>
 
       {mode === "sign-up" ? (
         <FormField label="Name" htmlFor="full_name" required>
@@ -147,7 +145,7 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      <Button type="submit" size="lg" fullWidth disabled={isLoading} className="mt-2">
+      <Button type="submit" size="lg" fullWidth disabled={isLoading} className="mt-1">
         {isLoading ? "Please wait..." : mode === "sign-in" ? "Sign in" : "Create account"}
       </Button>
     </form>
