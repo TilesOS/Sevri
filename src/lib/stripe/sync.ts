@@ -1,12 +1,11 @@
-import type Stripe from "stripe";
+import Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { getStripeEnv } from "@/lib/env";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
+import { hasVerifiedPlanAccess, isEntitledSubscriptionStatus } from "@/lib/billing/entitlements";
 import { upsertSubscription } from "@/lib/db/mutations/subscriptions";
 
 const env = getStripeEnv();
-
-const ACTIVE_STATUSES = new Set<Stripe.Subscription.Status>(["active", "trialing", "past_due", "unpaid"]);
 
 function planFromSubscription(subscription: Stripe.Subscription): "free" | "pro_monthly" {
   const activePriceIds = subscription.items.data.map((item) => item.price.id);
@@ -44,6 +43,7 @@ export interface BillingSyncResult {
   synced: boolean;
   plan: "free" | "pro_monthly";
   status: string;
+  entitled: boolean;
   source: "subscription_id" | "checkout_session" | "customer_lookup" | "none";
 }
 
@@ -74,11 +74,46 @@ async function upsertFromSubscription(args: {
     synced: true,
     plan,
     status: args.subscription.status,
+    entitled: hasVerifiedPlanAccess(plan, args.subscription.status),
     source: args.source,
   };
 }
 
-export async function syncBillingForUser(userId: string): Promise<BillingSyncResult> {
+async function retrieveCheckoutSession(checkoutSessionId: string) {
+  try {
+    return await stripe.checkout.sessions.retrieve(checkoutSessionId);
+  } catch (error) {
+    if (error instanceof Stripe.errors.StripeInvalidRequestError) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
+function doesCheckoutSessionBelongToUser(args: {
+  userId: string;
+  storedCheckoutSessionId: string | null;
+  customerId: string | null;
+  session: Stripe.Checkout.Session;
+}) {
+  if (args.session.metadata?.user_id) {
+    return args.session.metadata.user_id === args.userId;
+  }
+
+  if (args.storedCheckoutSessionId && args.session.id === args.storedCheckoutSessionId) {
+    return true;
+  }
+
+  return typeof args.session.customer === "string" && Boolean(args.customerId) && args.session.customer === args.customerId;
+}
+
+export async function syncBillingForUser(
+  userId: string,
+  options: {
+    checkoutSessionId?: string | null;
+  } = {},
+): Promise<BillingSyncResult> {
   const supabase = createAdminSupabaseClient();
 
   const { data: existing, error: existingError } = await supabase
@@ -93,14 +128,36 @@ export async function syncBillingForUser(userId: string): Promise<BillingSyncRes
 
   const existingPlan = existing?.plan === "pro_monthly" ? "pro_monthly" : "free";
   const existingStatus = existing?.status ?? "inactive";
-  const checkoutSessionId = existing?.stripe_checkout_session_id ?? null;
+  const storedCheckoutSessionId = existing?.stripe_checkout_session_id ?? null;
   const customerId = existing?.stripe_customer_id ?? null;
+  let checkoutSessionId = storedCheckoutSessionId;
+  let verifiedCheckoutSession: Stripe.Checkout.Session | null = null;
+
+  if (options.checkoutSessionId) {
+    const session = await retrieveCheckoutSession(options.checkoutSessionId);
+
+    if (session && doesCheckoutSessionBelongToUser({ userId, storedCheckoutSessionId, customerId, session })) {
+      verifiedCheckoutSession = session;
+      checkoutSessionId = session.id;
+
+      if (typeof session.subscription === "string") {
+        const subscription = await stripe.subscriptions.retrieve(session.subscription);
+        return upsertFromSubscription({
+          userId,
+          checkoutSessionId: session.id,
+          fallbackCustomerId: typeof session.customer === "string" ? session.customer : customerId,
+          source: "checkout_session",
+          subscription,
+        });
+      }
+    }
+  }
 
   if (existing?.stripe_subscription_id) {
     const subscription = await stripe.subscriptions.retrieve(existing.stripe_subscription_id);
     return upsertFromSubscription({
       userId,
-      checkoutSessionId,
+      checkoutSessionId: storedCheckoutSessionId,
       fallbackCustomerId: customerId,
       source: "subscription_id",
       subscription,
@@ -108,13 +165,14 @@ export async function syncBillingForUser(userId: string): Promise<BillingSyncRes
   }
 
   if (checkoutSessionId) {
-    const session = await stripe.checkout.sessions.retrieve(checkoutSessionId);
+    const session =
+      verifiedCheckoutSession?.id === checkoutSessionId ? verifiedCheckoutSession : await retrieveCheckoutSession(checkoutSessionId);
 
-    if (typeof session.subscription === "string") {
+    if (session && typeof session.subscription === "string") {
       const subscription = await stripe.subscriptions.retrieve(session.subscription);
       return upsertFromSubscription({
         userId,
-        checkoutSessionId,
+        checkoutSessionId: session.id,
         fallbackCustomerId: typeof session.customer === "string" ? session.customer : customerId,
         source: "checkout_session",
         subscription,
@@ -126,7 +184,7 @@ export async function syncBillingForUser(userId: string): Promise<BillingSyncRes
     const list = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
     const candidate = chooseBestSubscription(list.data);
 
-    if (candidate && ACTIVE_STATUSES.has(candidate.status)) {
+    if (candidate && isEntitledSubscriptionStatus(candidate.status)) {
       return upsertFromSubscription({
         userId,
         checkoutSessionId,
@@ -141,6 +199,7 @@ export async function syncBillingForUser(userId: string): Promise<BillingSyncRes
     synced: false,
     plan: existingPlan,
     status: existingStatus,
+    entitled: hasVerifiedPlanAccess(existingPlan, existingStatus),
     source: "none",
   };
 }

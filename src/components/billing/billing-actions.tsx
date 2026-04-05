@@ -6,10 +6,10 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 
 interface BillingActionsProps {
-  hasSubscription: boolean;
+  canManageBilling: boolean;
 }
 
-export function BillingActions({ hasSubscription }: BillingActionsProps) {
+export function BillingActions({ canManageBilling }: BillingActionsProps) {
   const router = useRouter();
   const [loading, setLoading] = useState<"checkout" | "portal" | "sync" | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -75,8 +75,8 @@ export function BillingActions({ hasSubscription }: BillingActionsProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={hasSubscription ? openPortal : startCheckout} disabled={loading !== null} className="rounded-full px-6">
-          {hasSubscription
+        <Button onClick={canManageBilling ? openPortal : startCheckout} disabled={loading !== null} className="rounded-full px-6">
+          {canManageBilling
             ? loading === "portal"
               ? "Opening portal..."
               : "Manage subscription"
@@ -89,6 +89,10 @@ export function BillingActions({ hasSubscription }: BillingActionsProps) {
           {loading === "sync" ? "Syncing..." : "Sync billing now"}
         </Button>
       </div>
+
+      <p className="text-sm leading-6 text-ink-soft">
+        Billing changes usually appear automatically after Stripe confirms them. Use manual sync only if something still looks behind.
+      </p>
 
       {info ? <Alert tone="success">{info}</Alert> : null}
       {error ? <Alert tone="danger">{error}</Alert> : null}

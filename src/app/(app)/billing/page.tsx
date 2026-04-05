@@ -1,23 +1,42 @@
 import { getRequiredUser } from "@/lib/auth/guard";
+import { hasVerifiedPlanAccess } from "@/lib/billing/entitlements";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { BillingReturnSync } from "@/components/billing/billing-return-sync";
 import { getPlanLabel } from "@/components/theme/theme-utils";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { BillingActions } from "@/components/billing/billing-actions";
 
-export default async function BillingPage() {
+function getCheckoutState(value: string | undefined) {
+  if (value === "success" || value === "cancel") {
+    return value;
+  }
+
+  return null;
+}
+
+export default async function BillingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ checkout?: string; session_id?: string }>;
+}) {
   const user = await getRequiredUser();
   const supabase = await createServerSupabaseClient();
+  const resolvedSearchParams = await searchParams;
 
   const { data: subscription } = await supabase
     .from("subscriptions")
-    .select("plan, status, current_period_end")
+    .select("plan, status, current_period_end, stripe_customer_id")
     .eq("user_id", user.id)
     .maybeSingle();
 
   const plan = subscription?.plan ?? "free";
   const status = subscription?.status ?? "inactive";
+  const checkoutState = getCheckoutState(resolvedSearchParams.checkout);
+  const sessionId = resolvedSearchParams.session_id ?? null;
+  const hasVerifiedAccess = hasVerifiedPlanAccess(plan, status);
+  const effectivePlan = hasVerifiedAccess ? plan : "free";
 
   return (
     <div className="space-y-8">
@@ -30,19 +49,21 @@ export default async function BillingPage() {
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <Card className="space-y-5">
           <div className="flex flex-wrap items-center gap-3">
-            <Badge tone={plan === "pro_monthly" ? "accent" : "neutral"}>{getPlanLabel(plan)}</Badge>
+            <Badge tone={effectivePlan === "pro_monthly" ? "accent" : "neutral"}>{getPlanLabel(effectivePlan)}</Badge>
             <Badge tone={status === "active" ? "success" : "warning"}>{status}</Badge>
           </div>
           <div className="space-y-3">
             <h2 className="text-3xl font-semibold text-ink">
-              {plan === "pro_monthly" ? "Sevri Pro is active." : "You are currently on the free plan."}
+              {effectivePlan === "pro_monthly" ? "Sevri Pro is active." : "You are currently on the free plan."}
             </h2>
             <p className="text-sm leading-6 text-ink-soft">
-              {plan === "pro_monthly"
+              {effectivePlan === "pro_monthly"
                 ? "You have more room to iterate on recommendation boards and stay in the premium workspace while the project evolves."
                 : "The free tier is perfect for validating the workflow. Upgrade when you want more depth and more refreshes."}
             </p>
           </div>
+
+          <BillingReturnSync checkoutState={checkoutState} sessionId={sessionId} isEntitled={hasVerifiedAccess} />
 
           {subscription?.current_period_end ? (
             <p className="text-sm text-ink-soft">
@@ -50,7 +71,7 @@ export default async function BillingPage() {
             </p>
           ) : null}
 
-          <BillingActions hasSubscription={Boolean(subscription?.status && subscription.status !== "inactive")} />
+          <BillingActions canManageBilling={Boolean(subscription?.stripe_customer_id)} />
         </Card>
 
         <Card tone="blush" className="space-y-4">

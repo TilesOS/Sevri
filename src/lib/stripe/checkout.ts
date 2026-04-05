@@ -24,8 +24,8 @@ export async function createCheckoutSession(userId: string, email?: string | nul
     customerId = customer.id;
   }
 
-  const successUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/success?session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/cancel`;
+  const successUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/billing?checkout=cancel`;
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",

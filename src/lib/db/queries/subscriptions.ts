@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { hasVerifiedPlanAccess } from "@/lib/billing/entitlements";
 import type { Plan } from "@/types/domain";
 
 export async function getUserPlan(userId: string): Promise<Plan> {
@@ -17,7 +18,7 @@ export async function getUserPlan(userId: string): Promise<Plan> {
     return "free";
   }
 
-  if (data.plan === "pro_monthly" && ["active", "trialing", "past_due"].includes(data.status)) {
+  if (hasVerifiedPlanAccess(data.plan === "pro_monthly" ? "pro_monthly" : "free", data.status)) {
     return "pro_monthly";
   }
 
