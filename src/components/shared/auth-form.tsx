@@ -23,6 +23,24 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  async function handleGitHubSignIn() {
+    setError(null);
+    setIsLoading(true);
+
+    const supabase = createClient();
+    const { error: oauthError } = await supabase.auth.signInWithOAuth({
+      provider: "github",
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    });
+
+    if (oauthError) {
+      setError(oauthError.message);
+      setIsLoading(false);
+    }
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
@@ -76,6 +94,19 @@ export function AuthForm({ mode }: AuthFormProps) {
       <div aria-live="polite" className="sr-only">
         {error ?? (isLoading ? "Submitting form." : "")}
       </div>
+
+      {mode === "sign-in" ? (
+        <>
+          <Button type="button" variant="outline" size="lg" fullWidth disabled={isLoading} onClick={handleGitHubSignIn}>
+            Continue with GitHub
+          </Button>
+          <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-ink-soft/80">
+            <span className="h-px flex-1 bg-line" />
+            <span>Or continue with email</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      ) : null}
 
       {mode === "sign-up" ? (
         <FormField label="Name" htmlFor="full_name" required>
