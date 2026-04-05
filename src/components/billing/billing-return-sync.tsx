@@ -101,7 +101,7 @@ export function BillingReturnSync({ checkoutState, sessionId, isEntitled }: Bill
     return (
       <Alert tone="warning" heading="Still confirming your upgrade">
         Stripe is taking a little longer than usual to finish the billing sync. We will keep checking when you refresh, and
-        you can use "Sync billing now" below if you want to prompt another check immediately.
+        you can use the Sync billing now button below if you want to prompt another check immediately.
       </Alert>
     );
   }
