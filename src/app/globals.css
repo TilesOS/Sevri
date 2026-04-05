@@ -6,11 +6,11 @@
   color-scheme: light;
   --color-black: #151311;
   --color-white: #fcf8f4;
-  --color-primary: #7EB069;
-  --color-primary-hover: #649051;
-  --color-primary-active: #5a7f47;
-  --color-primary-soft: #e8f2e3;
-  --color-primary-line: rgba(126, 176, 105, 0.38);
+  --color-primary: #759F61;
+  --color-primary-hover: #678A55;
+  --color-primary-active: #5B7A4C;
+  --color-primary-soft: #E4EDDC;
+  --color-primary-line: rgba(117, 159, 97, 0.38);
   --canvas: #f0ece4;
   --paper: #f7f4ed;
   --surface: #e8e0d5;
@@ -56,7 +56,7 @@
   }
 
   ::selection {
-    background: rgba(126, 176, 105, 0.22);
+    background: rgba(117, 159, 97, 0.22);
     color: var(--ink);
   }
 
@@ -70,7 +70,7 @@
   .app-shell {
     background-color: var(--canvas);
     background-image:
-      radial-gradient(circle at left top, rgba(126, 176, 105, 0.10), transparent 23rem),
+      radial-gradient(circle at left top, rgba(117, 159, 97, 0.10), transparent 23rem),
       linear-gradient(rgba(247, 244, 237, 0.82), rgba(247, 244, 237, 0.18));
     background-attachment: fixed;
   }

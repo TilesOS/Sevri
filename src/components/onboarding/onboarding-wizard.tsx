@@ -380,6 +380,10 @@ export function OnboardingWizard() {
                     </Select>
                   </FormField>
 
+                  <p className="max-w-2xl text-xs leading-5 text-ink-muted">
+                    These two answers shape idea generation the most, so specific interests and subjects work best.
+                  </p>
+
                   <div className="grid gap-5 md:grid-cols-2">
                     <FormField
                       label="Interests"

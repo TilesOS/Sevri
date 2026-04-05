@@ -46,6 +46,10 @@ const signalOptions: Array<{ value: FeedbackSignal; label: string }> = [
   { value: "bad", label: "Bad" },
 ];
 
+const learningLoopInsetFieldClassName = "bg-canvas focus:bg-paper";
+const learningLoopOutlineButtonClassName =
+  "border-line bg-canvas hover:border-line-strong hover:bg-surface/80";
+
 export function GenerationFeedbackForm({
   className,
   title = "Help Sevri improve",
@@ -110,7 +114,7 @@ export function GenerationFeedbackForm({
   }
 
   return (
-    <Card className={cn("space-y-4", className)} tone="subtle">
+    <Card className={cn("space-y-4", className)}>
       <div className="space-y-2">
         <p className="editorial-kicker">Learning loop</p>
         <h3 className="text-lg font-semibold text-ink">{title}</h3>
@@ -129,7 +133,7 @@ export function GenerationFeedbackForm({
                 type="button"
                 variant={signal === option.value ? "primary" : "outline"}
                 size="sm"
-                className="rounded-full"
+                className={cn("rounded-full", signal !== option.value && learningLoopOutlineButtonClassName)}
                 onClick={() => setSignal(option.value)}
                 disabled={isPending}
               >
@@ -147,6 +151,7 @@ export function GenerationFeedbackForm({
                 value={closestRecommendationId}
                 onChange={(event) => setClosestRecommendationId(event.target.value)}
                 disabled={isPending}
+                className={learningLoopInsetFieldClassName}
               >
                 <option value="">None selected</option>
                 {props.recommendations.map((recommendation) => (
@@ -167,6 +172,7 @@ export function GenerationFeedbackForm({
               onChange={(event) => setNotes(event.target.value)}
               placeholder="What felt generic, what almost fit, or what you expected instead..."
               disabled={isPending}
+              className={learningLoopInsetFieldClassName}
             />
           </FormField>
 
