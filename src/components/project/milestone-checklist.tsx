@@ -433,7 +433,7 @@ export function MilestoneChecklist({ milestones }: { milestones: Milestone[] }) 
 
                       <div className="grid gap-4">
                         <GuidanceBlock title="Detailed checklist" tone="default">
-                          <GuidanceList items={guidance.checklist} />
+                          <GuidanceList items={guidance.checklist} variant="ordered" />
                         </GuidanceBlock>
                       </div>
 
@@ -945,11 +945,44 @@ function GuidanceBlock({
   );
 }
 
-function GuidanceList({ items }: { items: string[] }) {
+function normalizeGuidanceItem(item: string, variant: "bullet" | "ordered") {
+  const trimmed = item.trim();
+  if (variant !== "ordered") {
+    return trimmed;
+  }
+
+  return trimmed.replace(/^(?:[-*]\s*)?(?:\d+[\.\)]\s*|step\s+\d+\s*[:.-]\s*)/i, "").trim();
+}
+
+function GuidanceList({
+  items,
+  variant = "bullet",
+}: {
+  items: string[];
+  variant?: "bullet" | "ordered";
+}) {
+  if (variant === "ordered") {
+    return (
+      <ol className="space-y-3">
+        {items.map((item, index) => {
+          const displayItem = normalizeGuidanceItem(item, variant);
+          return (
+            <li key={`${item}-${index}`} className="flex items-start gap-3 text-sm leading-6 text-ink-soft">
+              <span className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-surface-strong text-xs font-semibold text-ink">
+                {index + 1}
+              </span>
+              <span>{displayItem}</span>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
+
   return (
     <ul className="space-y-2 text-sm leading-6 text-ink-soft">
-      {items.map((item) => (
-        <li key={item}>- {item}</li>
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`}>- {normalizeGuidanceItem(item, variant)}</li>
       ))}
     </ul>
   );

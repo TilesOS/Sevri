@@ -930,12 +930,12 @@ function buildFallbackStepGuidance(
   return StepGuidanceSchema.parse({
     what_to_do_now: `Start by turning "${step.title}" into a short working plan: name the exact output you want by the end of this step, list the inputs you already have, and identify the first blocker to remove.${briefRef}`,
     checklist: [
-      `Rewrite the step objective in your own words so it is specific to ${anchor}.`,
-      `Create a short checklist for the inputs, files, sources, or components this step depends on.`,
-      `Block 1-2 focused work sessions and decide what progress should exist after each one.`,
-      `Build or draft the smallest version of the deliverable before polishing anything.`,
-      `Verify against the validation check: ${step.validation_check.toLowerCase()}.`,
-      `Review the scope guardrail: ${step.scope_guardrail.toLowerCase()}.`,
+      `Define the smallest version of this step that still matters for ${anchor}.`,
+      "List the inputs, files, or sources you need before you start building.",
+      "Block 1-2 focused sessions and decide what each session should produce.",
+      `Draft the deliverable quickly before you polish anything.`,
+      `Verify the result against the validation check: ${step.validation_check.toLowerCase()}.`,
+      `Review the scope guardrail before you add anything extra: ${step.scope_guardrail.toLowerCase()}.`,
     ],
     pitfalls: [
       "Spending too long polishing before the first rough version exists.",

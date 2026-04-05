@@ -25,6 +25,18 @@ function totalEstimatedRange(milestones: Array<{ rough_time_estimate?: string | 
   return "Deeper roadmap paced one deliverable at a time.";
 }
 
+function parseTalkingPoint(point: string) {
+  const match = point.match(/^([^:]{3,40}):\s*(.+)$/);
+  if (!match) {
+    return null;
+  }
+
+  return {
+    label: match[1].trim(),
+    body: match[2].trim(),
+  };
+}
+
 export default async function ProjectPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await getRequiredUser();
   const { id } = await params;
@@ -134,6 +146,9 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
   const talkingPoints = Array.isArray(explanationGuide.interview_talking_points)
     ? explanationGuide.interview_talking_points.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
     : [];
+  const parsedTalkingPoints = talkingPoints
+    .map((point) => ({ raw: point, parsed: parseTalkingPoint(point) }))
+    .filter((item): item is { raw: string; parsed: { label: string; body: string } } => item.parsed !== null);
   const elevatorPitch = getPayloadString(explanationGuide.elevator_pitch, "");
 
   return (
@@ -247,11 +262,22 @@ export default async function ProjectPage({ params }: { params: Promise<{ id: st
           {talkingPoints.length ? (
             <div className="space-y-3">
               <p className="editorial-kicker">Talking points</p>
-              <ul className="space-y-2 text-sm leading-6 text-ink-soft">
-                {talkingPoints.map((point) => (
-                  <li key={point}>- {point}</li>
-                ))}
-              </ul>
+              {parsedTalkingPoints.length === talkingPoints.length ? (
+                <div className="space-y-3">
+                  {parsedTalkingPoints.map(({ raw, parsed }) => (
+                    <div key={raw} className="rounded-lg bg-canvas p-4">
+                      <p className="editorial-kicker">{parsed.label}</p>
+                      <p className="mt-2 text-sm leading-6 text-ink-soft">{parsed.body}</p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <ul className="space-y-2 text-sm leading-6 text-ink-soft">
+                  {talkingPoints.map((point) => (
+                    <li key={point}>- {point}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           ) : null}
         </Card>

@@ -43,6 +43,73 @@ function coerceDifficulty(value: unknown) {
   return "beginner";
 }
 
+function normalizeSentence(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function clampSentence(value: string, maxLength = 150) {
+  const normalized = normalizeSentence(value);
+  if (normalized.length <= maxLength) {
+    return normalized;
+  }
+
+  const truncated = normalized.slice(0, maxLength);
+  const lastSpace = truncated.lastIndexOf(" ");
+  const safe = lastSpace > 80 ? truncated.slice(0, lastSpace) : truncated;
+  return `${safe.trimEnd()}...`;
+}
+
+function firstSentence(value: string, fallback: string, maxLength = 150) {
+  const normalized = normalizeSentence(value);
+  if (!normalized) {
+    return fallback;
+  }
+
+  const match = normalized.match(/^(.*?[.!?])(?:\s|$)/);
+  const sentence = match ? match[1] : normalized.split(";")[0] ?? normalized;
+  return clampSentence(sentence, maxLength);
+}
+
+function trimTrailingPeriod(value: string) {
+  return value.replace(/[.?!]+$/, "").trim();
+}
+
+function buildInterviewTalkingPoints(input: {
+  context: GenerationContext;
+  selectedOption: ProjectOption;
+  roadmap: RoadmapOverview;
+}) {
+  if (input.selectedOption.project_track === "research") {
+    const seed = input.selectedOption.track_payload_json;
+    const evidencePlan = trimTrailingPeriod(seed.evidence_plan);
+    const methodology = trimTrailingPeriod(seed.methodology);
+    const researchQuestion = trimTrailingPeriod(seed.research_question);
+
+    return [
+      `Why this project: ${firstSentence(
+        input.selectedOption.why_it_fits,
+        "It aligns with the student's domain interests and gives them a believable question to own.",
+      )}`,
+      `What it does: It investigates ${researchQuestion.toLowerCase()} using ${methodology.toLowerCase()} and a bounded evidence plan.`,
+      `Broader implications: It turns a broad question into evidence people can actually discuss, using ${evidencePlan.toLowerCase()} instead of vague assumptions.`,
+    ];
+  }
+
+  const seed = input.selectedOption.track_payload_json;
+  const targetUser = trimTrailingPeriod(seed.target_user);
+  const coreWorkflow = trimTrailingPeriod(seed.core_workflow);
+  const problemStatement = trimTrailingPeriod(seed.problem_statement);
+
+  return [
+    `Why this project: ${firstSentence(
+      input.selectedOption.why_it_fits,
+      "It matches the student's background, constraints, and the kind of proof they want to show.",
+    )}`,
+    `What it does: It gives ${targetUser.toLowerCase()} a focused way to ${coreWorkflow.toLowerCase()}.`,
+    `Broader implications: It matters because ${problemStatement.toLowerCase()} is a real workflow problem, and this project makes that problem easier to handle in practice.`,
+  ];
+}
+
 export function coerceStoredProjectOption(row: StoredRecommendationRow): ProjectOption {
   const rawPayload = (row.track_payload_json && typeof row.track_payload_json === "object"
     ? row.track_payload_json
@@ -192,11 +259,7 @@ export function buildRoadmapStorageArtifacts(input: {
         `Built ${input.roadmap.project_title} to address ${input.selectedOption.summary.toLowerCase()}.`,
         `Scoped the MVP around ${input.roadmap.steps[0]?.deliverable.toLowerCase() ?? "one concrete deliverable"} and validated progress against explicit milestones.`,
       ],
-      interview_talking_points: [
-        `Why this project fit the user's domain: ${input.selectedOption.why_it_fits}`,
-        `How scope stayed honest: ${input.roadmap.cut_if_behind.join("; ")}`,
-        `What success looks like: ${input.roadmap.success_criteria.join("; ")}`,
-      ],
+      interview_talking_points: buildInterviewTalkingPoints(input),
     },
     trackPayloadJson: {
       project_brief: input.roadmap.project_brief,
