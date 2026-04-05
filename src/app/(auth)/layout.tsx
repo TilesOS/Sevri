@@ -1,14 +1,15 @@
 import type { ReactNode } from "react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
+import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container } from "@/components/shared/container";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <>
+    <div className="flex min-h-screen flex-col">
       <MarketingNav />
-      <main className="py-10 sm:py-16">
+      <main className="flex-1 py-10 sm:py-16">
         <Container className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
           <Card tone="contrast" className="contrast-grid relative overflow-hidden">
             <div className="absolute inset-x-8 top-8 h-px bg-paper/10" aria-hidden="true" />
@@ -44,6 +45,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           <div className="w-full">{children}</div>
         </Container>
       </main>
-    </>
+      <MarketingFooter />
+    </div>
   );
 }

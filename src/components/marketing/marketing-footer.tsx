@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 export function MarketingFooter() {
   const footerLinks = [
-    { href: "/privacy", label: "Privacy Policy" },
+    { href: "/privacy", label: "Privacy policy" },
     { href: "/terms", label: "Terms" },
     { href: "/support", label: "Support" },
     { href: "/suggestions", label: "Suggestions" },
