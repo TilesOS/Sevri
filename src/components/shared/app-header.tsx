@@ -1,9 +1,15 @@
+import type { ReactNode } from "react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getRequiredUser } from "@/lib/auth/guard";
 import { resolveDisplayName } from "@/lib/auth/names";
-import { AppHeaderClient } from "@/components/shared/app-header-client";
+import { AppShellClient } from "@/components/shared/app-header-client";
 
-export async function AppHeader() {
+interface AppShellProps {
+  children: ReactNode;
+  secondaryNavigation?: ReactNode;
+}
+
+export async function AppShell({ children, secondaryNavigation }: AppShellProps) {
   const user = await getRequiredUser();
   const supabase = await createServerSupabaseClient();
 
@@ -19,5 +25,9 @@ export async function AppHeader() {
     email: user.email,
   });
 
-  return <AppHeaderClient displayName={displayName} />;
+  return (
+    <AppShellClient displayName={displayName} email={user.email} secondaryNavigation={secondaryNavigation}>
+      {children}
+    </AppShellClient>
+  );
 }
