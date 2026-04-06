@@ -2,25 +2,39 @@ import type { Plan } from "@/types/domain";
 
 export const PLAN_LIMITS = {
   free: {
-    recommendation_batches: 2,
-    full_roadmap: false,
+    generation_limit: 2,
+    step_guidance: false,
     readme_export: false,
     portfolio_packaging: false,
   },
   pro_monthly: {
-    recommendation_batches: 20,
-    full_roadmap: true,
+    generation_limit: null,
+    step_guidance: true,
     readme_export: true,
     portfolio_packaging: true,
   },
 } as const;
 
-export function canGenerateRecommendations(plan: Plan, batchesUsed: number) {
-  return batchesUsed < PLAN_LIMITS[plan].recommendation_batches;
+export function getGenerationLimit(plan: Plan) {
+  return PLAN_LIMITS[plan].generation_limit;
 }
 
-export function hasRoadmapDetailAccess(plan: Plan) {
-  return PLAN_LIMITS[plan].full_roadmap;
+export function hasUnlimitedGenerations(plan: Plan) {
+  return getGenerationLimit(plan) === null;
+}
+
+export function canGenerateRecommendations(plan: Plan, generationsUsed: number) {
+  const generationLimit = getGenerationLimit(plan);
+
+  if (generationLimit === null) {
+    return true;
+  }
+
+  return generationsUsed < generationLimit;
+}
+
+export function hasStepGuidanceAccess(plan: Plan) {
+  return PLAN_LIMITS[plan].step_guidance;
 }
 
 export function hasReadmeExportAccess(plan: Plan) {

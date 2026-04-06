@@ -12,7 +12,7 @@ import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
-import { hasRoadmapDetailAccess } from "@/lib/usage/limits";
+import { hasStepGuidanceAccess } from "@/lib/usage/limits";
 import type { ProjectMilestoneView, ProjectWorkspaceView } from "@/lib/projects/workspace";
 import type {
   LatestCompletedMilestoneEvaluation,
@@ -26,7 +26,7 @@ import type {
 interface RouteErrorBody {
   error?: string;
   code?: "upgrade_required";
-  feature?: "full_roadmap";
+  feature?: "step_guidance";
   upgrade_url?: string;
 }
 
@@ -157,7 +157,7 @@ export function ProjectStepWorkspace({
   plan: Plan;
 }) {
   const router = useRouter();
-  const hasDetailAccess = hasRoadmapDetailAccess(plan);
+  const hasDetailAccess = hasStepGuidanceAccess(plan);
   const trackTheme = trackThemes[workspace.projectTrack];
   const [guidanceSlot, setGuidanceSlot] = useState<GuidanceSlot | null>(null);
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
@@ -362,21 +362,19 @@ export function ProjectStepWorkspace({
         <Card className="space-y-4">
           <p className="editorial-kicker">Step objective</p>
           <p className="text-sm leading-6 text-ink-soft">{milestone.objective}</p>
-          {hasDetailAccess ? (
-            <Button
-              type="button"
-              variant={milestone.completed ? "outline" : "primary"}
-              onClick={() => void toggleMilestone()}
-              disabled={isCompletionPending}
-              className="rounded-full"
-            >
-              {isCompletionPending
-                ? "Saving..."
-                : milestone.completed
-                  ? "Mark as not complete"
-                  : "Mark step complete"}
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            variant={milestone.completed ? "outline" : "primary"}
+            onClick={() => void toggleMilestone()}
+            disabled={isCompletionPending}
+            className="rounded-full"
+          >
+            {isCompletionPending
+              ? "Saving..."
+              : milestone.completed
+                ? "Mark as not complete"
+                : "Mark step complete"}
+          </Button>
         </Card>
 
         <Card className="space-y-4">
@@ -397,9 +395,9 @@ export function ProjectStepWorkspace({
       {!hasDetailAccess ? (
         <Card className="space-y-4">
           <p className="editorial-kicker">Premium step coaching</p>
-          <h2 className="text-2xl font-semibold text-ink">Upgrade to unlock detailed guidance, submission review, and evaluation feedback.</h2>
+          <h2 className="text-2xl font-semibold text-ink">Upgrade to unlock detailed step guidance and work evaluation.</h2>
           <p className="text-sm leading-6 text-ink-soft">
-            The free plan keeps the roadmap visible. Pro unlocks the focused step coaching, done-when review, and AI work evaluation for each milestone.
+            Free keeps the roadmap, project pages, and each step objective visible so you can try one software project and one research project. Pro adds the full coaching experience for each step, including detailed guidance, done-when review, and AI evaluation of your work.
           </p>
           <div>
             <Button href="/billing" className="rounded-full px-6">

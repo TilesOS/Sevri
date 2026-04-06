@@ -31,8 +31,8 @@ export function ProjectRoadmapEmptyState({
             title={projectTitle}
             description={
               projectTrack === "research"
-                ? "Generate the roadmap overview first, then open each step when you want deeper research guidance."
-                : "Generate the roadmap overview first, then open each step when you want detailed build guidance."
+                ? "Generate the roadmap overview first, then open each step to keep the objective visible and unlock deeper research guidance with Pro."
+                : "Generate the roadmap overview first, then open each step to keep the objective visible and unlock deeper build guidance with Pro."
             }
             className="text-paper [&_h1]:text-paper [&_p]:text-paper/72"
           />

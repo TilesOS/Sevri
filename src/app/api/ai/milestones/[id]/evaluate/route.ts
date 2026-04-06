@@ -271,7 +271,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "feature-access";
     const featureAccess = await assertFeatureAccess({
       userId: user.id,
-      feature: "full_roadmap",
+      feature: "step_guidance",
     });
 
     if (!featureAccess.allowed) {
@@ -552,7 +552,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
     const { id } = await context.params;
     const featureAccess = await assertFeatureAccess({
       userId: user.id,
-      feature: "full_roadmap",
+      feature: "step_guidance",
     });
 
     if (!featureAccess.allowed) {

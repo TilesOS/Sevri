@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
-import { hasRoadmapDetailAccess } from "@/lib/usage/limits";
+import { hasStepGuidanceAccess } from "@/lib/usage/limits";
 import type { Plan } from "@/types/domain";
 
-export type RestrictedFeature = "full_roadmap";
+export type RestrictedFeature = "step_guidance";
 
 export interface UpgradeRequiredError {
   code: "upgrade_required";
@@ -18,11 +18,11 @@ export type FeatureAccessResult =
 
 function buildUpgradeRequiredError(feature: RestrictedFeature): UpgradeRequiredError {
   switch (feature) {
-    case "full_roadmap":
+    case "step_guidance":
       return {
         code: "upgrade_required",
         feature,
-        error: "Upgrade to Pro to unlock milestone guidance and evaluation across your roadmap.",
+        error: "Upgrade to Pro to unlock detailed step coaching and work evaluation.",
         upgrade_url: "/billing",
       };
   }
@@ -35,8 +35,8 @@ export async function assertFeatureAccess(input: {
   const plan = await getUserPlan(input.userId);
 
   switch (input.feature) {
-    case "full_roadmap":
-      if (hasRoadmapDetailAccess(plan)) {
+    case "step_guidance":
+      if (hasStepGuidanceAccess(plan)) {
         return { allowed: true, plan };
       }
 

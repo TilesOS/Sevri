@@ -28,7 +28,7 @@ export default async function RecommendationsPage({
   const defaultTrack = await getLatestProjectTrack(user.id);
   const activeTrack = getRequestedTrack(resolvedSearchParams.track, defaultTrack);
 
-  const [recommendations, plan, batchesUsed, trackAvailability] = await Promise.all([
+  const [recommendations, plan, generationsUsed, trackAvailability] = await Promise.all([
     getLatestRecommendations(user.id, activeTrack),
     getUserPlan(user.id),
     getRecommendationGenerationCount(user.id),
@@ -51,7 +51,7 @@ export default async function RecommendationsPage({
         authenticity_note: item.authenticity_note,
       }))}
       plan={plan}
-      batchesUsed={batchesUsed}
+      generationsUsed={generationsUsed}
       trackAvailability={trackAvailability}
     />
   );

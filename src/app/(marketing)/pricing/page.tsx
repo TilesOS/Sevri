@@ -7,19 +7,19 @@ import { Section } from "@/components/ui/section";
 
 const comparisonRows = [
   {
-    label: "Recommendation batches",
-    free: `${PLAN_LIMITS.free.recommendation_batches} total`,
-    pro: `${PLAN_LIMITS.pro_monthly.recommendation_batches}+ refreshes`,
+    label: "Recommendation generations",
+    free: `${PLAN_LIMITS.free.generation_limit} total`,
+    pro: "Unlimited",
   },
   {
     label: "Recommendation board",
-    free: "Three ideas at a time",
-    pro: "Three ideas at a time, refreshed as your thinking evolves",
+    free: "Enough to try one software direction and one research direction",
+    pro: "Generate fresh boards whenever your thinking evolves",
   },
   {
     label: "Roadmap experience",
-    free: "Core roadmap overview",
-    pro: "Full roadmap depth plus better packaging support",
+    free: "Roadmap, project pages, and step objectives",
+    pro: "Everything in Free plus detailed step coaching and evaluation",
   },
   {
     label: "Portfolio packaging",
@@ -32,12 +32,12 @@ const faqItems = [
   {
     question: "Should I start on the free plan?",
     answer:
-      "Yes, if you want to validate the workflow first. The free tier is designed to help you run onboarding, compare your first recommendation batches, and decide whether Sevri fits how you work.",
+      "Yes, if you want to validate the workflow first. The free tier is designed to help you run onboarding, try two generations total, and see whether Sevri fits how you work.",
   },
   {
     question: "Who is Pro for?",
     answer:
-      "Pro is for students who know they want deeper iteration, more recommendation refreshes, and a stronger finishing environment while they execute.",
+      "Pro is for students who want unlimited generations plus detailed per-step coaching and evaluation while they execute.",
   },
   {
     question: "Can I upgrade later?",
@@ -53,7 +53,7 @@ export default function PricingPage() {
         <PageHeader
           eyebrow="Pricing"
           title="Simple pricing for serious students."
-          description="Start free while you validate the workflow. Upgrade when you want more iterations, deeper guidance, and a stronger finishing environment."
+          description="Start free while you validate the workflow. Upgrade when you want unlimited generations, deeper coaching, and a stronger finishing environment."
         />
         <div className="mt-10 grid gap-4 lg:grid-cols-2">
           <Reveal>
@@ -64,14 +64,13 @@ export default function PricingPage() {
                 <p className="pb-1 text-sm text-ink-muted">/ month</p>
               </div>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Best for trying Sevri, running onboarding, and getting your first comparison board
-                before you commit.
+                Best for trying Sevri, running onboarding, and testing one software project plus one research project before you commit.
               </p>
               <ul className="mt-6 space-y-3 text-sm leading-6 text-ink-soft">
-                <li>{PLAN_LIMITS.free.recommendation_batches} recommendation batches</li>
+                <li>{PLAN_LIMITS.free.generation_limit} generations total</li>
                 <li>4-step onboarding wizard</li>
-                <li>Roadmap overview and milestone tracking</li>
-                <li>Great for deciding whether the workflow fits</li>
+                <li>Roadmap, project pages, and milestone tracking</li>
+                <li>Great for deciding whether the workflow fits your process</li>
               </ul>
               <div className="mt-auto pt-8">
                 <Button href="/sign-up" fullWidth className="rounded-full">
@@ -89,12 +88,12 @@ export default function PricingPage() {
                 <p className="pb-1 text-sm text-paper/72">/ month</p>
               </div>
               <p className="mt-4 text-sm leading-6 text-paper/72">
-                Best for students who already know they want deeper planning support and more room to
-                iterate on the right direction.
+                Best for students who already know they want deeper planning support, unlimited iteration,
+                and detailed coaching while the project moves.
               </p>
               <ul className="mt-6 space-y-3 text-sm leading-6 text-paper/72">
-                <li>{PLAN_LIMITS.pro_monthly.recommendation_batches}+ recommendation refreshes</li>
-                <li>Deeper roadmap and packaging support</li>
+                <li>Unlimited generations</li>
+                <li>Detailed step guidance and work evaluation</li>
                 <li>Built for sustained use during execution</li>
                 <li>Better fit once you are committed to shipping</li>
               </ul>
@@ -111,7 +110,7 @@ export default function PricingPage() {
       <Section
         eyebrow="Comparison"
         title="What changes when you upgrade."
-        description="The product contract stays the same: Sevri helps you choose, scope, and finish serious work. Pro mainly increases depth, flexibility, and iteration room."
+        description="The product contract stays the same: Sevri helps you choose, scope, and finish serious work. Pro mainly increases coaching depth and iteration room."
         className="bg-primary-soft"
       >
         <div className="overflow-hidden rounded-2xl border border-line bg-paper shadow-soft">
@@ -143,8 +142,7 @@ export default function PricingPage() {
             <Card className="h-full">
               <h2 className="text-3xl font-semibold text-ink">Free fits best when you are choosing.</h2>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Use it when you want enough structure to compare ideas, test the flow, and confirm
-                which track deserves your time.
+                Use it when you want enough structure to compare ideas, test the flow, and confirm which track deserves your time.
               </p>
             </Card>
           </Reveal>
@@ -152,8 +150,7 @@ export default function PricingPage() {
             <Card tone="primary" className="h-full">
               <h2 className="text-3xl font-semibold text-ink">Pro fits best when you are committed.</h2>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Upgrade when you want more iteration space, a richer workspace, and better finishing
-                support while the project is actively moving.
+                Upgrade when you want unlimited iteration space, richer step coaching, and better finishing support while the project is actively moving.
               </p>
             </Card>
           </Reveal>
@@ -170,13 +167,13 @@ export default function PricingPage() {
           <Card tone="contrast" className="border-contrast-line bg-paper/5">
             <p className="editorial-kicker text-paper/55">More iteration</p>
             <p className="mt-3 text-xl font-semibold text-paper">
-              Refresh recommendation boards when your thinking changes.
+              Generate fresh recommendation boards whenever your thinking changes.
             </p>
           </Card>
           <Card tone="contrast" className="border-contrast-line bg-paper/5">
             <p className="editorial-kicker text-paper/55">Better depth</p>
             <p className="mt-3 text-xl font-semibold text-paper">
-              Stay inside the workspace longer without losing the shape of the project.
+              Unlock detailed step coaching and evaluation without losing the shape of the project.
             </p>
           </Card>
           <Card tone="contrast" className="border-contrast-line bg-paper/5">

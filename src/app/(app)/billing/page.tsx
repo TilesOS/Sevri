@@ -43,7 +43,7 @@ export default async function BillingPage({
       <PageHeader
         eyebrow="Billing"
         title="Manage the depth of your workspace."
-        description="Start free, upgrade when you want more iteration room, and manage your billing details without disrupting your project flow."
+        description="Start free, upgrade when you want unlimited generations and deeper coaching, and manage your billing details without disrupting your project flow."
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
@@ -58,8 +58,8 @@ export default async function BillingPage({
             </h2>
             <p className="text-sm leading-6 text-ink-soft">
               {effectivePlan === "pro_monthly"
-                ? "You have more room to iterate on recommendation boards and stay in the premium workspace while the project evolves."
-                : "The free tier is perfect for validating the workflow. Upgrade when you want more depth and more refreshes."}
+                ? "You have unlimited generations plus detailed step coaching and evaluation while the project evolves."
+                : "The free tier is perfect for validating the workflow. You can use two generations total, build the roadmap, and upgrade when you want deeper coaching."}
             </p>
           </div>
 
@@ -76,10 +76,10 @@ export default async function BillingPage({
 
         <Card tone="blush" className="space-y-4">
           <p className="editorial-kicker">Why upgrade</p>
-          <h2 className="text-3xl font-semibold text-ink">Upgrade for better iteration, not more noise.</h2>
+          <h2 className="text-3xl font-semibold text-ink">Upgrade for better coaching, not more noise.</h2>
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
-            <li>Refresh recommendation boards when your understanding of the right project changes.</li>
-            <li>Keep more momentum inside the workspace while the roadmap is unfolding.</li>
+            <li>Generate fresh recommendation boards whenever your understanding of the right project changes.</li>
+            <li>Unlock detailed step guidance and AI evaluation while the roadmap is unfolding.</li>
             <li>Use Pro when the direction is chosen and execution matters more than experimentation.</li>
           </ul>
         </Card>

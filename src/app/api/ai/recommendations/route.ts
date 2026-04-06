@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
     if (!canGenerateRecommendations(plan, generatedCount)) {
       return NextResponse.json(
-        { error: "Free tier limit reached. Upgrade to Pro for more recommendation refreshes." },
+        { error: "Free plan limit reached. Upgrade to Pro for unlimited generations." },
         { status: 403 },
       );
     }

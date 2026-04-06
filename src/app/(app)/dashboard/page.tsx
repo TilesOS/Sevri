@@ -11,7 +11,7 @@ import { StatCard } from "@/components/ui/stat-card";
 
 export default async function DashboardPage() {
   const user = await getRequiredUser();
-  const [projects, plan, recommendationBatches, trackAvailability] = await Promise.all([
+  const [projects, plan, recommendationGenerations, trackAvailability] = await Promise.all([
     getProjectsForDashboard(user.id),
     getUserPlan(user.id),
     getRecommendationGenerationCount(user.id),
@@ -75,11 +75,11 @@ export default async function DashboardPage() {
         <StatCard
           label="Current plan"
           value={getPlanLabel(plan)}
-          detail={plan === "pro_monthly" ? "Premium workspace enabled." : "Free plan with essential guidance."}
+          detail={plan === "pro_monthly" ? "Unlimited generations and Pro coaching enabled." : "2 free generations plus roadmap access."}
         />
         <StatCard
-          label="Recommendation batches used"
-          value={recommendationBatches}
+          label="Recommendation generations used"
+          value={recommendationGenerations}
           detail="Total generations across both tracks."
         />
         <StatCard label="Saved projects" value={projects.length} detail="Active, paused, and completed work in one place." />
@@ -133,7 +133,7 @@ function TrackSection({
             <h2 className="text-2xl font-semibold text-ink">{title}</h2>
             <p className="mt-2 text-sm leading-6 text-ink-soft">
               {track === "software"
-                ? "Keep your saved software builds moving and regenerate ideas whenever you need another angle."
+                ? "Keep your saved software builds moving and revisit new ideas when you need another angle."
                 : "Keep your saved research directions visible and make deliberate tradeoffs before you commit."}
             </p>
           </div>
@@ -190,7 +190,7 @@ function TrackSection({
         <Card tone="subtle">
           <p className="text-sm leading-6 text-ink-soft">
             {track === "software"
-              ? "Keep your saved software builds moving and regenerate ideas whenever you need another angle."
+              ? "Keep your saved software builds moving and revisit new ideas when you need another angle."
               : "Keep your saved research projects visible alongside your software work."}
           </p>
           <p className="mt-3 text-sm leading-6 text-ink-soft">

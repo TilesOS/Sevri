@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
-import { PLAN_LIMITS } from "@/lib/usage/limits";
+import { canGenerateRecommendations, getGenerationLimit, hasUnlimitedGenerations } from "@/lib/usage/limits";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -41,7 +41,7 @@ interface RecommendationsClientProps {
   activeTrack: ProjectTrack;
   initialRecommendations: RecommendationItem[];
   plan: Plan;
-  batchesUsed: number;
+  generationsUsed: number;
   trackAvailability: TrackAvailability;
 }
 
@@ -65,7 +65,7 @@ export function RecommendationsClient({
   activeTrack,
   initialRecommendations,
   plan,
-  batchesUsed,
+  generationsUsed,
   trackAvailability,
 }: RecommendationsClientProps) {
   const router = useRouter();
@@ -74,13 +74,9 @@ export function RecommendationsClient({
   const [isSelectingId, setIsSelectingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canRegenerate = useMemo(() => {
-    if (plan === "pro_monthly") {
-      return true;
-    }
-
-    return batchesUsed < PLAN_LIMITS[plan].recommendation_batches;
-  }, [plan, batchesUsed]);
+  const canRegenerate = useMemo(() => canGenerateRecommendations(plan, generationsUsed), [plan, generationsUsed]);
+  const generationLimit = getGenerationLimit(plan);
+  const unlimitedGenerations = hasUnlimitedGenerations(plan);
 
   const hasTrackIntake = trackAvailability[activeTrack].hasIntake;
   const ribbons = useMemo(() => deriveRibbons(recommendations), [recommendations]);
@@ -193,8 +189,10 @@ export function RecommendationsClient({
             <p className="mt-3 text-3xl font-semibold text-paper">{getPlanLabel(plan)}</p>
           </Card>
           <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
-            <p className="editorial-kicker text-paper/55">Batches used</p>
-            <p className="mt-3 text-3xl font-semibold text-paper">{batchesUsed}</p>
+            <p className="editorial-kicker text-paper/55">Generations used</p>
+            <p className="mt-3 text-3xl font-semibold text-paper">
+              {unlimitedGenerations || generationLimit === null ? generationsUsed : `${generationsUsed} / ${generationLimit}`}
+            </p>
           </Card>
           <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
             <p className="editorial-kicker text-paper/55">Track readiness</p>
@@ -223,7 +221,7 @@ export function RecommendationsClient({
 
       {!canRegenerate ? (
         <Alert tone="warning" heading="Free plan limit reached">
-          Upgrade on the billing page to unlock more recommendation refreshes and keep iterating on the right direction.
+          You have used both free generations. Upgrade on the billing page to unlock unlimited generations and keep iterating on the right direction.
         </Alert>
       ) : null}
 

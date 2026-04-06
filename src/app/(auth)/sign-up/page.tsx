@@ -11,7 +11,7 @@ export default function SignUpPage() {
       <div className="space-y-2">
         <h1 className="font-display text-4xl leading-none text-ink">Create your Sevri account</h1>
         <p className="text-sm leading-6 text-ink-soft">
-          Start with guided onboarding and two recommendation batches while you decide which direction deserves your best work.
+          Start with guided onboarding and two total generations while you decide which software or research direction deserves your best work.
         </p>
       </div>
       <Suspense fallback={<p className="text-sm text-ink-soft">Loading sign-up form...</p>}>
