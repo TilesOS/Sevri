@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ProjectSidebarSlot } from "@/components/project/project-sidebar-slot";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/shared/container";
 import { cn } from "@/lib/utils";
@@ -25,15 +26,9 @@ interface AppShellClientProps {
   children: ReactNode;
   displayName: string;
   email?: string | null;
-  secondaryNavigation?: ReactNode;
 }
 
-export function AppShellClient({
-  children,
-  displayName,
-  email,
-  secondaryNavigation,
-}: AppShellClientProps) {
+export function AppShellClient({ children, displayName, email }: AppShellClientProps) {
   const pathname = usePathname();
   const sidebarId = useId();
   const edgeTriggerRef = useRef<HTMLButtonElement>(null);
@@ -254,7 +249,6 @@ export function AppShellClient({
           pathname={pathname}
           isPinned={isPinned}
           isDesktop={isDesktop}
-          secondaryNavigation={secondaryNavigation}
           onNavigate={closeNavigation}
           onCollapse={collapseSidebar}
           onPin={pinSidebar}
@@ -290,7 +284,6 @@ interface SidebarContentProps {
   pathname: string;
   isPinned: boolean;
   isDesktop: boolean;
-  secondaryNavigation?: ReactNode;
   onNavigate: () => void;
   onCollapse: () => void;
   onPin: () => void;
@@ -304,7 +297,6 @@ function SidebarContent({
   pathname,
   isPinned,
   isDesktop,
-  secondaryNavigation,
   onNavigate,
   onCollapse,
   onPin,
@@ -376,12 +368,7 @@ function SidebarContent({
         ))}
       </nav>
 
-      {secondaryNavigation ? (
-        <div className="px-4 pt-5">
-          <SidebarSectionLabel label="Project context" />
-          <div className="mt-3 rounded-2xl border border-line bg-canvas/68 p-3">{secondaryNavigation}</div>
-        </div>
-      ) : null}
+      <ProjectSidebarSection pathname={pathname} />
 
       <div className="px-4 pt-5">
         <SidebarSectionLabel label="Account" />
@@ -434,6 +421,23 @@ function SidebarContent({
         </div>
       </div>
     </>
+  );
+}
+
+function ProjectSidebarSection({ pathname }: { pathname: string }) {
+  const isProjectRoute = pathname.startsWith("/project/");
+
+  if (!isProjectRoute) {
+    return null;
+  }
+
+  return (
+    <div className="px-4 pt-5">
+      <SidebarSectionLabel label="Project context" />
+      <div className="mt-3 rounded-2xl border border-line bg-canvas/68 p-3">
+        <ProjectSidebarSlot pathname={pathname} />
+      </div>
+    </div>
   );
 }
 

@@ -4,12 +4,7 @@ import { getRequiredUser } from "@/lib/auth/guard";
 import { resolveDisplayName } from "@/lib/auth/names";
 import { AppShellClient } from "@/components/shared/app-header-client";
 
-interface AppShellProps {
-  children: ReactNode;
-  secondaryNavigation?: ReactNode;
-}
-
-export async function AppShell({ children, secondaryNavigation }: AppShellProps) {
+export async function AppShell({ children }: { children: ReactNode }) {
   const user = await getRequiredUser();
   const supabase = await createServerSupabaseClient();
 
@@ -26,7 +21,7 @@ export async function AppShell({ children, secondaryNavigation }: AppShellProps)
   });
 
   return (
-    <AppShellClient displayName={displayName} email={user.email} secondaryNavigation={secondaryNavigation}>
+    <AppShellClient displayName={displayName} email={user.email}>
       {children}
     </AppShellClient>
   );
