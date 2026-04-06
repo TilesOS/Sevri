@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
+import { roadmapStatusClassName } from "@/components/project/project-status";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
@@ -378,7 +379,7 @@ export function ProjectStepWorkspace({
           ) : null}
         </Card>
 
-        <Card tone="subtle" className="space-y-4">
+        <Card className="space-y-4">
           <p className="editorial-kicker">Why this step matters</p>
           <p className="text-sm leading-6 text-ink-soft">
             Each step is meant to produce one visible artifact. Keep the finishable version moving before you add polish.
@@ -602,12 +603,7 @@ function StepTimeline({
                   <p className="mt-2 text-sm font-semibold text-current">{item.title}</p>
                 </div>
                 <span
-                  className={cn(
-                    "h-2.5 w-2.5 shrink-0 rounded-full",
-                    item.status === "complete" && "bg-emerald-500",
-                    item.status === "in_progress" && "bg-amber-500",
-                    item.status === "not_started" && "bg-line-strong",
-                  )}
+                  className={cn("h-2.5 w-2.5 shrink-0 rounded-full", roadmapStatusClassName[item.status])}
                   aria-hidden="true"
                 />
               </div>

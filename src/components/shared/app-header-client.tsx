@@ -1,25 +1,20 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { FocusEvent, ReactNode } from "react";
 import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ProjectSidebarSlot } from "@/components/project/project-sidebar-slot";
-import { Button } from "@/components/ui/button";
 import { Container } from "@/components/shared/container";
+import { Button } from "@/components/ui/button";
+import { PageTransition } from "@/components/ui/page-transition";
 import { cn } from "@/lib/utils";
 
-const SIDEBAR_STORAGE_KEY = "sevri.app-sidebar.pinned";
-
-const primaryLinks = [
+const workspaceLinks = [
   { href: "/dashboard", label: "Dashboard", match: (pathname: string) => pathname === "/dashboard" },
   { href: "/recommendations", label: "Recommendations", match: (pathname: string) => pathname.startsWith("/recommendations") },
+  { href: "/onboarding", label: "Project Profile", match: (pathname: string) => pathname.startsWith("/onboarding") },
   { href: "/billing", label: "Billing", match: (pathname: string) => pathname.startsWith("/billing") },
-  { href: "/settings", label: "Settings", match: (pathname: string) => pathname.startsWith("/settings") },
-] as const;
-
-const secondaryLinks = [
-  { href: "/onboarding", label: "Profile & Interests", match: (pathname: string) => pathname.startsWith("/onboarding") },
 ] as const;
 
 interface AppShellClientProps {
@@ -30,15 +25,26 @@ interface AppShellClientProps {
 
 export function AppShellClient({ children, displayName, email }: AppShellClientProps) {
   const pathname = usePathname();
-  const sidebarId = useId();
-  const edgeTriggerRef = useRef<HTMLButtonElement>(null);
+  const desktopSidebarId = useId();
+  const mobileSidebarId = `${desktopSidebarId}-mobile`;
+  const desktopTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
-  const sidebarRef = useRef<HTMLElement>(null);
+  const desktopSidebarRef = useRef<HTMLElement>(null);
+  const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const [isPinned, setIsPinned] = useState(true);
-  const [isDesktopOverlayOpen, setIsDesktopOverlayOpen] = useState(false);
-  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const desktopFlyoutOpenRef = useRef(false);
+  const mobileDrawerOpenRef = useRef(false);
   const [isDesktop, setIsDesktop] = useState(false);
+  const [isDesktopFlyoutOpen, setIsDesktopFlyoutOpen] = useState(false);
+  const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+
+  useEffect(() => {
+    desktopFlyoutOpenRef.current = isDesktopFlyoutOpen;
+  }, [isDesktopFlyoutOpen]);
+
+  useEffect(() => {
+    mobileDrawerOpenRef.current = isMobileDrawerOpen;
+  }, [isMobileDrawerOpen]);
 
   useEffect(() => {
     const mediaQuery = window.matchMedia("(min-width: 1024px)");
@@ -53,24 +59,10 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   }, []);
 
   useEffect(() => {
-    const storedPreference = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
-    if (storedPreference === "false") {
-      setIsPinned(false);
-      return;
-    }
-
-    if (storedPreference === "true") {
-      setIsPinned(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    window.localStorage.setItem(SIDEBAR_STORAGE_KEY, String(isPinned));
-  }, [isPinned]);
-
-  useEffect(() => {
-    setIsDesktopOverlayOpen(false);
+    clearDesktopCloseTimer();
+    setIsDesktopFlyoutOpen(false);
     setIsMobileDrawerOpen(false);
+    previousFocusRef.current = null;
   }, [pathname]);
 
   useEffect(() => {
@@ -79,7 +71,8 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
       return;
     }
 
-    setIsDesktopOverlayOpen(false);
+    clearDesktopCloseTimer();
+    setIsDesktopFlyoutOpen(false);
   }, [isDesktop]);
 
   useEffect(() => {
@@ -88,12 +81,26 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
         return;
       }
 
-      if (isMobileDrawerOpen) {
+      const previousFocus = previousFocusRef.current;
+
+      if (mobileDrawerOpenRef.current) {
         setIsMobileDrawerOpen(false);
       }
 
-      if (isDesktopOverlayOpen) {
-        setIsDesktopOverlayOpen(false);
+      if (desktopFlyoutOpenRef.current) {
+        if (closeTimerRef.current) {
+          clearTimeout(closeTimerRef.current);
+          closeTimerRef.current = null;
+        }
+
+        setIsDesktopFlyoutOpen(false);
+      }
+
+      if (previousFocus) {
+        previousFocusRef.current = null;
+        window.requestAnimationFrame(() => {
+          previousFocus.focus();
+        });
       }
     }
 
@@ -101,42 +108,75 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [isDesktopOverlayOpen, isMobileDrawerOpen]);
+  }, []);
 
   useEffect(() => {
-    const shouldFocusSidebar =
-      isMobileDrawerOpen || (isDesktop && isDesktopOverlayOpen && !isPinned && previousFocusRef.current !== null);
-    if (!shouldFocusSidebar) {
-      return;
+    return () => {
+      if (closeTimerRef.current) {
+        clearTimeout(closeTimerRef.current);
+      }
+    };
+  }, []);
+
+  function clearDesktopCloseTimer() {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
     }
+  }
 
-    const focusTarget = sidebarRef.current?.querySelector<HTMLElement>(
-      "[data-sidebar-autofocus], a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled])",
-    );
-
-    focusTarget?.focus();
-  }, [isDesktop, isDesktopOverlayOpen, isMobileDrawerOpen, isPinned]);
-
-  useEffect(() => {
-    if (isMobileDrawerOpen || (isDesktop && isDesktopOverlayOpen && !isPinned)) {
-      return;
-    }
-
+  function restorePreviousFocus() {
     const previousFocus = previousFocusRef.current;
     previousFocusRef.current = null;
-    previousFocus?.focus();
-  }, [isDesktop, isDesktopOverlayOpen, isMobileDrawerOpen, isPinned]);
 
-  const isOverlayVisible = !isPinned && isDesktopOverlayOpen;
-  const initials = getInitials(displayName);
-
-  function openDesktopOverlay(trigger?: HTMLElement | null) {
-    if (!isDesktop || isPinned) {
+    if (!previousFocus) {
       return;
     }
 
-    previousFocusRef.current = trigger ?? null;
-    setIsDesktopOverlayOpen(true);
+    window.requestAnimationFrame(() => {
+      previousFocus.focus();
+    });
+  }
+
+  function openDesktopNavigation(trigger?: HTMLElement | null) {
+    if (!isDesktop) {
+      return;
+    }
+
+    clearDesktopCloseTimer();
+    if (trigger) {
+      previousFocusRef.current = trigger;
+    }
+    setIsDesktopFlyoutOpen(true);
+  }
+
+  function closeDesktopNavigation(shouldRestoreFocus = false) {
+    clearDesktopCloseTimer();
+    setIsDesktopFlyoutOpen(false);
+
+    if (shouldRestoreFocus) {
+      restorePreviousFocus();
+    }
+  }
+
+  function scheduleDesktopClose() {
+    if (!isDesktop) {
+      return;
+    }
+
+    clearDesktopCloseTimer();
+    closeTimerRef.current = setTimeout(() => {
+      const activeElement = document.activeElement;
+
+      if (
+        activeElement &&
+        (desktopSidebarRef.current?.contains(activeElement) || desktopTriggerRef.current?.contains(activeElement))
+      ) {
+        return;
+      }
+
+      setIsDesktopFlyoutOpen(false);
+    }, 140);
   }
 
   function openMobileDrawer() {
@@ -144,35 +184,81 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
     setIsMobileDrawerOpen(true);
   }
 
-  function closeNavigation() {
-    setIsDesktopOverlayOpen(false);
+  function closeMobileDrawer(shouldRestoreFocus = false) {
     setIsMobileDrawerOpen(false);
+
+    if (shouldRestoreFocus) {
+      restorePreviousFocus();
+    }
   }
 
-  function pinSidebar() {
-    previousFocusRef.current = null;
-    setIsPinned(true);
-    setIsDesktopOverlayOpen(false);
+  function handleDesktopTriggerBlur(event: FocusEvent<HTMLButtonElement>) {
+    const nextFocusedElement = event.relatedTarget as Node | null;
+
+    if (
+      nextFocusedElement &&
+      (desktopSidebarRef.current?.contains(nextFocusedElement) || desktopTriggerRef.current?.contains(nextFocusedElement))
+    ) {
+      return;
+    }
+
+    scheduleDesktopClose();
   }
 
-  function collapseSidebar() {
-    previousFocusRef.current = edgeTriggerRef.current;
-    setIsPinned(false);
-    setIsDesktopOverlayOpen(false);
+  function handleDesktopSidebarBlur(event: FocusEvent<HTMLElement>) {
+    const nextFocusedElement = event.relatedTarget as Node | null;
+
+    if (
+      nextFocusedElement &&
+      (desktopSidebarRef.current?.contains(nextFocusedElement) || desktopTriggerRef.current?.contains(nextFocusedElement))
+    ) {
+      return;
+    }
+
+    scheduleDesktopClose();
   }
+
+  const initials = getInitials(displayName);
 
   return (
     <div className="relative min-h-screen">
       <button
+        ref={desktopTriggerRef}
+        type="button"
+        className={cn(
+          "fixed left-4 top-4 z-[70] hidden h-11 w-11 items-center justify-center rounded-2xl border border-line bg-paper/94 text-ink shadow-soft backdrop-blur transition hover:border-line-strong hover:bg-paper lg:inline-flex",
+          isDesktopFlyoutOpen && "border-line-strong bg-paper",
+        )}
+        aria-label={isDesktopFlyoutOpen ? "Close workspace navigation" : "Open workspace navigation"}
+        aria-expanded={isDesktopFlyoutOpen}
+        aria-controls={desktopSidebarId}
+        onMouseEnter={() => openDesktopNavigation()}
+        onMouseLeave={scheduleDesktopClose}
+        onFocus={(event) => openDesktopNavigation(event.currentTarget)}
+        onBlur={handleDesktopTriggerBlur}
+        onClick={(event) => {
+          if (isDesktopFlyoutOpen) {
+            previousFocusRef.current = event.currentTarget;
+            closeDesktopNavigation(true);
+            return;
+          }
+
+          openDesktopNavigation(event.currentTarget);
+        }}
+      >
+        <MenuIcon />
+      </button>
+
+      <button
         ref={mobileTriggerRef}
         type="button"
-        className="fixed left-4 top-4 z-[70] inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-paper/92 text-ink shadow-soft transition hover:border-line-strong hover:bg-paper lg:hidden"
+        className="fixed left-4 top-4 z-[70] inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-line bg-paper/94 text-ink shadow-soft backdrop-blur transition hover:border-line-strong hover:bg-paper lg:hidden"
         aria-label={isMobileDrawerOpen ? "Close workspace navigation" : "Open workspace navigation"}
         aria-expanded={isMobileDrawerOpen}
-        aria-controls={sidebarId}
+        aria-controls={mobileSidebarId}
         onClick={() => {
           if (isMobileDrawerOpen) {
-            closeNavigation();
+            closeMobileDrawer(true);
             return;
           }
 
@@ -182,97 +268,61 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
         <MenuIcon />
       </button>
 
-      {!isPinned ? (
-        <button
-          ref={edgeTriggerRef}
-          type="button"
-          className="fixed left-0 top-24 z-40 hidden h-24 w-5 items-center justify-center border-y border-r border-line bg-paper/92 text-ink transition hover:bg-surface/88 lg:inline-flex"
-          aria-label={isOverlayVisible ? "Close workspace navigation overlay" : "Reveal workspace navigation"}
-          aria-expanded={isOverlayVisible}
-          aria-controls={sidebarId}
-          onMouseEnter={() => openDesktopOverlay()}
-          onFocus={(event) => openDesktopOverlay(event.currentTarget)}
-          onClick={(event) => {
-            if (isOverlayVisible) {
-              setIsDesktopOverlayOpen(false);
-              return;
-            }
-
-            openDesktopOverlay(event.currentTarget);
-          }}
-        >
-          <div className="flex rotate-180 items-center gap-1 text-[11px] font-semibold uppercase tracking-[0.24em] [writing-mode:vertical-rl]">
-            <span>Menu</span>
-            <span aria-hidden="true">||</span>
-          </div>
-        </button>
-      ) : null}
-
       {isMobileDrawerOpen ? (
         <button
           type="button"
           className="fixed inset-0 z-50 bg-ink/22 backdrop-blur-[1px] lg:hidden"
           aria-label="Dismiss workspace navigation"
-          onClick={closeNavigation}
-        />
-      ) : null}
-
-      {isOverlayVisible ? (
-        <button
-          type="button"
-          className="fixed inset-0 z-40 hidden bg-transparent lg:block"
-          aria-label="Dismiss workspace navigation overlay"
-          onClick={closeNavigation}
+          onClick={() => closeMobileDrawer(true)}
         />
       ) : null}
 
       <aside
-        id={sidebarId}
-        ref={sidebarRef}
+        id={desktopSidebarId}
+        ref={desktopSidebarRef}
         className={cn(
-          "app-sidebar-shell fixed inset-y-0 left-0 z-[60] hidden w-[15rem] flex-col border-r border-line bg-paper/95 text-ink backdrop-blur-md transition-transform duration-200 ease-out lg:z-50",
-          isPinned && "lg:flex lg:translate-x-0",
-          !isPinned && "lg:flex lg:-translate-x-full",
-          !isPinned && isOverlayVisible && "lg:translate-x-0",
-          isMobileDrawerOpen && "flex translate-x-0",
+          "app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[16rem] flex-col overflow-hidden border-r border-line text-ink backdrop-blur-md transition-transform duration-200 ease-out lg:flex",
+          isDesktopFlyoutOpen ? "visible translate-x-0 pointer-events-auto" : "invisible pointer-events-none -translate-x-[calc(100%+1rem)]",
         )}
-        onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            closeNavigation();
-          }
-        }}
+        onMouseEnter={() => openDesktopNavigation()}
+        onMouseLeave={scheduleDesktopClose}
+        onFocusCapture={() => openDesktopNavigation()}
+        onBlurCapture={handleDesktopSidebarBlur}
       >
         <SidebarContent
           displayName={displayName}
           email={email}
           initials={initials}
           pathname={pathname}
-          isPinned={isPinned}
-          isDesktop={isDesktop}
-          onNavigate={closeNavigation}
-          onCollapse={collapseSidebar}
-          onPin={pinSidebar}
-          onClose={closeNavigation}
+          onNavigate={() => closeDesktopNavigation(false)}
+          onClose={() => closeDesktopNavigation(true)}
+          showCloseButton={false}
         />
       </aside>
 
-      <div
+      <aside
+        id={mobileSidebarId}
         className={cn(
-          "min-h-screen transition-[padding] duration-200 ease-out",
-          isPinned ? "lg:pl-[15rem]" : "lg:pl-0",
+          "app-sidebar-shell fixed inset-y-0 left-0 z-[60] flex w-[16rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden border-r border-line text-ink backdrop-blur-md transition-transform duration-200 ease-out lg:hidden",
+          isMobileDrawerOpen ? "visible translate-x-0 pointer-events-auto" : "invisible pointer-events-none -translate-x-[105%]",
         )}
       >
-        <main
-          className="min-h-screen pb-14 pt-20 sm:pb-20 lg:pt-8"
-          onClick={() => {
-            if (isDesktopOverlayOpen || isMobileDrawerOpen) {
-              closeNavigation();
-            }
-          }}
-        >
-          <Container>{children}</Container>
-        </main>
-      </div>
+        <SidebarContent
+          displayName={displayName}
+          email={email}
+          initials={initials}
+          pathname={pathname}
+          onNavigate={() => closeMobileDrawer(false)}
+          onClose={() => closeMobileDrawer(true)}
+          showCloseButton
+        />
+      </aside>
+
+      <main className="min-h-screen pb-14 pt-20 sm:pb-20 lg:pt-20">
+        <Container>
+          <PageTransition transitionKey={pathname}>{children}</PageTransition>
+        </Container>
+      </main>
     </div>
   );
 }
@@ -282,12 +332,9 @@ interface SidebarContentProps {
   email?: string | null;
   initials: string;
   pathname: string;
-  isPinned: boolean;
-  isDesktop: boolean;
   onNavigate: () => void;
-  onCollapse: () => void;
-  onPin: () => void;
   onClose: () => void;
+  showCloseButton: boolean;
 }
 
 function SidebarContent({
@@ -295,51 +342,27 @@ function SidebarContent({
   email,
   initials,
   pathname,
-  isPinned,
-  isDesktop,
   onNavigate,
-  onCollapse,
-  onPin,
   onClose,
+  showCloseButton,
 }: SidebarContentProps) {
   return (
-    <>
-      <div className="flex items-start justify-between gap-3 px-4 pb-4 pt-5">
-        <Link
-          href="/dashboard"
-          className="rounded-2xl px-1 py-1 transition hover:bg-surface/80 focus-visible:outline-none"
-          data-sidebar-autofocus
-          onClick={onNavigate}
-        >
-          <span className="block font-display text-[2rem] leading-none text-ink">Sevri</span>
-          <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.24em] text-ink-muted">
-            Your Workspace
-          </span>
-        </Link>
+    <div className="h-full overflow-y-auto overscroll-contain">
+      <div className="flex min-h-full flex-col">
+        <div className="flex items-start justify-between gap-3 px-4 pb-4 pt-5">
+          <Link
+            href="/dashboard"
+            className="rounded-2xl px-1 py-1 transition hover:bg-surface/80 focus-visible:outline-none"
+            data-sidebar-autofocus
+            onClick={onNavigate}
+          >
+            <span className="block font-display text-[2rem] leading-none text-ink">Sevri</span>
+            <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.24em] text-ink-muted">
+              Your Workspace
+            </span>
+          </Link>
 
-        <div className="flex items-center gap-2">
-          {isDesktop ? (
-            isPinned ? (
-              <button
-                type="button"
-                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper text-ink transition hover:border-line-strong hover:bg-surface/72"
-                aria-label="Collapse sidebar"
-                onClick={onCollapse}
-              >
-                <PanelCloseIcon />
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="inline-flex h-10 items-center justify-center gap-2 rounded-full border border-line bg-paper px-3 text-sm font-semibold text-ink transition hover:border-line-strong hover:bg-surface/72"
-                aria-label="Pin sidebar open"
-                onClick={onPin}
-              >
-                <PinIcon />
-                <span>Pin</span>
-              </button>
-            )
-          ) : (
+          {showCloseButton ? (
             <button
               type="button"
               className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-line bg-paper text-ink transition hover:border-line-strong hover:bg-surface/72"
@@ -348,79 +371,63 @@ function SidebarContent({
             >
               <CloseIcon />
             </button>
-          )}
+          ) : null}
         </div>
-      </div>
 
-      <div className="px-4">
-        <SidebarSectionLabel label="Workspace" />
-      </div>
+        <div className="px-4">
+          <SidebarSectionLabel label="Workspace" />
+        </div>
 
-      <nav className="mt-2 space-y-1 px-3" aria-label="Workspace navigation">
-        {primaryLinks.map((link) => (
-          <SidebarLink
-            key={link.href}
-            href={link.href}
-            label={link.label}
-            isActive={link.match(pathname)}
-            onClick={onNavigate}
-          />
-        ))}
-      </nav>
-
-      <ProjectSidebarSection pathname={pathname} />
-
-      <div className="px-4 pt-5">
-        <SidebarSectionLabel label="Account" />
-      </div>
-
-      <div className="mt-2 space-y-1 px-3">
-        {secondaryLinks.map((link) => (
-          <SidebarLink
-            key={link.href}
-            href={link.href}
-            label={link.label}
-            isActive={link.match(pathname)}
-            onClick={onNavigate}
-          />
-        ))}
-      </div>
-
-      <div className="mt-auto p-4">
-        <div className="rounded-[1.4rem] border border-line bg-canvas/72 p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-sm font-semibold text-ink">
-              {initials}
-            </div>
-            <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
-              {email ? <p className="truncate text-xs text-ink-muted">{email}</p> : null}
-            </div>
-          </div>
-
-          <div className="mt-4 grid gap-2">
-            <Button
-              href="/settings"
-              variant="ghost"
-              className="justify-start rounded-xl border border-transparent px-3 text-sm text-ink hover:border-line hover:bg-paper/78"
+        <nav className="mt-2 space-y-1 px-3" aria-label="Workspace navigation">
+          {workspaceLinks.map((link) => (
+            <SidebarLink
+              key={link.href}
+              href={link.href}
+              label={link.label}
+              isActive={link.match(pathname)}
               onClick={onNavigate}
-            >
-              Account settings
-            </Button>
-            <form action="/auth/sign-out" method="post">
+            />
+          ))}
+        </nav>
+
+        <ProjectSidebarSection pathname={pathname} />
+
+        <div className="mt-auto p-4">
+          <div className="rounded-[1.4rem] border border-line bg-canvas/72 p-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-sm font-semibold text-ink">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
+                {email ? <p className="truncate text-xs text-ink-muted">{email}</p> : null}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-2">
               <Button
-                type="submit"
-                variant="outline"
-                fullWidth
-                className="justify-start rounded-xl border-line bg-paper/82 px-3 text-sm hover:bg-paper"
+                href="/settings"
+                variant="ghost"
+                className="justify-start rounded-xl border border-transparent px-3 text-sm text-ink hover:border-line hover:bg-paper/78"
+                onClick={onNavigate}
               >
-                Sign out
+                Account settings
               </Button>
-            </form>
+              <form action="/auth/sign-out" method="post">
+                <Button
+                  type="submit"
+                  variant="outline"
+                  fullWidth
+                  className="justify-start rounded-xl border-line bg-paper/82 px-3 text-sm hover:bg-paper"
+                >
+                  Sign out
+                </Button>
+              </form>
+            </div>
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -495,30 +502,17 @@ function getInitials(displayName: string) {
 
 function MenuIcon() {
   return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M4 7h16" strokeLinecap="round" />
-      <path d="M4 12h16" strokeLinecap="round" />
-      <path d="M4 17h12" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function PanelCloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <rect x="4.5" y="5" width="15" height="14" rx="2" />
-      <path d="M10 5v14" strokeLinecap="round" />
-      <path d="m14.5 12 3-2.5v5l-3-2.5Z" fill="currentColor" stroke="none" />
-    </svg>
-  );
-}
-
-function PinIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M9 4.5h6" strokeLinecap="round" />
-      <path d="m8 10 8-5 0 0v4l2.5 2.5v.5H5.5v-.5L8 9Z" />
-      <path d="M12 12v7.5" strokeLinecap="round" />
+    <svg
+      viewBox="0 0 20 20"
+      className="h-4 w-4"
+      aria-hidden="true"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.9"
+    >
+      <path d="M4.5 5.75h11" strokeLinecap="round" />
+      <path d="M4.5 10h11" strokeLinecap="round" />
+      <path d="M4.5 14.25h11" strokeLinecap="round" />
     </svg>
   );
 }

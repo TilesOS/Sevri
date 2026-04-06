@@ -6,8 +6,8 @@ export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspace
   return (
     <div className="space-y-8">
       <PageHeader
-        eyebrow="Pitch kit"
-        title="Explain the project without losing the substance."
+        eyebrow="Presentation"
+        title="Present the project without losing the substance."
         description="Keep the positioning sharp. This page is for how you talk about the project, not how you execute it."
       />
 

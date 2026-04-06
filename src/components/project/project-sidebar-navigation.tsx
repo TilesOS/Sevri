@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { roadmapStatusClassName } from "@/components/project/project-status";
 import { cn } from "@/lib/utils";
 import type { ProjectMilestoneView } from "@/lib/projects/workspace";
 
@@ -16,7 +17,7 @@ const baseSectionLinks = [
   { href: "", label: "Overview" },
   { href: "/scope", label: "Scope & Guardrails" },
   { href: "/research-lens", label: "Research Lens" },
-  { href: "/pitch-kit", label: "Pitch Kit" },
+  { href: "/pitch-kit", label: "Presentation" },
 ] as const;
 
 export function ProjectSidebarNavigation({
@@ -147,12 +148,7 @@ function ProjectNavLink({
 function StatusDot({ status }: { status: "complete" | "in_progress" | "not_started" }) {
   return (
     <span
-      className={cn(
-        "mt-1 h-2.5 w-2.5 shrink-0 rounded-full",
-        status === "complete" && "bg-emerald-500",
-        status === "in_progress" && "bg-amber-500",
-        status === "not_started" && "bg-line-strong",
-      )}
+      className={cn("mt-1 h-2.5 w-2.5 shrink-0 rounded-full", roadmapStatusClassName[status])}
       aria-label={status.replace("_", " ")}
       title={status.replace("_", " ")}
     />

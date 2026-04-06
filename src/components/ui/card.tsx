@@ -11,7 +11,7 @@ const toneClassName: Record<CardTone, string> = {
   blush: "border-primary-line bg-primary-soft text-ink",
   primary: "border-primary-line bg-primary-soft text-ink",
   butter: "border-primary-line bg-primary-soft text-ink",
-  contrast: "border-contrast-line bg-contrast text-paper",
+  contrast: "contrast-grid border-contrast-line bg-contrast text-paper",
 };
 
 const paddingClassName: Record<CardPadding, string> = {
