@@ -38,6 +38,7 @@ type GenerationFeedbackFormProps = FeedbackAnchorProps & {
   className?: string;
   title?: string;
   description?: string;
+  variant?: "card" | "compact";
 };
 
 const signalOptions: Array<{ value: FeedbackSignal; label: string }> = [
@@ -54,6 +55,7 @@ export function GenerationFeedbackForm({
   className,
   title = "Help Sevri improve",
   description = "Optional. Share what felt right, off, or missing so the next generation gets sharper.",
+  variant = "card",
   ...props
 }: GenerationFeedbackFormProps) {
   const [signal, setSignal] = useState<FeedbackSignal | null>(null);
@@ -61,6 +63,7 @@ export function GenerationFeedbackForm({
   const [closestRecommendationId, setClosestRecommendationId] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   function buildBody() {
@@ -113,6 +116,86 @@ export function GenerationFeedbackForm({
     });
   }
 
+  if (variant === "compact") {
+    return (
+      <Card className={cn("space-y-3", className)} padding="sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="space-y-1">
+            <p className="editorial-kicker">Learning loop</p>
+            <h3 className="text-sm font-semibold text-ink">{title}</h3>
+            <p className="text-sm leading-6 text-ink-soft">{description}</p>
+          </div>
+          {!submitted ? (
+            <button
+              type="button"
+              className="text-sm text-ink-muted transition hover:text-ink"
+              onClick={() => setShowNotes((current) => !current)}
+            >
+              {showNotes ? "Hide note" : "Add a note"}
+            </button>
+          ) : null}
+        </div>
+
+        {submitted ? <Alert tone="success">Thanks. Sevri will use this feedback to sharpen future generations.</Alert> : null}
+        {error ? <Alert tone="danger">{error}</Alert> : null}
+
+        {!submitted ? (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {signalOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  variant={signal === option.value ? "primary" : "outline"}
+                  size="sm"
+                  className={cn("rounded-full", signal !== option.value && learningLoopOutlineButtonClassName)}
+                  onClick={() => setSignal(option.value)}
+                  disabled={isPending}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+
+            {props.stage === "recommendations" ? (
+              <FormField label="Closest option" hint="Optional. Pick the option that came closest to what you wanted.">
+                <Select
+                  value={closestRecommendationId}
+                  onChange={(event) => setClosestRecommendationId(event.target.value)}
+                  disabled={isPending}
+                  className={learningLoopInsetFieldClassName}
+                >
+                  <option value="">None selected</option>
+                  {props.recommendations.map((recommendation) => (
+                    <option key={recommendation.id} value={recommendation.id}>
+                      {recommendation.title}
+                    </option>
+                  ))}
+                </Select>
+              </FormField>
+            ) : null}
+
+            {showNotes || notes ? (
+              <Textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="What felt generic, what almost fit, or what you expected instead..."
+                disabled={isPending}
+                className={learningLoopInsetFieldClassName}
+              />
+            ) : null}
+
+            <div className="flex justify-end">
+              <Button type="button" size="sm" onClick={submitFeedback} disabled={isPending} className="rounded-full px-4">
+                {isPending ? "Saving..." : "Send feedback"}
+              </Button>
+            </div>
+          </>
+        ) : null}
+      </Card>
+    );
+  }
+
   return (
     <Card className={cn("space-y-4", className)}>
       <div className="space-y-2">
@@ -143,10 +226,7 @@ export function GenerationFeedbackForm({
           </div>
 
           {props.stage === "recommendations" ? (
-            <FormField
-              label="Closest option"
-              hint="Optional. Pick the option that came closest to what you wanted."
-            >
+            <FormField label="Closest option" hint="Optional. Pick the option that came closest to what you wanted.">
               <Select
                 value={closestRecommendationId}
                 onChange={(event) => setClosestRecommendationId(event.target.value)}
@@ -163,10 +243,7 @@ export function GenerationFeedbackForm({
             </FormField>
           ) : null}
 
-          <FormField
-            label="Notes"
-            hint="Optional. A sentence or two is enough."
-          >
+          <FormField label="Notes" hint="Optional. A sentence or two is enough.">
             <Textarea
               value={notes}
               onChange={(event) => setNotes(event.target.value)}
