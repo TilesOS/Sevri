@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { getProjectWorkspace } from "@/lib/db/queries/projects";
+import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
 import type { ProjectTrack } from "@/types/domain";
 
 type RawProjectWorkspace = Awaited<ReturnType<typeof getProjectWorkspace>>;
@@ -18,6 +19,8 @@ export interface ProjectMilestoneView {
   completed: boolean;
   status: ProjectStepStatus;
   isFuture: boolean;
+  guidanceLocked: boolean;
+  previousStepNumber: number | null;
 }
 
 export interface ProjectLensItem {
@@ -74,6 +77,7 @@ function normalizeMilestones(
 
   return milestones.map((milestone) => {
     const stepNumber = milestone.order_index + 1;
+    const guidanceGate = getStepGuidanceGate(milestones, milestone.order_index);
     const status: ProjectStepStatus = milestone.completed
       ? "complete"
       : firstIncompleteIndex === -1 || milestone.order_index === firstIncompleteIndex
@@ -97,6 +101,8 @@ function normalizeMilestones(
           : "About 1 week",
       status,
       isFuture: !milestone.completed && firstIncompleteIndex !== -1 && milestone.order_index > firstIncompleteIndex,
+      guidanceLocked: guidanceGate.guidanceLocked,
+      previousStepNumber: guidanceGate.previousStepNumber,
     };
   });
 }

@@ -87,7 +87,7 @@ export default async function DashboardPage() {
 
       <TrackSection
         title="Software Projects"
-        projects={softwareProjects}
+        projects={softwareProjects.slice(0, 3)}
         track="software"
         hasIntake={trackAvailability.software.hasIntake}
         recommendationCount={trackAvailability.software.recommendationCount}
@@ -95,7 +95,7 @@ export default async function DashboardPage() {
 
       <TrackSection
         title="Research Projects"
-        projects={researchProjects}
+        projects={researchProjects.slice(0, 3)}
         track="research"
         hasIntake={trackAvailability.research.hasIntake}
         recommendationCount={trackAvailability.research.recommendationCount}

@@ -8,6 +8,7 @@ import { runStepGuidanceGeneration, getRouteGenerationMetadata } from "@/lib/ai/
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage, coerceStoredProjectOption } from "@/lib/ai/storage";
 import { getStepGuidanceFeedback } from "@/lib/db/queries/generation-feedback";
+import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
 import {
   getGenerationFailureMessage,
@@ -146,6 +147,29 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Project not found" }, { status: 404 });
     }
 
+    stage = "fetch-project-milestones";
+    const { data: milestones, error: milestonesError } = await supabase
+      .from("milestones")
+      .select("*")
+      .eq("project_id", project.id)
+      .order("order_index", { ascending: true });
+
+    if (milestonesError) {
+      throw new Error(milestonesError.message);
+    }
+
+    const guidanceGate = getStepGuidanceGate(milestones ?? [], milestone.order_index);
+    if (guidanceGate.guidanceLocked) {
+      return NextResponse.json(
+        {
+          error: `Finish Step ${guidanceGate.previousStepNumber} before opening guidance for this step.`,
+          code: "previous_step_incomplete",
+          previous_step_number: guidanceGate.previousStepNumber,
+        },
+        { status: 423 },
+      );
+    }
+
     if (!body.refresh) {
       stage = "check-cache";
       const { data: cachedGuidance } = await supabase
@@ -206,17 +230,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     if (roadmapError || !roadmap) {
       return NextResponse.json({ error: "Generate the roadmap first" }, { status: 400 });
-    }
-
-    stage = "fetch-project-milestones";
-    const { data: milestones, error: milestonesError } = await supabase
-      .from("milestones")
-      .select("*")
-      .eq("project_id", project.id)
-      .order("order_index", { ascending: true });
-
-    if (milestonesError) {
-      throw new Error(milestonesError.message);
     }
 
     stage = "fetch-recommendation";

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -25,14 +25,19 @@ import type {
 
 interface RouteErrorBody {
   error?: string;
-  code?: "upgrade_required";
+  code?: "upgrade_required" | "previous_step_incomplete";
   feature?: "step_guidance";
   upgrade_url?: string;
+  previous_step_number?: number;
 }
 
 interface GuidanceSlot {
   guidance: StepGuidance;
   guidanceId: string;
+}
+
+interface GuidanceLockState {
+  previousStepNumber: number | null;
 }
 
 type GuidanceTab = "checklist" | "pitfalls" | "tools" | "done_when";
@@ -147,6 +152,22 @@ function normalizeGuidanceItem(item: string, variant: "bullet" | "ordered") {
   return trimmed.replace(/^(?:[-*]\s*)?(?:\d+[\.\)]\s*|step\s+\d+\s*[:.-]\s*)/i, "").trim();
 }
 
+function getGuidanceLockMessage(previousStepNumber: number | null) {
+  if (previousStepNumber) {
+    return `Finish Step ${previousStepNumber} before opening guidance for this step.`;
+  }
+
+  return "Finish the previous step before opening guidance for this step.";
+}
+
+function getSubmissionLockMessage(previousStepNumber: number | null) {
+  if (previousStepNumber) {
+    return `Detailed feedback unlocks after Step ${previousStepNumber} is complete.`;
+  }
+
+  return "Detailed feedback unlocks once the previous step is complete.";
+}
+
 export function ProjectStepWorkspace({
   workspace,
   milestone,
@@ -161,6 +182,9 @@ export function ProjectStepWorkspace({
   const trackTheme = trackThemes[workspace.projectTrack];
   const [guidanceSlot, setGuidanceSlot] = useState<GuidanceSlot | null>(null);
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
+  const [guidanceLock, setGuidanceLock] = useState<GuidanceLockState | null>(
+    milestone.guidanceLocked ? { previousStepNumber: milestone.previousStepNumber } : null,
+  );
   const [isGuidancePending, setIsGuidancePending] = useState(false);
   const [activeTab, setActiveTab] = useState<GuidanceTab>("checklist");
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
@@ -171,24 +195,33 @@ export function ProjectStepWorkspace({
   const [isResubmitMode, setIsResubmitMode] = useState(false);
   const [isCompletionPending, setIsCompletionPending] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const isGuidanceLocked = guidanceLock !== null;
+  const guidanceLockMessage = getGuidanceLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
+  const submissionLockMessage = getSubmissionLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
+  const initializeWorkspacePanels = useEffectEvent(() => {
+    if (!hasDetailAccess) {
+      return;
+    }
+
+    if (!milestone.guidanceLocked) {
+      void fetchGuidance();
+    }
+
+    void loadSubmission();
+  });
 
   useEffect(() => {
     setGuidanceSlot(null);
     setGuidanceError(null);
+    setGuidanceLock(milestone.guidanceLocked ? { previousStepNumber: milestone.previousStepNumber } : null);
     setSubmissionSlot({ status: "unloaded" });
     setEvaluationError(null);
     setIsComposerOpen(false);
     setIsResubmitMode(false);
     setActiveTab("checklist");
     setCheckedItems({});
-
-    if (!hasDetailAccess) {
-      return;
-    }
-
-    void fetchGuidance();
-    void loadSubmission();
-  }, [hasDetailAccess, milestone.id]);
+    initializeWorkspacePanels();
+  }, [hasDetailAccess, initializeWorkspacePanels, milestone.guidanceLocked, milestone.id, milestone.previousStepNumber]);
 
   useEffect(() => {
     if (!guidanceSlot) {
@@ -226,6 +259,11 @@ export function ProjectStepWorkspace({
   }
 
   async function fetchGuidance(refresh = false) {
+    if (milestone.guidanceLocked) {
+      setGuidanceLock({ previousStepNumber: milestone.previousStepNumber });
+      return;
+    }
+
     setIsGuidancePending(true);
     setGuidanceError(null);
 
@@ -239,12 +277,22 @@ export function ProjectStepWorkspace({
       | ({ guidance?: StepGuidance; milestone_guidance_id?: string } & RouteErrorBody)
       | null;
 
+    if (body?.code === "previous_step_incomplete") {
+      setGuidanceSlot(null);
+      setGuidanceLock({ previousStepNumber: body.previous_step_number ?? milestone.previousStepNumber });
+      setGuidanceError(null);
+      setIsGuidancePending(false);
+      return;
+    }
+
     if (!response.ok || !body?.guidance || !body.milestone_guidance_id) {
+      setGuidanceLock(null);
       setGuidanceError(body?.error ?? "Failed to load step guidance.");
       setIsGuidancePending(false);
       return;
     }
 
+    setGuidanceLock(null);
     setGuidanceSlot({
       guidance: body.guidance,
       guidanceId: body.milestone_guidance_id,
@@ -407,7 +455,7 @@ export function ProjectStepWorkspace({
         </Card>
       ) : (
         <>
-          {guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
+          {!isGuidanceLocked && guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
 
           <Card className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
@@ -415,18 +463,26 @@ export function ProjectStepWorkspace({
                 <p className="editorial-kicker">Step guidance</p>
                 <h2 className="mt-2 text-2xl font-semibold text-ink">One context at a time.</h2>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void fetchGuidance(true)}
-                disabled={isGuidancePending}
-                className="rounded-full"
-              >
-                {isGuidancePending ? "Refreshing..." : "Refresh guidance"}
-              </Button>
+              {isGuidanceLocked ? (
+                <Badge tone="warning">Locked</Badge>
+              ) : (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void fetchGuidance(true)}
+                  disabled={isGuidancePending}
+                  className="rounded-full"
+                >
+                  {isGuidancePending ? "Refreshing..." : "Refresh guidance"}
+                </Button>
+              )}
             </div>
 
-            {guidanceSlot ? (
+            {isGuidanceLocked ? (
+              <Alert tone="warning" heading="Guidance unlocks step by step">
+                {guidanceLockMessage}
+              </Alert>
+            ) : guidanceSlot ? (
               <>
                 <Card tone="subtle" padding="sm">
                   <p className="editorial-kicker">Coaching note</p>
@@ -520,10 +576,17 @@ export function ProjectStepWorkspace({
           </Card>
 
           <div className="space-y-4" id="submission-area">
+            {isGuidanceLocked ? (
+              <Alert tone="warning" heading="Feedback stays focused, too">
+                {submissionLockMessage}
+              </Alert>
+            ) : null}
+
             <SubmissionSummary
               slot={submissionSlot}
               evaluationError={evaluationError}
               isEvaluationPending={isEvaluationPending}
+              actionsDisabled={isGuidanceLocked}
               onOpenComposer={() => {
                 setIsComposerOpen(true);
                 setIsResubmitMode(true);
@@ -541,6 +604,7 @@ export function ProjectStepWorkspace({
                 submission={fallbackEvaluation.submission}
                 evaluationId={fallbackEvaluation.evaluation_id}
                 evaluation={fallbackEvaluation.evaluation}
+                actionsDisabled={isGuidanceLocked}
               />
             ) : null}
           </div>
@@ -561,6 +625,8 @@ export function ProjectStepWorkspace({
             }}
             onSubmit={(text, kind, filename) => void submitWork(text, kind, filename)}
             evaluationError={evaluationError}
+            actionsDisabled={isGuidanceLocked}
+            lockedMessage={submissionLockMessage}
           />
         </>
       )}
@@ -617,11 +683,13 @@ function SubmissionSummary({
   slot,
   evaluationError,
   isEvaluationPending,
+  actionsDisabled,
   onOpenComposer,
 }: {
   slot: SubmissionSlot;
   evaluationError: string | null;
   isEvaluationPending: boolean;
+  actionsDisabled: boolean;
   onOpenComposer: () => void;
 }) {
   if (slot.status === "unloaded" || slot.status === "loading" || slot.status === "empty") {
@@ -642,6 +710,7 @@ function SubmissionSummary({
         submission={slot.submission}
         evaluationId={slot.evaluationId}
         evaluation={slot.evaluation}
+        actionsDisabled={actionsDisabled}
         onResubmit={onOpenComposer}
       />
     );
@@ -651,6 +720,7 @@ function SubmissionSummary({
     <CurrentSubmissionStatusCard
       slot={slot}
       isEvaluationPending={isEvaluationPending}
+      actionsDisabled={actionsDisabled}
       onResubmit={onOpenComposer}
       evaluationError={evaluationError}
     />
@@ -667,6 +737,8 @@ function SubmissionDock({
   onCancel,
   onSubmit,
   evaluationError,
+  actionsDisabled,
+  lockedMessage,
 }: {
   slot: SubmissionSlot;
   isOpen: boolean;
@@ -677,12 +749,14 @@ function SubmissionDock({
   onCancel: () => void;
   onSubmit: (text: string, kind: "pasted_text" | "file_upload", filename?: string) => void;
   evaluationError: string | null;
+  actionsDisabled: boolean;
+  lockedMessage: string;
 }) {
-  const summary = getSubmissionDockSummary(slot, isPending);
+  const summary = getSubmissionDockSummary(slot, isPending, actionsDisabled, lockedMessage);
 
   return (
     <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(42rem,calc(100vw-19rem))] lg:right-8">
-      {isOpen ? (
+      {isOpen && !actionsDisabled ? (
         <Card className="mb-3 space-y-4 border-line-strong bg-paper/98 backdrop-blur">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -709,11 +783,18 @@ function SubmissionDock({
           </div>
           <div className="flex items-center gap-2">
             {slot.status !== "empty" && slot.status !== "unloaded" && slot.status !== "loading" ? (
-              <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={onResubmit}>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={onResubmit}
+                disabled={actionsDisabled}
+              >
                 Resubmit
               </Button>
             ) : null}
-            <Button type="button" size="sm" className="rounded-full" onClick={onToggle}>
+            <Button type="button" size="sm" className="rounded-full" onClick={onToggle} disabled={actionsDisabled}>
               {isOpen ? "Hide form" : slot.status === "completed" ? "Submit new version" : "Submit work"}
             </Button>
           </div>
@@ -723,7 +804,19 @@ function SubmissionDock({
   );
 }
 
-function getSubmissionDockSummary(slot: SubmissionSlot, isPending: boolean) {
+function getSubmissionDockSummary(
+  slot: SubmissionSlot,
+  isPending: boolean,
+  actionsDisabled: boolean,
+  lockedMessage: string,
+) {
+  if (actionsDisabled) {
+    return {
+      title: "Feedback unlocks one step at a time",
+      description: lockedMessage,
+    };
+  }
+
   if (slot.status === "completed") {
     return {
       title: "Latest evaluation saved",
@@ -867,11 +960,13 @@ function MilestoneSubmissionForm({
 function CurrentSubmissionStatusCard({
   slot,
   isEvaluationPending,
+  actionsDisabled,
   onResubmit,
   evaluationError,
 }: {
   slot: Extract<SubmissionSlot, { status: "pending" | "failed" }>;
   isEvaluationPending: boolean;
+  actionsDisabled: boolean;
   onResubmit: () => void;
   evaluationError: string | null;
 }) {
@@ -891,7 +986,14 @@ function CurrentSubmissionStatusCard({
             </Badge>
           </div>
         </div>
-        <Button type="button" variant="outline" size="sm" onClick={onResubmit} className="rounded-full">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={onResubmit}
+          className="rounded-full"
+          disabled={actionsDisabled}
+        >
           {isFailed ? "Submit new version" : "Submit another version"}
         </Button>
       </div>
@@ -918,6 +1020,7 @@ function EvaluationResult({
   evaluationId,
   evaluation,
   onResubmit,
+  actionsDisabled = false,
   title = "Latest evaluation",
   note,
 }: {
@@ -925,6 +1028,7 @@ function EvaluationResult({
   evaluationId?: string;
   evaluation: WorkEvaluation;
   onResubmit?: () => void;
+  actionsDisabled?: boolean;
   title?: string;
   note?: string;
 }) {
@@ -949,7 +1053,14 @@ function EvaluationResult({
           {note ? <p className="text-xs text-ink-muted">{note}</p> : null}
         </div>
         {onResubmit ? (
-          <Button type="button" variant="outline" size="sm" onClick={onResubmit} className="rounded-full">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onResubmit}
+            className="rounded-full"
+            disabled={actionsDisabled}
+          >
             Submit new version
           </Button>
         ) : null}
