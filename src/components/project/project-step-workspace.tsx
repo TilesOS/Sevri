@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -195,20 +195,11 @@ export function ProjectStepWorkspace({
   const [isResubmitMode, setIsResubmitMode] = useState(false);
   const [isCompletionPending, setIsCompletionPending] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
+  const fetchGuidanceRef = useRef(fetchGuidance);
+  const loadSubmissionRef = useRef(loadSubmission);
   const isGuidanceLocked = guidanceLock !== null;
   const guidanceLockMessage = getGuidanceLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
   const submissionLockMessage = getSubmissionLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
-  const initializeWorkspacePanels = useEffectEvent(() => {
-    if (!hasDetailAccess) {
-      return;
-    }
-
-    if (!milestone.guidanceLocked) {
-      void fetchGuidance();
-    }
-
-    void loadSubmission();
-  });
 
   useEffect(() => {
     setGuidanceSlot(null);
@@ -220,8 +211,17 @@ export function ProjectStepWorkspace({
     setIsResubmitMode(false);
     setActiveTab("checklist");
     setCheckedItems({});
-    initializeWorkspacePanels();
-  }, [hasDetailAccess, initializeWorkspacePanels, milestone.guidanceLocked, milestone.id, milestone.previousStepNumber]);
+
+    if (!hasDetailAccess) {
+      return;
+    }
+
+    if (!milestone.guidanceLocked) {
+      void fetchGuidanceRef.current();
+    }
+
+    void loadSubmissionRef.current();
+  }, [hasDetailAccess, milestone.guidanceLocked, milestone.id, milestone.previousStepNumber]);
 
   useEffect(() => {
     if (!guidanceSlot) {
@@ -323,6 +323,9 @@ export function ProjectStepWorkspace({
       setEvaluationError("Network error. Failed to load saved evaluation.");
     }
   }
+
+  fetchGuidanceRef.current = fetchGuidance;
+  loadSubmissionRef.current = loadSubmission;
 
   async function submitWork(text: string, kind: "pasted_text" | "file_upload", filename?: string) {
     setIsEvaluationPending(true);
