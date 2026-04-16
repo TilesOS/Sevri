@@ -12,8 +12,8 @@ import { cn } from "@/lib/utils";
 
 const workspaceLinks = [
   { href: "/dashboard", label: "Dashboard", match: (pathname: string) => pathname === "/dashboard" },
-  { href: "/recommendations", label: "Recommendations", match: (pathname: string) => pathname.startsWith("/recommendations") },
-  { href: "/onboarding", label: "Project Profile", match: (pathname: string) => pathname.startsWith("/onboarding") },
+  { href: "/recommendations", label: "Ideas", match: (pathname: string) => pathname.startsWith("/recommendations") },
+  { href: "/onboarding", label: "Onboarding", match: (pathname: string) => pathname.startsWith("/onboarding") },
   { href: "/billing", label: "Billing", match: (pathname: string) => pathname.startsWith("/billing") },
 ] as const;
 
@@ -22,6 +22,8 @@ interface AppShellClientProps {
   displayName: string;
   email?: string | null;
 }
+
+type DesktopSidebarMode = "collapsed" | "hover" | "pinned";
 
 export function AppShellClient({ children, displayName, email }: AppShellClientProps) {
   const pathname = usePathname();
@@ -32,37 +34,46 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   const desktopSidebarRef = useRef<HTMLElement>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previousFocusRef = useRef<HTMLElement | null>(null);
-  const desktopFlyoutOpenRef = useRef(false);
+  const desktopSidebarModeRef = useRef<DesktopSidebarMode>("collapsed");
   const mobileDrawerOpenRef = useRef(false);
   const [isDesktop, setIsDesktop] = useState(false);
-  const [isDesktopFlyoutOpen, setIsDesktopFlyoutOpen] = useState(false);
+  const [canDesktopHover, setCanDesktopHover] = useState(false);
+  const [desktopSidebarMode, setDesktopSidebarMode] = useState<DesktopSidebarMode>("collapsed");
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const isDesktopSidebarVisible = desktopSidebarMode !== "collapsed";
+  const isDesktopSidebarPinned = desktopSidebarMode === "pinned";
 
   useEffect(() => {
-    desktopFlyoutOpenRef.current = isDesktopFlyoutOpen;
-  }, [isDesktopFlyoutOpen]);
+    desktopSidebarModeRef.current = desktopSidebarMode;
+  }, [desktopSidebarMode]);
 
   useEffect(() => {
     mobileDrawerOpenRef.current = isMobileDrawerOpen;
   }, [isMobileDrawerOpen]);
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia("(min-width: 1024px)");
-    const syncIsDesktop = () => setIsDesktop(mediaQuery.matches);
+    const desktopQuery = window.matchMedia("(min-width: 1024px)");
+    const desktopHoverQuery = window.matchMedia("(min-width: 1024px) and (hover: hover) and (pointer: fine)");
+    const syncDesktopState = () => {
+      setIsDesktop(desktopQuery.matches);
+      setCanDesktopHover(desktopHoverQuery.matches);
+    };
 
-    syncIsDesktop();
-    mediaQuery.addEventListener("change", syncIsDesktop);
+    syncDesktopState();
+    desktopQuery.addEventListener("change", syncDesktopState);
+    desktopHoverQuery.addEventListener("change", syncDesktopState);
 
     return () => {
-      mediaQuery.removeEventListener("change", syncIsDesktop);
+      desktopQuery.removeEventListener("change", syncDesktopState);
+      desktopHoverQuery.removeEventListener("change", syncDesktopState);
     };
   }, []);
 
   useEffect(() => {
     clearDesktopCloseTimer();
-    setIsDesktopFlyoutOpen(false);
     setIsMobileDrawerOpen(false);
-    previousFocusRef.current = null;
+    setDesktopSidebarMode((current) => (current === "hover" ? "collapsed" : current));
+    previousFocusRef.current = desktopSidebarModeRef.current === "pinned" ? desktopTriggerRef.current : null;
   }, [pathname]);
 
   useEffect(() => {
@@ -72,7 +83,9 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
     }
 
     clearDesktopCloseTimer();
-    setIsDesktopFlyoutOpen(false);
+    setDesktopSidebarMode("collapsed");
+    setIsMobileDrawerOpen(false);
+    previousFocusRef.current = null;
   }, [isDesktop]);
 
   useEffect(() => {
@@ -85,22 +98,16 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
 
       if (mobileDrawerOpenRef.current) {
         setIsMobileDrawerOpen(false);
+        restorePreviousFocus();
+        return;
       }
 
-      if (desktopFlyoutOpenRef.current) {
-        if (closeTimerRef.current) {
-          clearTimeout(closeTimerRef.current);
-          closeTimerRef.current = null;
+      if (desktopSidebarModeRef.current !== "collapsed") {
+        clearDesktopCloseTimer();
+        setDesktopSidebarMode("collapsed");
+        if (previousFocus) {
+          restorePreviousFocus();
         }
-
-        setIsDesktopFlyoutOpen(false);
-      }
-
-      if (previousFocus) {
-        previousFocusRef.current = null;
-        window.requestAnimationFrame(() => {
-          previousFocus.focus();
-        });
       }
     }
 
@@ -129,7 +136,7 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
     const previousFocus = previousFocusRef.current;
     previousFocusRef.current = null;
 
-    if (!previousFocus) {
+    if (!previousFocus || !previousFocus.isConnected) {
       return;
     }
 
@@ -138,21 +145,35 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
     });
   }
 
-  function openDesktopNavigation(trigger?: HTMLElement | null) {
+  function openDesktopSidebar(trigger?: HTMLElement | null) {
     if (!isDesktop) {
       return;
     }
 
     clearDesktopCloseTimer();
+    if (desktopSidebarModeRef.current === "pinned") {
+      return;
+    }
+
     if (trigger) {
       previousFocusRef.current = trigger;
     }
-    setIsDesktopFlyoutOpen(true);
+    setDesktopSidebarMode("hover");
   }
 
-  function closeDesktopNavigation(shouldRestoreFocus = false) {
+  function pinDesktopSidebar(trigger?: HTMLElement | null) {
+    if (!isDesktop) {
+      return;
+    }
+
     clearDesktopCloseTimer();
-    setIsDesktopFlyoutOpen(false);
+    previousFocusRef.current = trigger ?? desktopTriggerRef.current;
+    setDesktopSidebarMode("pinned");
+  }
+
+  function closeDesktopSidebar(shouldRestoreFocus = false) {
+    clearDesktopCloseTimer();
+    setDesktopSidebarMode("collapsed");
 
     if (shouldRestoreFocus) {
       restorePreviousFocus();
@@ -160,12 +181,16 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   }
 
   function scheduleDesktopClose() {
-    if (!isDesktop) {
+    if (!isDesktop || desktopSidebarModeRef.current !== "hover") {
       return;
     }
 
     clearDesktopCloseTimer();
     closeTimerRef.current = setTimeout(() => {
+      if (desktopSidebarModeRef.current !== "hover") {
+        return;
+      }
+
       const activeElement = document.activeElement;
 
       if (
@@ -175,8 +200,9 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
         return;
       }
 
-      setIsDesktopFlyoutOpen(false);
-    }, 140);
+      setDesktopSidebarMode("collapsed");
+      previousFocusRef.current = null;
+    }, 160);
   }
 
   function openMobileDrawer() {
@@ -226,24 +252,31 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
         ref={desktopTriggerRef}
         type="button"
         className={cn(
-          "fixed left-4 top-4 z-[70] hidden h-11 w-11 items-center justify-center rounded-2xl border border-line bg-paper/94 text-ink shadow-soft backdrop-blur transition hover:border-line-strong hover:bg-paper lg:inline-flex",
-          isDesktopFlyoutOpen && "border-line-strong bg-paper",
+          "fixed left-4 top-4 z-[70] hidden h-11 w-11 items-center justify-center rounded-2xl border border-line bg-paper/94 text-ink shadow-soft backdrop-blur transition duration-200 ease-out hover:border-line-strong hover:bg-paper motion-reduce:transition-none lg:inline-flex",
+          isDesktopSidebarVisible && "border-line-strong bg-paper shadow-lifted",
         )}
-        aria-label={isDesktopFlyoutOpen ? "Close workspace navigation" : "Open workspace navigation"}
-        aria-expanded={isDesktopFlyoutOpen}
+        aria-label={isDesktopSidebarPinned ? "Unpin workspace navigation" : "Pin workspace navigation"}
+        aria-expanded={isDesktopSidebarVisible}
+        aria-pressed={isDesktopSidebarPinned}
         aria-controls={desktopSidebarId}
-        onMouseEnter={() => openDesktopNavigation()}
-        onMouseLeave={scheduleDesktopClose}
-        onFocus={(event) => openDesktopNavigation(event.currentTarget)}
-        onBlur={handleDesktopTriggerBlur}
-        onClick={(event) => {
-          if (isDesktopFlyoutOpen) {
-            previousFocusRef.current = event.currentTarget;
-            closeDesktopNavigation(true);
+        onMouseEnter={() => {
+          if (!canDesktopHover) {
             return;
           }
 
-          openDesktopNavigation(event.currentTarget);
+          openDesktopSidebar();
+        }}
+        onMouseLeave={scheduleDesktopClose}
+        onFocus={(event) => openDesktopSidebar(event.currentTarget)}
+        onBlur={handleDesktopTriggerBlur}
+        onClick={(event) => {
+          if (isDesktopSidebarPinned) {
+            previousFocusRef.current = event.currentTarget;
+            closeDesktopSidebar(true);
+            return;
+          }
+
+          pinDesktopSidebar(event.currentTarget);
         }}
       >
         <MenuIcon />
@@ -281,12 +314,18 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
         id={desktopSidebarId}
         ref={desktopSidebarRef}
         className={cn(
-          "app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[16rem] flex-col overflow-hidden border-r border-line text-ink backdrop-blur-md transition-transform duration-200 ease-out lg:flex",
-          isDesktopFlyoutOpen ? "visible translate-x-0 pointer-events-auto" : "invisible pointer-events-none -translate-x-[calc(100%+1rem)]",
+          "app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[var(--app-sidebar-width)] flex-col overflow-hidden border-r border-line text-ink backdrop-blur-md transition-transform duration-200 ease-out motion-reduce:transition-none lg:flex",
+          isDesktopSidebarVisible ? "visible translate-x-0 pointer-events-auto" : "invisible pointer-events-none -translate-x-[calc(100%+1rem)]",
         )}
-        onMouseEnter={() => openDesktopNavigation()}
+        onMouseEnter={() => {
+          if (!canDesktopHover) {
+            return;
+          }
+
+          openDesktopSidebar();
+        }}
         onMouseLeave={scheduleDesktopClose}
-        onFocusCapture={() => openDesktopNavigation()}
+        onFocusCapture={() => openDesktopSidebar()}
         onBlurCapture={handleDesktopSidebarBlur}
       >
         <SidebarContent
@@ -294,8 +333,12 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
           email={email}
           initials={initials}
           pathname={pathname}
-          onNavigate={() => closeDesktopNavigation(false)}
-          onClose={() => closeDesktopNavigation(true)}
+          onNavigate={() => {
+            if (desktopSidebarModeRef.current === "hover") {
+              closeDesktopSidebar(false);
+            }
+          }}
+          onClose={() => closeDesktopSidebar(true)}
           showCloseButton={false}
         />
       </aside>
@@ -303,7 +346,7 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
       <aside
         id={mobileSidebarId}
         className={cn(
-          "app-sidebar-shell fixed inset-y-0 left-0 z-[60] flex w-[16rem] max-w-[calc(100vw-1rem)] flex-col overflow-hidden border-r border-line text-ink backdrop-blur-md transition-transform duration-200 ease-out lg:hidden",
+          "app-sidebar-shell fixed inset-y-0 left-0 z-[60] flex w-[var(--app-sidebar-width)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden border-r border-line text-ink backdrop-blur-md transition-transform duration-200 ease-out motion-reduce:transition-none lg:hidden",
           isMobileDrawerOpen ? "visible translate-x-0 pointer-events-auto" : "invisible pointer-events-none -translate-x-[105%]",
         )}
       >
@@ -318,11 +361,18 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
         />
       </aside>
 
-      <main className="min-h-screen pb-14 pt-20 sm:pb-20 lg:pt-20">
-        <Container>
-          <PageTransition transitionKey={pathname}>{children}</PageTransition>
-        </Container>
-      </main>
+      <div
+        className={cn(
+          "relative min-h-screen transition-[margin-left] duration-200 ease-out motion-reduce:transition-none",
+          isDesktopSidebarPinned && "lg:ml-[var(--app-sidebar-width)]",
+        )}
+      >
+        <main className="min-h-screen pb-14 pt-20 sm:pb-20 lg:pt-20">
+          <Container>
+            <PageTransition transitionKey={pathname}>{children}</PageTransition>
+          </Container>
+        </main>
+      </div>
     </div>
   );
 }
@@ -347,9 +397,9 @@ function SidebarContent({
   showCloseButton,
 }: SidebarContentProps) {
   return (
-    <div className="h-full overflow-y-auto overscroll-contain">
-      <div className="flex min-h-full flex-col">
-        <div className="flex items-start justify-between gap-3 px-4 pb-4 pt-5">
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0">
+        <div className="flex items-start justify-between gap-3 px-4 pb-4 pt-5 lg:pl-[4.75rem]">
           <Link
             href="/dashboard"
             className="rounded-2xl px-1 py-1 transition hover:bg-surface/80 focus-visible:outline-none"
@@ -357,9 +407,6 @@ function SidebarContent({
             onClick={onNavigate}
           >
             <span className="block font-display text-[2rem] leading-none text-ink">Sevri</span>
-            <span className="mt-2 block text-[11px] font-semibold uppercase tracking-[0.24em] text-ink-muted">
-              Your Workspace
-            </span>
           </Link>
 
           {showCloseButton ? (
@@ -373,61 +420,58 @@ function SidebarContent({
             </button>
           ) : null}
         </div>
-
-        <div className="px-4">
+        <div className="px-4 pb-4">
           <SidebarSectionLabel label="Workspace" />
-        </div>
-
-        <nav className="mt-2 space-y-1 px-3" aria-label="Workspace navigation">
-          {workspaceLinks.map((link) => (
-            <SidebarLink
-              key={link.href}
-              href={link.href}
-              label={link.label}
-              isActive={link.match(pathname)}
-              onClick={onNavigate}
-            />
-          ))}
-        </nav>
-
-        <ProjectSidebarSection pathname={pathname} />
-
-        <div className="mt-auto p-4">
-          <div className="rounded-[1.4rem] border border-line bg-canvas/72 p-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-sm font-semibold text-ink">
-                {initials}
-              </div>
-              <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
-                {email ? <p className="truncate text-xs text-ink-muted">{email}</p> : null}
-              </div>
-            </div>
-
-            <div className="mt-4 grid gap-2">
-              <Button
-                href="/settings"
-                variant="ghost"
-                className="justify-start rounded-xl border border-transparent px-3 text-sm text-ink hover:border-line hover:bg-paper/78"
+          <nav className="mt-2 space-y-1" aria-label="Workspace navigation">
+            {workspaceLinks.map((link) => (
+              <SidebarLink
+                key={link.href}
+                href={link.href}
+                label={link.label}
+                isActive={link.match(pathname)}
                 onClick={onNavigate}
-              >
-                Account settings
-              </Button>
-              <form action="/auth/sign-out" method="post">
-                <Button
-                  type="submit"
-                  variant="outline"
-                  fullWidth
-                  className="justify-start rounded-xl border-line bg-paper/82 px-3 text-sm hover:bg-paper"
-                >
-                  Sign out
-                </Button>
-              </form>
+              />
+            ))}
+          </nav>
+        </div>      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-4">
+        <ProjectSidebarSection pathname={pathname} />
+      </div>
+
+      <div className="shrink-0 p-4 pt-3">
+        <div className="rounded-[1.4rem] border border-line bg-canvas/72 p-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-line bg-paper text-sm font-semibold text-ink">
+              {initials}
             </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-ink">{displayName}</p>
+              {email ? <p className="truncate text-xs text-ink-muted">{email}</p> : null}
+            </div>          </div>
+
+          <div className="mt-4 grid gap-2">
+            <Button
+              href="/settings"
+              variant="ghost"
+              className="justify-start rounded-xl border border-transparent px-3 text-sm text-ink hover:border-line hover:bg-paper/78"
+              onClick={onNavigate}
+            >
+              Account settings
+            </Button>
+            <form action="/auth/sign-out" method="post">
+              <Button
+                type="submit"
+                variant="outline"
+                fullWidth
+                className="justify-start rounded-xl border-line bg-paper/82 px-3 text-sm hover:bg-paper"
+              >
+                Sign out
+              </Button>
+            </form>
           </div>
         </div>
       </div>
-    </div>
+    </div >
   );
 }
 
@@ -439,7 +483,7 @@ function ProjectSidebarSection({ pathname }: { pathname: string }) {
   }
 
   return (
-    <div className="px-4 pt-5">
+    <div className="pt-5">
       <SidebarSectionLabel label="Project context" />
       <div className="mt-3 rounded-2xl border border-line bg-canvas/68 p-3">
         <ProjectSidebarSlot pathname={pathname} />
