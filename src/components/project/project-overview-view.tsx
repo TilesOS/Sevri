@@ -5,8 +5,19 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
+import { safeRenderText } from "@/lib/ai/content-quality";
+import {
+  ROADMAP_OVERVIEW_PROSE_SPEC,
+  ROADMAP_PROJECT_TITLE_SPEC,
+} from "@/lib/ai/content-quality-specs";
 import type { ProjectWorkspaceView } from "@/lib/projects/workspace";
 import type { Plan } from "@/types/domain";
+
+function cleanOrUndefined(value: string | null | undefined, spec: typeof ROADMAP_OVERVIEW_PROSE_SPEC) {
+  if (typeof value !== "string" || value.trim().length === 0) return undefined;
+  const { text } = safeRenderText(value, spec);
+  return text.length > 0 ? text : undefined;
+}
 
 function totalEstimatedRange(milestones: ProjectWorkspaceView["milestones"]) {
   if (milestones.length === 0) {
@@ -31,6 +42,9 @@ export function ProjectOverviewView({
   const nextStepHref = workspace.nextMilestone
     ? `/project/${workspace.project.id}/steps/${workspace.nextMilestone.stepNumber}`
     : `/project/${workspace.project.id}/scope`;
+  const safeProjectTitle = safeRenderText(workspace.project.title ?? "", ROADMAP_PROJECT_TITLE_SPEC).text;
+  const safeOverview = cleanOrUndefined(workspace.roadmap?.overview, ROADMAP_OVERVIEW_PROSE_SPEC);
+  const safeProjectBrief = cleanOrUndefined(workspace.projectBrief, ROADMAP_OVERVIEW_PROSE_SPEC);
 
   return (
     <div className="space-y-8">
@@ -43,8 +57,8 @@ export function ProjectOverviewView({
           </div>
           <PageHeader
             eyebrow="Project workspace"
-            title={workspace.project.title}
-            description={workspace.roadmap?.overview}
+            title={safeProjectTitle || workspace.project.title}
+            description={safeOverview}
             actions={
               <Button href={nextStepHref} className="rounded-full px-6">
                 {workspace.nextMilestone ? `Open Step ${workspace.nextMilestone.stepNumber}` : "Open project workspace"}
@@ -88,7 +102,7 @@ export function ProjectOverviewView({
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-3 rounded-2xl bg-canvas p-5">
             <p className="editorial-kicker">Overview</p>
-            <p className="text-sm leading-6 text-ink-soft">{workspace.roadmap?.overview}</p>
+            <p className="text-sm leading-6 text-ink-soft">{safeOverview}</p>
           </div>
           <div className="space-y-3 rounded-2xl bg-canvas p-5">
             <p className="editorial-kicker">Next move</p>
@@ -112,7 +126,7 @@ export function ProjectOverviewView({
               {workspace.projectLens.map((item) => item.label).join(" · ")}
             </p>
             <p className="text-sm leading-6 text-ink-soft">
-              {workspace.projectBrief || "The research lens page keeps the framing and context visible while you build."}
+              {safeProjectBrief || "The research lens page keeps the framing and context visible while you build."}
             </p>
           </div>
         </div>

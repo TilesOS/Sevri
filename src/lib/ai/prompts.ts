@@ -6,6 +6,8 @@ export interface PromptFeedbackItem {
   contextLabel?: string | null;
 }
 
+const QUALITY_CLAUSE = "Every field must be a complete thought ending in terminal punctuation (. ! ?). Never truncate mid-word. Keep titles under 100 characters and end them on a noun phrase, not a preposition or conjunction. Write in English only; use foreign words only for proper nouns or standard technical terms. Do not use placeholder text, ellipses to indicate cut-off content, or bracketed notes.";
+
 function formatFeedback(feedback: PromptFeedbackItem[] | undefined) {
   if (!feedback || feedback.length === 0) {
     return "No prior user feedback is available for this stage.";
@@ -53,6 +55,7 @@ export function buildNormalizeSystemPrompt(projectTrack: ProjectTrack) {
     "Infer at most one careful step beyond what the user explicitly signals.",
     "Populate anti_generic_warnings, scope_guardrails, and goal/resource summaries with concrete, useful language.",
     "If the intake is specific, the normalized profile must stay specific.",
+    QUALITY_CLAUSE,
   ].join(" ");
 }
 
@@ -173,6 +176,7 @@ export function buildOptionsSystemPrompt(projectTrack: ProjectTrack) {
     ...diversityGuidance,
     "Scores must reflect the real time budget, skill level, and risk flags rather than generic optimism.",
     "These seed fields become the foundation for roadmap generation - make them specific enough to drive a real execution plan.",
+    QUALITY_CLAUSE,
   ].join(" ");
 }
 
@@ -222,6 +226,7 @@ export function buildRoadmapSystemPrompt(projectTrack: ProjectTrack) {
     "Do not use generic titles like 'Foundation Setup', 'Core Workflow', or 'Polish and Packaging'. Instead, use titles that name a specific project artifact, domain concept, or user-facing feature (e.g., 'Wire the Trace Parser', 'Score the Rubric Matrix', 'Ship the Comparison View'). The title should tell the student exactly WHAT they are building in this step.",
     "Every deliverable must be a concrete artifact, not a phase name.",
     "Do not include long rationale, README text, or extra sections.",
+    QUALITY_CLAUSE,
   ].join(" ");
 }
 
@@ -278,6 +283,7 @@ export function buildStepGuidanceSystemPrompt(projectTrack: ProjectTrack, stepIn
     "The done_when criteria must tie directly to the step's validation_check - do not invent abstract completion conditions.",
     "Pitfalls must reference real risks specific to this project and step, not generic advice.",
     positionGuidance,
+    QUALITY_CLAUSE,
   ].join(" ");
 }
 
@@ -355,6 +361,7 @@ export function buildWorkEvaluationSystemPrompt(projectTrack: ProjectTrack) {
     "next_best_action should give one concrete, actionable step the student can take next.",
     "ready_to_mark_complete should be true only when all criteria genuinely pass.",
     "If you are confident in your assessment, set confidence to 'high'. If parts of the submission are ambiguous, use 'medium' or 'low'.",
+    QUALITY_CLAUSE,
   ].join(" ");
 }
 

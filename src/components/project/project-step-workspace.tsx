@@ -13,6 +13,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { hasStepGuidanceAccess } from "@/lib/usage/limits";
+import { safeRenderText } from "@/lib/ai/content-quality";
+import {
+  GUIDANCE_ENCOURAGEMENT_SPEC,
+  GUIDANCE_WHAT_TO_DO_SPEC,
+  STEP_OBJECTIVE_SPEC,
+  STEP_TITLE_SPEC,
+} from "@/lib/ai/content-quality-specs";
 import type { ProjectMilestoneView, ProjectWorkspaceView } from "@/lib/projects/workspace";
 import type {
   LatestCompletedMilestoneEvaluation,
@@ -389,8 +396,12 @@ export function ProjectStepWorkspace({
           </div>
           <div className="space-y-3">
             <p className="editorial-kicker text-paper/55">Focused step workspace</p>
-            <h1 className="font-display text-4xl leading-none text-paper sm:text-5xl">{milestone.title}</h1>
-            <p className="max-w-3xl text-base leading-7 text-paper/72">{milestone.objective}</p>
+            <h1 className="font-display text-4xl leading-none text-paper sm:text-5xl">
+              {safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
+            </h1>
+            <p className="max-w-3xl text-base leading-7 text-paper/72">
+              {safeRenderText(milestone.objective, STEP_OBJECTIVE_SPEC).text}
+            </p>
           </div>
           <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
             <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
@@ -489,7 +500,9 @@ export function ProjectStepWorkspace({
               <>
                 <Card tone="subtle" padding="sm">
                   <p className="editorial-kicker">Coaching note</p>
-                  <p className="mt-2 text-sm leading-6 text-ink-soft">{guidanceSlot.guidance.encouragement}</p>
+                  <p className="mt-2 text-sm leading-6 text-ink-soft">
+                    {safeRenderText(guidanceSlot.guidance.encouragement, GUIDANCE_ENCOURAGEMENT_SPEC).text}
+                  </p>
                 </Card>
 
                 <div className="flex flex-wrap gap-2">
@@ -516,7 +529,9 @@ export function ProjectStepWorkspace({
                 {activeTab === "checklist" ? (
                   <Card tone="primary" className="space-y-4">
                     <p className="editorial-kicker">Checklist / Do</p>
-                    <p className="text-sm leading-6 text-ink-soft">{guidanceSlot.guidance.what_to_do_now}</p>
+                    <p className="text-sm leading-6 text-ink-soft">
+                      {safeRenderText(guidanceSlot.guidance.what_to_do_now, GUIDANCE_WHAT_TO_DO_SPEC).text}
+                    </p>
                     <ol className="space-y-3">
                       {guidanceSlot.guidance.checklist.map((item, index) => (
                         <li key={`${item}-${index}`} className="rounded-2xl bg-paper/70 px-4 py-3">

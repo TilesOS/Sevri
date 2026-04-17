@@ -3,6 +3,14 @@ import { zodTextFormat } from "openai/helpers/zod";
 import type { ParsedResponse } from "openai/resources/responses/responses";
 import { z } from "zod";
 import { getAIEnv } from "@/lib/env";
+import {
+  applyStructuredCleanup,
+  buildRepairFeedback,
+  checkStructured,
+  type ContentQualityReport,
+  type FieldSpecMap,
+  type QualityIssueKind,
+} from "@/lib/ai/content-quality";
 
 const env = getAIEnv();
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -50,6 +58,12 @@ export interface GenerationMetrics {
   web_search_used: boolean;
   citation_count: number;
   refusal_detected: boolean;
+  quality_issue_count: number;
+  quality_issue_kinds: QualityIssueKind[];
+  quality_repair_used: boolean;
+  quality_escalation_used: boolean;
+  quality_fallback_used: boolean;
+  title_regenerated: boolean;
 }
 
 export interface GenerationFailureDetails {
@@ -72,6 +86,8 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   maxCompletionTokens?: number;
   reasoningEffort?: "low" | "medium" | "high";
   webSearch?: WebSearchPolicy;
+  qualitySpec?: FieldSpecMap;
+  qualityAllowedTerms?: readonly string[];
 }
 
 const GENERATION_VERSION = "responses-v1";
@@ -177,6 +193,12 @@ function buildFailureMetrics(input: {
   validatorFailed: boolean;
   validatorIssueCount: number;
   refusalDetected: boolean;
+  qualityIssueCount?: number;
+  qualityIssueKinds?: QualityIssueKind[];
+  qualityRepairUsed?: boolean;
+  qualityEscalationUsed?: boolean;
+  qualityFallbackUsed?: boolean;
+  titleRegenerated?: boolean;
 }): GenerationMetrics {
   return {
     stage: input.stage,
@@ -195,6 +217,12 @@ function buildFailureMetrics(input: {
     web_search_used: false,
     citation_count: 0,
     refusal_detected: input.refusalDetected,
+    quality_issue_count: input.qualityIssueCount ?? 0,
+    quality_issue_kinds: input.qualityIssueKinds ?? [],
+    quality_repair_used: input.qualityRepairUsed ?? false,
+    quality_escalation_used: input.qualityEscalationUsed ?? false,
+    quality_fallback_used: input.qualityFallbackUsed ?? false,
+    title_regenerated: input.titleRegenerated ?? false,
   };
 }
 
@@ -270,12 +298,15 @@ function logGenerationAttempt(event: string, payload: Record<string, unknown>) {
   console.info(`[ai] ${event}`, payload);
 }
 
-function buildRepairPrompt(feedback: string) {
-  return [
-    "The previous attempt failed validation.",
-    feedback,
-    "Regenerate the full JSON from scratch and fix every issue.",
-  ].join("\n");
+function buildRepairPrompt(feedback: string, escalate = false) {
+  const lines = ["The previous attempt failed validation.", feedback];
+  if (escalate) {
+    lines.push(
+      "IMPORTANT: Previous attempts produced truncated or contaminated content. Every field MUST be a complete sentence ending in terminal punctuation (. ! ?). Do not truncate mid-word. Write in English only. If a field would exceed its length budget, write a shorter but COMPLETE version instead of cutting mid-sentence.",
+    );
+  }
+  lines.push("Regenerate the full JSON from scratch and fix every issue.");
+  return lines.join("\n");
 }
 
 function extractRefusal<TParsed>(response: ParsedResponse<TParsed>) {
@@ -416,6 +447,13 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   let lastFallbackModelUsed: string | null = null;
   let lastRaw: unknown = null;
   let lastFailureKind: GenerationFailureKind = "unknown";
+  let lastValidParsed: z.infer<TSchema> | null = null;
+  let qualityIssueCount = 0;
+  const qualityIssueKindSet = new Set<QualityIssueKind>();
+  let qualityRepairUsed = false;
+  let qualityEscalationUsed = false;
+  let qualityIssuesThisCycle = false;
+  let lastSemanticIssueCount = 0;
 
   for (const modelName of modelsToTry) {
     let repairFeedback: string | null = null;
@@ -440,7 +478,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       ];
 
       if (repairFeedback) {
-        messages.push({ role: "user", content: buildRepairPrompt(repairFeedback) });
+        messages.push({ role: "user", content: buildRepairPrompt(repairFeedback, qualityEscalationUsed) });
       }
 
       const request = {
@@ -517,6 +555,10 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
               validatorFailed,
               validatorIssueCount,
               refusalDetected: true,
+              qualityIssueCount,
+              qualityIssueKinds: Array.from(qualityIssueKindSet),
+              qualityRepairUsed,
+              qualityEscalationUsed,
             }),
           });
         }
@@ -554,6 +596,10 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
               validatorFailed,
               validatorIssueCount,
               refusalDetected,
+              qualityIssueCount,
+              qualityIssueKinds: Array.from(qualityIssueKindSet),
+              qualityRepairUsed,
+              qualityEscalationUsed,
             }),
           });
         }
@@ -577,25 +623,65 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
               validatorFailed,
               validatorIssueCount,
               refusalDetected,
+              qualityIssueCount,
+              qualityIssueKinds: Array.from(qualityIssueKindSet),
+              qualityRepairUsed,
+              qualityEscalationUsed,
             }),
           });
         }
 
+        lastValidParsed = parsed;
+
         const validationStartedAt = performance.now();
-        const validationIssues = input.validator ? input.validator(parsed) : [];
+        const semanticIssues = input.validator ? input.validator(parsed) : [];
+        let qualityReport: ContentQualityReport = { issues: [], severity: "clean" };
+        if (input.qualitySpec) {
+          qualityReport = checkStructured(parsed, input.qualitySpec, {
+            allowedTerms: input.qualityAllowedTerms,
+          });
+          if (qualityReport.issues.length > 0) {
+            qualityRepairUsed = true;
+            qualityIssueCount += qualityReport.issues.length;
+            for (const issue of qualityReport.issues) {
+              qualityIssueKindSet.add(issue.kind);
+            }
+          }
+        }
+        qualityIssuesThisCycle = qualityReport.issues.length > 0;
+        lastSemanticIssueCount = semanticIssues.length;
+        const qualityFeedback = buildRepairFeedback(qualityReport);
+        const validationIssues = [...semanticIssues, ...qualityFeedback];
         totalValidationMs += performance.now() - validationStartedAt;
 
         if (validationIssues.length > 0) {
-          validatorFailed = true;
-          validatorIssueCount += validationIssues.length;
+          if (semanticIssues.length > 0) {
+            validatorFailed = true;
+            validatorIssueCount += semanticIssues.length;
+          }
           lastError = `${modelName}: Output validation failed: ${validationIssues.join(" | ")}`;
           repairFeedback = validationIssues.map((issue) => `- ${issue}`).join("\n");
           console.warn("[ai] validation retry requested", {
             stage,
             attempt: attemptCount,
             requested_model: modelName,
-            issue_count: validationIssues.length,
+            semantic_issue_count: semanticIssues.length,
+            quality_issue_count: qualityReport.issues.length,
+            quality_kinds: Array.from(new Set(qualityReport.issues.map((i) => i.kind))),
           });
+
+          // Tier 2: on repeat quality failure, escalate system message and bump token budget once.
+          if (qualityReport.issues.length > 0 && attempt >= 1 && !qualityEscalationUsed) {
+            qualityEscalationUsed = true;
+            if (!tokenBudgetRetried) {
+              const bumped = getRetryTokenBudget(tokenBudget);
+              if (bumped > tokenBudget) {
+                tokenBudget = bumped;
+                tokenBudgetRetried = true;
+              }
+            }
+          }
+
           if (attempt === maxRetries) {
             break;
           }
@@ -625,6 +711,12 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
             web_search_used: toolUsed,
             citation_count: citations.length,
             refusal_detected: refusalDetected,
+            quality_issue_count: qualityIssueCount,
+            quality_issue_kinds: Array.from(qualityIssueKindSet),
+            quality_repair_used: qualityRepairUsed,
+            quality_escalation_used: qualityEscalationUsed,
+            quality_fallback_used: false,
+            title_regenerated: false,
           },
         };
       } catch (error) {
@@ -689,6 +781,10 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
               validatorFailed,
               validatorIssueCount,
               refusalDetected,
+              qualityIssueCount,
+              qualityIssueKinds: Array.from(qualityIssueKindSet),
+              qualityRepairUsed,
+              qualityEscalationUsed,
             }),
           });
         }
@@ -702,6 +798,54 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         }
       }
     }
+  }
+
+  // Tier 3 — deterministic cleanup: if we have a last-parsed object and the
+  // outstanding failure is quality-only (no semantic validator issues on the
+  // final attempt), clean the bad fields and return success.
+  if (
+    input.qualitySpec &&
+    lastValidParsed !== null &&
+    qualityIssuesThisCycle &&
+    lastSemanticIssueCount === 0
+  ) {
+    const cleanup = applyStructuredCleanup(lastValidParsed, input.qualitySpec);
+    console.warn("[ai] quality fallback applied", {
+      stage,
+      attempts: attemptCount,
+      changed_paths: cleanup.changedPaths,
+      quality_kinds: Array.from(qualityIssueKindSet),
+    });
+    return {
+      parsed: cleanup.cleaned,
+      raw: lastRaw,
+      citations: [],
+      refusal: null,
+      metrics: {
+        stage,
+        generation_version: GENERATION_VERSION,
+        model: primaryModel,
+        attempt_count: attemptCount,
+        ai_total_ms: Math.round(totalAiMs),
+        validation_ms: Math.round(totalValidationMs),
+        prompt_chars: lastPromptChars,
+        output_chars: lastOutputChars,
+        fallback_used: lastFallbackModelUsed !== null,
+        fallback_model_used: lastFallbackModelUsed,
+        validator_failed: validatorFailed,
+        validator_issue_count: validatorIssueCount,
+        tool_used: false,
+        web_search_used: false,
+        citation_count: 0,
+        refusal_detected: refusalDetected,
+        quality_issue_count: qualityIssueCount,
+        quality_issue_kinds: Array.from(qualityIssueKindSet),
+        quality_repair_used: qualityRepairUsed,
+        quality_escalation_used: qualityEscalationUsed,
+        quality_fallback_used: true,
+        title_regenerated: false,
+      },
+    };
   }
 
   throw new StructuredGenerationError({
@@ -720,6 +864,10 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       validatorFailed,
       validatorIssueCount,
       refusalDetected,
+      qualityIssueCount,
+      qualityIssueKinds: Array.from(qualityIssueKindSet),
+      qualityRepairUsed,
+      qualityEscalationUsed,
     }),
   });
 }

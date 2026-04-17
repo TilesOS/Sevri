@@ -42,6 +42,13 @@ import {
   type StepGuidance,
   type WorkEvaluation,
 } from "@/lib/ai/schemas";
+import {
+  OPTIONS_QUALITY_SPEC,
+  ROADMAP_QUALITY_SPEC,
+  STEP_GUIDANCE_QUALITY_SPEC,
+  WORK_EVALUATION_QUALITY_SPEC,
+  buildAllowedTerms,
+} from "@/lib/ai/content-quality-specs";
 
 const STUDENT_THEME_PATTERNS = [
   /student[-\s]?life/i,
@@ -108,6 +115,12 @@ function buildFallbackMetrics(stage: GenerationMetrics["stage"], model = "determ
     web_search_used: false,
     citation_count: 0,
     refusal_detected: false,
+    quality_issue_count: 0,
+    quality_issue_kinds: [],
+    quality_repair_used: false,
+    quality_escalation_used: false,
+    quality_fallback_used: false,
+    title_regenerated: false,
   };
 }
 
@@ -1004,6 +1017,8 @@ export async function runOptionsGeneration(
     systemPrompt: buildOptionsSystemPrompt(context.project_track),
     userPrompt: buildOptionsUserPrompt(context, feedback),
     validator: (parsed) => optionIssues(parsed, context),
+    qualitySpec: OPTIONS_QUALITY_SPEC,
+    qualityAllowedTerms: buildAllowedTerms(context),
   });
 
   return {
@@ -1037,6 +1052,8 @@ export async function runRoadmapGeneration(input: {
     ),
     validator: (parsed) => roadmapIssues(parsed, input.selectedOption, input.context),
     webSearch,
+    qualitySpec: ROADMAP_QUALITY_SPEC,
+    qualityAllowedTerms: buildAllowedTerms(input.context),
   });
 
   return {
@@ -1066,6 +1083,8 @@ export async function runStepGuidanceGeneration(input: {
     userPrompt: appendExternalSearchGuidance(buildStepGuidanceUserPrompt(input), webSearch),
     validator: (parsed) => stepGuidanceIssues(parsed, input.step, input.context),
     webSearch,
+    qualitySpec: STEP_GUIDANCE_QUALITY_SPEC,
+    qualityAllowedTerms: buildAllowedTerms(input.context),
   });
 
   return {
@@ -1096,6 +1115,8 @@ export async function runWorkEvaluation(input: {
         submissionText: input.submissionText,
         submissionFilename: input.submissionFilename,
       }),
+      qualitySpec: WORK_EVALUATION_QUALITY_SPEC,
+      qualityAllowedTerms: buildAllowedTerms(input.context),
     });
 
     return {
@@ -1160,6 +1181,12 @@ export function getRouteGenerationMetadata(input: {
     web_search_used: input.metrics.web_search_used,
     citation_count: input.metrics.citation_count,
     refusal_detected: input.metrics.refusal_detected,
+    quality_issue_count: input.metrics.quality_issue_count,
+    quality_issue_kinds: input.metrics.quality_issue_kinds,
+    quality_repair_used: input.metrics.quality_repair_used,
+    quality_escalation_used: input.metrics.quality_escalation_used,
+    quality_fallback_used: input.metrics.quality_fallback_used,
+    title_regenerated: input.metrics.title_regenerated,
   };
 }
 

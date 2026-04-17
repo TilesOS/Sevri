@@ -4,6 +4,11 @@ import { useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { canGenerateRecommendations, getGenerationLimit, hasUnlimitedGenerations } from "@/lib/usage/limits";
+import { safeRenderText } from "@/lib/ai/content-quality";
+import {
+  RECOMMENDATION_CARD_PROSE_SPEC,
+  RECOMMENDATION_CARD_TITLE_SPEC,
+} from "@/lib/ai/content-quality-specs";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -287,8 +292,12 @@ export function RecommendationsClient({
                   </div>
 
                   <div className="mt-5 space-y-3">
-                    <h2 className="text-2xl font-semibold text-ink">{item.title}</h2>
-                    <p className="text-sm leading-6 text-ink-soft">{item.summary}</p>
+                    <h2 className="text-2xl font-semibold text-ink">
+                      {safeRenderText(item.title, RECOMMENDATION_CARD_TITLE_SPEC).text}
+                    </h2>
+                    <p className="text-sm leading-6 text-ink-soft">
+                      {safeRenderText(item.summary, RECOMMENDATION_CARD_PROSE_SPEC).text}
+                    </p>
                   </div>
 
                   <div className="mt-6 grid gap-3">
@@ -319,7 +328,9 @@ export function RecommendationsClient({
 
                     <div className="space-y-2">
                       <p className="editorial-kicker">Why it fits</p>
-                      <p className="text-sm leading-6 text-ink-soft">{item.why_it_fits}</p>
+                      <p className="text-sm leading-6 text-ink-soft">
+                        {safeRenderText(item.why_it_fits, RECOMMENDATION_CARD_PROSE_SPEC).text}
+                      </p>
                     </div>
 
                     {item.authenticity_note ? (
