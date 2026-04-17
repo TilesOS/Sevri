@@ -98,15 +98,18 @@
   }
 
   .muted-toggle-surface {
-    @apply border-line bg-canvas text-ink-soft;
+    @apply border-line text-ink-soft;
+    background-color: var(--canvas);
   }
 
   .muted-toggle-surface:hover {
-    @apply border-line-strong bg-surface/68 text-ink;
+    @apply border-line-strong text-ink;
+    background-color: color-mix(in srgb, var(--surface) 70%, var(--canvas));
   }
 
   .muted-toggle-surface-active {
-    @apply border-line-strong bg-surface/82 text-ink;
+    @apply border-line-strong text-ink;
+    background-color: color-mix(in srgb, var(--surface) 82%, var(--canvas));
   }
 
   .app-sidebar-shell {
