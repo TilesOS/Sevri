@@ -25,6 +25,7 @@
   --contrast: #151311;
   --contrast-soft: #211e1b;
   --contrast-line: rgba(255, 255, 255, 0.12);
+  --contrast-grid-line: rgba(255, 255, 255, 0.04);
   --focus-ring: rgba(0, 124, 190, 0.28);
   --shadow-soft: 0 1px 4px rgba(129, 115, 106, 0.07), 0 4px 12px rgba(129, 115, 106, 0.06);
   --shadow-lifted: 0 4px 16px rgba(129, 115, 106, 0.10), 0 12px 32px rgba(129, 115, 106, 0.08);
@@ -91,9 +92,21 @@
 
   .contrast-grid {
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      linear-gradient(var(--contrast-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--contrast-grid-line) 1px, transparent 1px);
     background-size: 28px 28px;
+  }
+
+  .muted-toggle-surface {
+    @apply border-line bg-canvas text-ink-soft;
+  }
+
+  .muted-toggle-surface:hover {
+    @apply border-line-strong bg-surface/68 text-ink;
+  }
+
+  .muted-toggle-surface-active {
+    @apply border-line-strong bg-surface/82 text-ink;
   }
 
   .app-sidebar-shell {

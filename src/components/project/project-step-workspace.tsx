@@ -504,9 +504,7 @@ export function ProjectStepWorkspace({
                       type="button"
                       className={cn(
                         "rounded-full border px-4 py-2 text-sm font-medium transition",
-                        activeTab === tab.value
-                          ? "border-line-strong bg-paper text-ink"
-                          : "border-line bg-canvas text-ink-soft hover:border-line-strong hover:bg-paper hover:text-ink",
+                        activeTab === tab.value ? "muted-toggle-surface-active" : "muted-toggle-surface",
                       )}
                       onClick={() => setActiveTab(tab.value as GuidanceTab)}
                     >
@@ -658,9 +656,7 @@ function StepTimeline({
               href={`/project/${projectId}/steps/${item.stepNumber}`}
               className={cn(
                 "min-w-[11rem] rounded-2xl border px-4 py-3 transition",
-                isActive
-                  ? "border-line-strong bg-paper text-ink"
-                  : "border-line bg-canvas text-ink-soft hover:border-line-strong hover:bg-paper hover:text-ink",
+                isActive ? "muted-toggle-surface-active" : "muted-toggle-surface",
                 item.isFuture && !isActive && "opacity-70",
               )}
             >
