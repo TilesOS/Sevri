@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { canGenerateRecommendations, getGenerationLimit, hasUnlimitedGenerations } from "@/lib/usage/limits";
@@ -50,6 +50,15 @@ interface RecommendationsClientProps {
   trackAvailability: TrackAvailability;
 }
 
+interface RecommendationsResponseBody {
+  recommendations?: RecommendationItem[];
+  error?: string;
+  details?: string;
+  code?: string;
+  generations_used?: number;
+  generation_limit?: number | null;
+}
+
 const difficultyOrder: Record<string, number> = {
   beginner: 1,
   beginner_intermediate: 1,
@@ -75,17 +84,25 @@ export function RecommendationsClient({
 }: RecommendationsClientProps) {
   const router = useRouter();
   const [recommendations, setRecommendations] = useState(initialRecommendations);
+  const [localGenerationsUsed, setLocalGenerationsUsed] = useState(generationsUsed);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSelectingId, setIsSelectingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const canRegenerate = useMemo(() => canGenerateRecommendations(plan, generationsUsed), [plan, generationsUsed]);
   const generationLimit = getGenerationLimit(plan);
   const unlimitedGenerations = hasUnlimitedGenerations(plan);
+  const canRegenerate = useMemo(
+    () => canGenerateRecommendations(plan, localGenerationsUsed),
+    [plan, localGenerationsUsed],
+  );
 
   const hasTrackIntake = trackAvailability[activeTrack].hasIntake;
   const ribbons = useMemo(() => deriveRibbons(recommendations), [recommendations]);
   const trackTheme = trackThemes[activeTrack];
+
+  useEffect(() => {
+    setLocalGenerationsUsed(generationsUsed);
+  }, [generationsUsed]);
 
   async function handleGenerate() {
     setError(null);
@@ -97,17 +114,21 @@ export function RecommendationsClient({
       body: JSON.stringify({ project_track: activeTrack }),
     });
 
-    const body = (await response.json().catch(() => null)) as
-      | { recommendations?: RecommendationItem[]; error?: string; details?: string }
-      | null;
+    const body = (await response.json().catch(() => null)) as RecommendationsResponseBody | null;
 
     if (!response.ok || !body?.recommendations) {
-      setError(body?.details ?? body?.error ?? "Failed to generate recommendations.");
+      if (typeof body?.generations_used === "number") {
+        setLocalGenerationsUsed(body.generations_used);
+      }
+      setError(body?.error ?? body?.details ?? "Failed to generate recommendations.");
       setIsGenerating(false);
       return;
     }
 
     setRecommendations(body.recommendations);
+    setLocalGenerationsUsed((current) =>
+      typeof body.generations_used === "number" ? body.generations_used : current + 1,
+    );
     setIsGenerating(false);
     router.refresh();
   }
@@ -148,8 +169,8 @@ export function RecommendationsClient({
     activeTrack === "research" ? "Compare your research directions." : "Compare your software directions.";
   const subtitle =
     activeTrack === "research"
-      ? "The strongest choice is not the flashiest question. It is the one with a believable method, evidence plan, and finish line."
-      : "The strongest choice is not the biggest build. It is the one with a clear user, clear problem, and a version you can actually ship.";
+      ? "Explore multiple research directions, then compare the method, evidence plan, and finish line before you commit."
+      : "Explore multiple software directions, then compare the user, problem, and version you can actually ship before you commit.";
   const generateLabel =
     activeTrack === "research"
       ? recommendations.length
@@ -169,7 +190,7 @@ export function RecommendationsClient({
         <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
           <div className="max-w-3xl">
             <PageHeader
-              eyebrow="Recommendation board"
+              eyebrow="Project idea board"
               title={title}
               description={subtitle}
               className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
@@ -194,9 +215,11 @@ export function RecommendationsClient({
             <p className="mt-3 text-3xl font-semibold text-paper">{getPlanLabel(plan)}</p>
           </Card>
           <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
-            <p className="editorial-kicker text-paper/55">Generations used</p>
+            <p className="editorial-kicker text-paper/55">Idea boards used</p>
             <p className="mt-3 text-3xl font-semibold text-paper">
-              {unlimitedGenerations || generationLimit === null ? generationsUsed : `${generationsUsed} / ${generationLimit}`}
+              {unlimitedGenerations || generationLimit === null
+                ? localGenerationsUsed
+                : `${localGenerationsUsed} / ${generationLimit}`}
             </p>
           </Card>
           <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
@@ -225,8 +248,15 @@ export function RecommendationsClient({
       />
 
       {!canRegenerate ? (
-        <Alert tone="warning" heading="Free plan limit reached">
-          You have used both free generations. Upgrade on the billing page to unlock unlimited generations and keep iterating on the right direction.
+        <Alert
+          tone="warning"
+          heading={
+            generationLimit === null
+              ? "Generation limit reached"
+              : `You've used your ${generationLimit} free idea boards`
+          }
+        >
+          You've explored multiple directions already. Upgrade on the billing page to keep refining new boards while your saved options stay available.
         </Alert>
       ) : null}
 
@@ -250,7 +280,7 @@ export function RecommendationsClient({
         <Card className="space-y-4" elevation="none">
           <h2 className="text-2xl font-semibold text-ink">No saved options for this track yet.</h2>
           <p className="text-sm leading-6 text-ink-soft">
-            Generate a fresh comparison board and Sevri will return three distinct directions built from your current context.
+            Generate a fresh idea board and Sevri will return three distinct directions built from your current context.
           </p>
         </Card>
       ) : null}

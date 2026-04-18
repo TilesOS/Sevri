@@ -5,15 +5,17 @@ import { PageHeader } from "@/components/ui/page-header";
 import { Reveal } from "@/components/ui/reveal";
 import { Section } from "@/components/ui/section";
 
+const freeGenerationLimit = PLAN_LIMITS.free.generation_limit;
+
 const comparisonRows = [
   {
-    label: "Recommendation generations",
-    free: `${PLAN_LIMITS.free.generation_limit} total`,
+    label: "Idea board generations",
+    free: `${freeGenerationLimit} total`,
     pro: "Unlimited",
   },
   {
-    label: "Recommendation board",
-    free: "Enough to try one software direction and one research direction",
+    label: "Exploration room",
+    free: "Enough to test both software and research paths",
     pro: "Generate fresh boards whenever your thinking evolves",
   },
   {
@@ -32,12 +34,12 @@ const faqItems = [
   {
     question: "Should I start on the free plan?",
     answer:
-      "Yes, if you want to validate the workflow first. The free tier is designed to help you run onboarding, try two generations total, and see whether Sevri fits how you work.",
+      `Yes, if you want to validate the workflow first. The free tier is designed to help you run onboarding, explore up to ${freeGenerationLimit} project idea boards, and see whether Sevri fits how you work.`,
   },
   {
     question: "Who is Pro for?",
     answer:
-      "Pro is for students who want unlimited generations plus detailed per-step coaching and evaluation while they execute.",
+      "Pro is for students who want unlimited idea board generations plus detailed per-step coaching and evaluation while they execute.",
   },
   {
     question: "Can I upgrade later?",
@@ -53,7 +55,7 @@ export default function PricingPage() {
         <PageHeader
           eyebrow="Pricing"
           title="Simple pricing for serious students."
-          description="Start free while you validate the workflow. Upgrade when you want unlimited generations, deeper coaching, and a stronger finishing environment."
+          description={`Start free while you validate the workflow. Explore up to ${freeGenerationLimit} idea boards, then upgrade when you want unlimited idea board generations, deeper coaching, and a stronger finishing environment.`}
         />
         <div className="mt-10 grid gap-4 lg:grid-cols-2">
           <Reveal>
@@ -64,10 +66,11 @@ export default function PricingPage() {
                 <p className="pb-1 text-sm text-ink-muted">/ month</p>
               </div>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Best for trying Sevri, running onboarding, and testing one software project plus one research project before you commit.
+                Best for trying Sevri, running onboarding, and exploring up to {freeGenerationLimit} idea boards before you commit.
               </p>
               <ul className="mt-6 space-y-3 text-sm leading-6 text-ink-soft">
-                <li>{PLAN_LIMITS.free.generation_limit} generations total</li>
+                <li>Free plan includes {freeGenerationLimit} idea board generations</li>
+                <li>Enough to test both software and research paths</li>
                 <li>4-step onboarding wizard</li>
                 <li>Roadmap, project pages, and milestone tracking</li>
                 <li>Great for deciding whether the workflow fits your process</li>
@@ -92,7 +95,7 @@ export default function PricingPage() {
                 and detailed coaching while the project moves.
               </p>
               <ul className="mt-6 space-y-3 text-sm leading-6 text-paper/72">
-                <li>Unlimited generations</li>
+                <li>Unlimited idea board generations</li>
                 <li>Detailed step guidance and work evaluation</li>
                 <li>Built for sustained use during execution</li>
                 <li>Better fit once you are committed to shipping</li>
@@ -167,7 +170,7 @@ export default function PricingPage() {
           <Card tone="contrast" className="border-contrast-line bg-paper/5">
             <p className="editorial-kicker text-paper/55">More iteration</p>
             <p className="mt-3 text-xl font-semibold text-paper">
-              Generate fresh recommendation boards whenever your thinking changes.
+              Generate fresh idea boards whenever your thinking changes.
             </p>
           </Card>
           <Card tone="contrast" className="border-contrast-line bg-paper/5">
