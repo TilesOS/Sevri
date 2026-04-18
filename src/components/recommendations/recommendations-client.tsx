@@ -256,7 +256,7 @@ export function RecommendationsClient({
               : `You've used your ${generationLimit} free idea boards`
           }
         >
-          You've explored multiple directions already. Upgrade on the billing page to keep refining new boards while your saved options stay available.
+          You&apos;ve explored multiple directions already. Upgrade on the billing page to keep refining new boards while your saved options stay available.
         </Alert>
       ) : null}
 
