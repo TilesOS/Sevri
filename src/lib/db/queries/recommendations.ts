@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { countRecommendationBatches, type RecommendationBatchRow } from "@/lib/usage/recommendation-batches";
 import type { ProjectTrack } from "@/types/domain";
 
 function asProjectTrack(value: unknown): ProjectTrack {
@@ -144,15 +145,14 @@ export async function getTrackAvailability(userId: string) {
 export async function getRecommendationGenerationCount(userId: string) {
   const supabase = await createServerSupabaseClient();
 
-  const { count, error } = await supabase
-    .from("usage_events")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("event_type", "recommendations_generated");
+  const { data, error } = await supabase
+    .from("project_recommendations")
+    .select("normalized_profile_id")
+    .eq("user_id", userId);
 
   if (error) {
-    throw new Error(`Failed to fetch recommendation count: ${error.message}`);
+    throw new Error(`Failed to fetch recommendation batch count: ${error.message}`);
   }
 
-  return count ?? 0;
+  return countRecommendationBatches((data ?? []) as RecommendationBatchRow[]);
 }

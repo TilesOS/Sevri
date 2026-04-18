@@ -1,8 +1,11 @@
+import { PLAN_LIMITS } from "@/lib/usage/limits";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
 import { Section } from "@/components/ui/section";
 import { StatCard } from "@/components/ui/stat-card";
+
+const freeGenerationLimit = PLAN_LIMITS.free.generation_limit;
 
 const processSteps = [
   {
@@ -298,7 +301,7 @@ export default function HomePage() {
                 Start here. See what fits.
               </h3>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
-                The free tier gets you through onboarding and your first recommendation board.
+                The free tier gets you through onboarding and up to {freeGenerationLimit} idea boards so you can try both software and research paths.
                 Try it — if it clicks, you&apos;ll know.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">

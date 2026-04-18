@@ -8,7 +8,7 @@ import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/a
 import { getRecommendationGenerationCount, getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getRecommendationFeedback } from "@/lib/db/queries/generation-feedback";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
-import { canGenerateRecommendations } from "@/lib/usage/limits";
+import { canGenerateRecommendations, getGenerationLimit } from "@/lib/usage/limits";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 
@@ -73,10 +73,19 @@ export async function POST(request: Request) {
       getRecommendationGenerationCount(user.id),
       getLatestProjectTrack(user.id),
     ]);
+    const generationLimit = getGenerationLimit(plan);
 
     if (!canGenerateRecommendations(plan, generatedCount)) {
       return NextResponse.json(
-        { error: "Free plan limit reached. Upgrade to Pro for unlimited generations." },
+        {
+          code: "generation_limit_reached",
+          error:
+            generationLimit === null
+              ? "Generation limit reached."
+              : `You've used your ${generationLimit} free idea boards. You've explored multiple directions. Upgrade to keep refining.`,
+          generations_used: generatedCount,
+          generation_limit: generationLimit,
+        },
         { status: 403 },
       );
     }
@@ -200,6 +209,8 @@ export async function POST(request: Request) {
       {
         project_track: activeTrack,
         normalized_profile_id: contextSnapshot.id,
+        generations_used: generatedCount + 1,
+        generation_limit: generationLimit,
         recommendations: (insertedRecommendations ?? []).map((recommendation) => ({
           id: recommendation.id,
           normalized_profile_id: recommendation.normalized_profile_id,

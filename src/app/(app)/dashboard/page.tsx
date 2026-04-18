@@ -2,6 +2,7 @@ import { getRequiredUser } from "@/lib/auth/guard";
 import { getProjectsForDashboard } from "@/lib/db/queries/projects";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getRecommendationGenerationCount, getTrackAvailability } from "@/lib/db/queries/recommendations";
+import { PLAN_LIMITS } from "@/lib/usage/limits";
 import { getPlanLabel, getTrackLabel, trackThemes } from "@/components/theme/theme-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export default async function DashboardPage() {
     : trackAvailability.software.hasIntake || trackAvailability.research.hasIntake
       ? {
           href: `/recommendations?track=${trackAvailability.software.hasIntake ? "software" : "research"}`,
-          label: "Open recommendation board",
+          label: "Open idea board",
         }
       : {
           href: "/onboarding",
@@ -75,12 +76,16 @@ export default async function DashboardPage() {
         <StatCard
           label="Current plan"
           value={getPlanLabel(plan)}
-          detail={plan === "pro_monthly" ? "Unlimited generations and Pro coaching enabled." : "2 free generations plus roadmap access."}
+          detail={
+            plan === "pro_monthly"
+              ? "Unlimited idea board generations and Pro coaching enabled."
+              : `Includes ${PLAN_LIMITS.free.generation_limit} free idea board generations plus roadmap access.`
+          }
         />
         <StatCard
-          label="Recommendation generations used"
+          label="Idea board generations used"
           value={recommendationGenerations}
-          detail="Total generations across both tracks."
+          detail="Total idea board generations across both tracks."
         />
         <StatCard label="Saved projects" value={projects.length} detail="Active, paused, and completed work in one place." />
       </div>
@@ -155,7 +160,7 @@ function TrackSection({
           <p className="mt-3 text-3xl font-semibold text-ink">{projects.length}</p>
         </div>
         <div>
-          <p className="editorial-kicker">Recommendation history</p>
+          <p className="editorial-kicker">Saved directions</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{recommendationCount}</p>
         </div>
         <div>
@@ -195,7 +200,7 @@ function TrackSection({
           </p>
           <p className="mt-3 text-sm leading-6 text-ink-soft">
             {hasIntake
-              ? `No ${track} project saved yet. Generate recommendations for this track and save the strongest one.`
+              ? `No ${track} project saved yet. Generate an idea board for this track and save the strongest direction.`
               : `You have not completed ${track} onboarding yet. Run onboarding and choose the ${track === "software" ? "Software Project" : "Research Project"} track to start.`}
           </p>
         </Card>

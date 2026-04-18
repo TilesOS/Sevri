@@ -1,6 +1,7 @@
 import { getRequiredUser } from "@/lib/auth/guard";
 import { hasVerifiedPlanAccess } from "@/lib/billing/entitlements";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { PLAN_LIMITS } from "@/lib/usage/limits";
 import { BillingReturnSync } from "@/components/billing/billing-return-sync";
 import { getPlanLabel } from "@/components/theme/theme-utils";
 import { Badge } from "@/components/ui/badge";
@@ -43,7 +44,7 @@ export default async function BillingPage({
       <PageHeader
         eyebrow="Billing"
         title="Manage the depth of your workspace."
-        description="Start free, upgrade when you want unlimited generations and deeper coaching, and manage your billing details without disrupting your project flow."
+        description={`Start free, explore up to ${PLAN_LIMITS.free.generation_limit} idea boards, upgrade when you want unlimited idea board generations and deeper coaching, and manage your billing details without disrupting your project flow.`}
       />
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
@@ -58,8 +59,8 @@ export default async function BillingPage({
             </h2>
             <p className="text-sm leading-6 text-ink-soft">
               {effectivePlan === "pro_monthly"
-                ? "You have unlimited generations plus detailed step coaching and evaluation while the project evolves."
-                : "The free tier is perfect for validating the workflow. You can use two generations total, build the roadmap, and upgrade when you want deeper coaching."}
+                ? "You have unlimited idea board generations plus detailed step coaching and evaluation while the project evolves."
+                : `The free tier is perfect for validating the workflow. You can explore up to ${PLAN_LIMITS.free.generation_limit} idea boards, test both software and research paths, build the roadmap, and upgrade when you want deeper coaching.`}
             </p>
           </div>
 
@@ -78,7 +79,7 @@ export default async function BillingPage({
           <p className="editorial-kicker">Why upgrade</p>
           <h2 className="text-3xl font-semibold text-ink">Upgrade for better coaching, not more noise.</h2>
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
-            <li>Generate fresh recommendation boards whenever your understanding of the right project changes.</li>
+            <li>Generate fresh idea boards whenever your understanding of the right project changes.</li>
             <li>Unlock detailed step guidance and AI evaluation while the roadmap is unfolding.</li>
             <li>Use Pro when the direction is chosen and execution matters more than experimentation.</li>
           </ul>
