@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
+import { ReviewersCard } from "@/components/reviewer/reviewers-card";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
@@ -11,6 +12,10 @@ import {
   ROADMAP_PROJECT_TITLE_SPEC,
 } from "@/lib/ai/content-quality-specs";
 import type { ProjectWorkspaceView } from "@/lib/projects/workspace";
+import type {
+  ProjectInvitationSummary,
+  ProjectReviewerSummary,
+} from "@/lib/db/queries/reviewers";
 import type { Plan } from "@/types/domain";
 
 function cleanOrUndefined(value: string | null | undefined, spec: typeof ROADMAP_OVERVIEW_PROSE_SPEC) {
@@ -34,9 +39,13 @@ function totalEstimatedRange(milestones: ProjectWorkspaceView["milestones"]) {
 export function ProjectOverviewView({
   workspace,
   plan,
+  reviewers,
+  invitations,
 }: {
   workspace: ProjectWorkspaceView;
   plan: Plan;
+  reviewers: ProjectReviewerSummary[];
+  invitations: ProjectInvitationSummary[];
 }) {
   const trackTheme = trackThemes[workspace.projectTrack];
   const nextStepHref = workspace.nextMilestone
@@ -131,6 +140,13 @@ export function ProjectOverviewView({
           </div>
         </div>
       </Card>
+
+      <ReviewersCard
+        projectId={workspace.project.id}
+        plan={plan}
+        reviewers={reviewers}
+        invitations={invitations}
+      />
 
       {workspace.roadmap ? (
         <GenerationFeedbackForm

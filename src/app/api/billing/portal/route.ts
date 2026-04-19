@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/auth/api";
+import { requireApiStudent } from "@/lib/auth/api";
 import { createPortalSession } from "@/lib/stripe/checkout";
 import { captureServerError } from "@/lib/sentry/server";
 
 export async function POST() {
-  const { user, response } = await requireApiUser();
+  const { user, response } = await requireApiStudent();
   if (!user) {
     return response;
   }

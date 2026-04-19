@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/auth/api";
+import { requireApiStudent } from "@/lib/auth/api";
 import { syncBillingForUser } from "@/lib/stripe/sync";
 import { captureServerError } from "@/lib/sentry/server";
 
@@ -13,7 +13,7 @@ function getRequestedSessionId(body: unknown) {
 }
 
 export async function POST(request: Request) {
-  const { user, response } = await requireApiUser();
+  const { user, response } = await requireApiStudent();
   if (!user) {
     return response;
   }

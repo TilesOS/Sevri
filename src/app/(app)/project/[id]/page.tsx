@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getRequiredUser } from "@/lib/auth/guard";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getProjectWorkspaceView } from "@/lib/projects/workspace";
+import { listProjectInvitations, listProjectReviewers } from "@/lib/db/queries/reviewers";
 import { ProjectRoadmapEmptyState } from "@/components/project/project-roadmap-empty-state";
 import { ProjectOverviewView } from "@/components/project/project-overview-view";
 
@@ -10,9 +11,11 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
   const { id } = await params;
 
   try {
-    const [workspace, plan] = await Promise.all([
+    const [workspace, plan, reviewers, invitations] = await Promise.all([
       getProjectWorkspaceView(id, user.id),
       getUserPlan(user.id),
+      listProjectReviewers(id),
+      listProjectInvitations(id),
     ]);
 
     if (!workspace.hasRoadmap) {
@@ -26,7 +29,14 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
       );
     }
 
-    return <ProjectOverviewView workspace={workspace} plan={plan} />;
+    return (
+      <ProjectOverviewView
+        workspace={workspace}
+        plan={plan}
+        reviewers={reviewers}
+        invitations={invitations}
+      />
+    );
   } catch {
     notFound();
   }
