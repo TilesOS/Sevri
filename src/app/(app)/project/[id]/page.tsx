@@ -3,6 +3,7 @@ import { getRequiredUser } from "@/lib/auth/guard";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getProjectWorkspaceView } from "@/lib/projects/workspace";
 import { listProjectInvitations, listProjectReviewers } from "@/lib/db/queries/reviewers";
+import { getUserIntegrationPublic } from "@/lib/db/queries/github";
 import { ProjectRoadmapEmptyState } from "@/components/project/project-roadmap-empty-state";
 import { ProjectOverviewView } from "@/components/project/project-overview-view";
 
@@ -11,11 +12,12 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
   const { id } = await params;
 
   try {
-    const [workspace, plan, reviewers, invitations] = await Promise.all([
+    const [workspace, plan, reviewers, invitations, githubIntegration] = await Promise.all([
       getProjectWorkspaceView(id, user.id),
       getUserPlan(user.id),
       listProjectReviewers(id),
       listProjectInvitations(id),
+      getUserIntegrationPublic(user.id, "github"),
     ]);
 
     if (!workspace.hasRoadmap) {
@@ -35,6 +37,7 @@ export default async function ProjectOverviewPage({ params }: { params: Promise<
         plan={plan}
         reviewers={reviewers}
         invitations={invitations}
+        githubIntegration={githubIntegration}
       />
     );
   } catch {

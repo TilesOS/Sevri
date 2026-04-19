@@ -9,6 +9,7 @@ import { roadmapStatusClassName } from "@/components/project/project-status";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
+import { GithubStepCommits } from "@/components/project/github-step-commits";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
@@ -420,6 +421,10 @@ export function ProjectStepWorkspace({
 
       {toggleError ? <Alert tone="danger">{toggleError}</Alert> : null}
 
+      {workspace.projectTrack === "software" && workspace.githubLink?.status === "active" ? (
+        <GithubStepCommits projectId={workspace.project.id} milestoneId={milestone.id} />
+      ) : null}
+
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <Card className="space-y-4">
           <p className="editorial-kicker">Step objective</p>
@@ -643,6 +648,11 @@ export function ProjectStepWorkspace({
             evaluationError={evaluationError}
             actionsDisabled={isGuidanceLocked}
             lockedMessage={submissionLockMessage}
+            projectId={workspace.project.id}
+            milestoneId={milestone.id}
+            githubImportEnabled={
+              workspace.projectTrack === "software" && workspace.githubLink?.status === "active"
+            }
           />
         </>
       )}
@@ -753,6 +763,9 @@ function SubmissionDock({
   evaluationError,
   actionsDisabled,
   lockedMessage,
+  projectId,
+  milestoneId,
+  githubImportEnabled,
 }: {
   slot: SubmissionSlot;
   isOpen: boolean;
@@ -765,6 +778,9 @@ function SubmissionDock({
   evaluationError: string | null;
   actionsDisabled: boolean;
   lockedMessage: string;
+  projectId: string;
+  milestoneId: string;
+  githubImportEnabled: boolean;
 }) {
   const summary = getSubmissionDockSummary(slot, isPending, actionsDisabled, lockedMessage);
 
@@ -784,7 +800,13 @@ function SubmissionDock({
             </button>
           </div>
 
-          <MilestoneSubmissionForm onSubmit={onSubmit} disabled={isPending} />
+          <MilestoneSubmissionForm
+            onSubmit={onSubmit}
+            disabled={isPending}
+            projectId={projectId}
+            milestoneId={milestoneId}
+            githubImportEnabled={githubImportEnabled}
+          />
           {evaluationError ? <Alert tone="danger">{evaluationError}</Alert> : null}
         </Card>
       ) : null}
@@ -865,14 +887,60 @@ function getSubmissionDockSummary(
 function MilestoneSubmissionForm({
   onSubmit,
   disabled,
+  projectId,
+  milestoneId,
+  githubImportEnabled,
 }: {
   onSubmit: (text: string, kind: "pasted_text" | "file_upload", filename?: string) => void;
   disabled: boolean;
+  projectId: string;
+  milestoneId: string;
+  githubImportEnabled: boolean;
 }) {
   const [pastedText, setPastedText] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importInfo, setImportInfo] = useState<string | null>(null);
+
+  async function handleGithubImport() {
+    setIsImporting(true);
+    setImportError(null);
+    setImportInfo(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/github/submission-import?milestone_id=${encodeURIComponent(milestoneId)}`,
+      );
+      if (!res.ok) {
+        const body = (await res.json().catch(() => ({}))) as { error?: string; code?: string };
+        setImportError(body.error ?? body.code ?? "Could not import commits.");
+        return;
+      }
+      const body = (await res.json()) as {
+        content: string;
+        commit_count: number;
+        truncated: boolean;
+      };
+      if (body.commit_count === 0) {
+        setImportInfo("No commits attributed to this step yet.");
+        return;
+      }
+      setPastedText((current) =>
+        current ? `${current}\n\n${body.content}` : body.content,
+      );
+      setImportInfo(
+        body.truncated
+          ? `Imported ${body.commit_count} commits (truncated to fit).`
+          : `Imported ${body.commit_count} commits.`,
+      );
+    } catch {
+      setImportError("Network error. Please try again.");
+    } finally {
+      setIsImporting(false);
+    }
+  }
 
   const combinedLength = fileContent
     ? fileContent.length + (pastedText ? NOTES_SEPARATOR.length + pastedText.length : 0)
@@ -953,7 +1021,21 @@ function MilestoneSubmissionForm({
             Remove
           </button>
         ) : null}
+        {githubImportEnabled ? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => void handleGithubImport()}
+            disabled={disabled || isImporting}
+          >
+            {isImporting ? "Importing…" : "Import from GitHub"}
+          </Button>
+        ) : null}
       </div>
+
+      {importError ? <p className="text-xs text-red-600">{importError}</p> : null}
+      {importInfo ? <p className="text-xs text-ink-muted">{importInfo}</p> : null}
 
       {fileContent && pastedText ? (
         <p className="text-xs text-ink-muted">File content and notes will be sent together.</p>

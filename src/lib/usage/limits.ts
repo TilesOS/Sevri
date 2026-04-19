@@ -7,6 +7,7 @@ export const PLAN_LIMITS = {
     readme_export: false,
     portfolio_packaging: false,
     reviewer_limit: 0,
+    link_github: false,
   },
   pro_monthly: {
     generation_limit: null,
@@ -14,6 +15,7 @@ export const PLAN_LIMITS = {
     readme_export: true,
     portfolio_packaging: true,
     reviewer_limit: 2,
+    link_github: true,
   },
 } as const;
 
@@ -53,4 +55,8 @@ export function reviewerLimit(plan: Plan): number {
 
 export function canInviteReviewer(plan: Plan, currentCount: number): boolean {
   return currentCount < reviewerLimit(plan);
+}
+
+export function canLinkGithub(plan: Plan): boolean {
+  return PLAN_LIMITS[plan].link_github;
 }

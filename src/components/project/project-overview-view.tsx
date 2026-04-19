@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { ReviewersCard } from "@/components/reviewer/reviewers-card";
+import { GithubOverviewCard } from "@/components/project/github-overview-card";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
@@ -16,6 +17,7 @@ import type {
   ProjectInvitationSummary,
   ProjectReviewerSummary,
 } from "@/lib/db/queries/reviewers";
+import type { UserIntegrationPublicRow } from "@/lib/db/queries/github";
 import type { Plan } from "@/types/domain";
 
 function cleanOrUndefined(value: string | null | undefined, spec: typeof ROADMAP_OVERVIEW_PROSE_SPEC) {
@@ -41,11 +43,13 @@ export function ProjectOverviewView({
   plan,
   reviewers,
   invitations,
+  githubIntegration,
 }: {
   workspace: ProjectWorkspaceView;
   plan: Plan;
   reviewers: ProjectReviewerSummary[];
   invitations: ProjectInvitationSummary[];
+  githubIntegration: UserIntegrationPublicRow | null;
 }) {
   const trackTheme = trackThemes[workspace.projectTrack];
   const nextStepHref = workspace.nextMilestone
@@ -101,6 +105,15 @@ export function ProjectOverviewView({
           <p className="mt-2 text-sm leading-6 text-ink-soft">One concrete deliverable per step, not a vague phase.</p>
         </Card>
       </div>
+
+      {workspace.projectTrack === "software" ? (
+        <GithubOverviewCard
+          projectId={workspace.project.id}
+          plan={plan}
+          integration={githubIntegration}
+          link={workspace.githubLink}
+        />
+      ) : null}
 
       <Card className="space-y-6">
         <div className="space-y-2">
