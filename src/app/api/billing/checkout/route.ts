@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { requireApiUser } from "@/lib/auth/api";
+import { requireApiStudent } from "@/lib/auth/api";
 import { createCheckoutSession } from "@/lib/stripe/checkout";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 
 export async function POST() {
-  const { user, response } = await requireApiUser();
+  const { user, response } = await requireApiStudent();
   if (!user) {
     return response;
   }

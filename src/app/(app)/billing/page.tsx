@@ -1,4 +1,4 @@
-import { getRequiredUser } from "@/lib/auth/guard";
+import { getRequiredStudentUser } from "@/lib/auth/guard";
 import { hasVerifiedPlanAccess } from "@/lib/billing/entitlements";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PLAN_LIMITS } from "@/lib/usage/limits";
@@ -22,7 +22,7 @@ export default async function BillingPage({
 }: {
   searchParams: Promise<{ checkout?: string; session_id?: string }>;
 }) {
-  const user = await getRequiredUser();
+  const user = await getRequiredStudentUser();
   const supabase = await createServerSupabaseClient();
   const resolvedSearchParams = await searchParams;
 
