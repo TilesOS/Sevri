@@ -1,7 +1,17 @@
 import { cache } from "react";
 import { getProjectWorkspace } from "@/lib/db/queries/projects";
+import { getProjectGithubLink, type ProjectGithubLinkRow } from "@/lib/db/queries/github";
 import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
 import type { ProjectTrack } from "@/types/domain";
+
+export interface ProjectGithubLinkView {
+  id: string;
+  repo_full_name: string;
+  default_branch: string;
+  status: "active" | "broken";
+  last_synced_at: string | null;
+  cached_readme: string | null;
+}
 
 type RawProjectWorkspace = Awaited<ReturnType<typeof getProjectWorkspace>>;
 
@@ -52,6 +62,7 @@ export interface ProjectWorkspaceView {
   parsedTalkingPoints: ParsedTalkingPoint[];
   firstIncompleteStepNumber: number | null;
   nextMilestone: ProjectMilestoneView | null;
+  githubLink: ProjectGithubLinkView | null;
 }
 
 function getPayloadString(value: unknown, fallback = "") {
@@ -107,8 +118,21 @@ function normalizeMilestones(
   });
 }
 
+function summarizeGithubLink(row: ProjectGithubLinkRow | null): ProjectGithubLinkView | null {
+  if (!row) return null;
+  return {
+    id: row.id,
+    repo_full_name: row.repo_full_name,
+    default_branch: row.default_branch,
+    status: row.status,
+    last_synced_at: row.last_synced_at,
+    cached_readme: row.cached_readme,
+  };
+}
+
 export const getProjectWorkspaceView = cache(async (projectId: string, userId: string): Promise<ProjectWorkspaceView> => {
   const workspace = await getProjectWorkspace(projectId, userId);
+  const githubLinkRow = await getProjectGithubLink(projectId).catch(() => null);
   const projectTrack = workspace.project.project_track === "research" ? "research" : "software";
   const milestones = normalizeMilestones(workspace.milestones ?? []);
   const completedCount = milestones.filter((milestone) => milestone.completed).length;
@@ -190,5 +214,6 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     parsedTalkingPoints,
     firstIncompleteStepNumber,
     nextMilestone,
+    githubLink: summarizeGithubLink(githubLinkRow),
   };
 });

@@ -1,8 +1,19 @@
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { ReadmeDiffSection } from "@/components/project/readme-diff-section";
 import type { ProjectWorkspaceView } from "@/lib/projects/workspace";
 
 export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspaceView }) {
+  const readmeDraft =
+    typeof workspace.roadmap?.readme_draft === "string" ? workspace.roadmap.readme_draft : "";
+  const cachedReadme = workspace.githubLink?.cached_readme ?? "";
+  const showReadmeDiff =
+    workspace.projectTrack === "software" &&
+    workspace.githubLink?.status === "active" &&
+    cachedReadme.trim().length > 0 &&
+    readmeDraft.trim().length > 0 &&
+    cachedReadme.trim() !== readmeDraft.trim();
+
   return (
     <div className="space-y-8">
       <PageHeader
@@ -10,6 +21,10 @@ export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspace
         title="Present the project without losing the substance."
         description="Keep the positioning sharp. This page is for how you talk about the project, not how you execute it."
       />
+
+      {showReadmeDiff ? (
+        <ReadmeDiffSection cachedReadme={cachedReadme} readmeDraft={readmeDraft} />
+      ) : null}
 
       {workspace.elevatorPitch ? (
         <Card className="space-y-3">

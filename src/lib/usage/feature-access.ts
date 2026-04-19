@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
-import { hasStepGuidanceAccess, reviewerLimit } from "@/lib/usage/limits";
+import { canLinkGithub, hasStepGuidanceAccess, reviewerLimit } from "@/lib/usage/limits";
 import type { Plan } from "@/types/domain";
 
-export type RestrictedFeature = "step_guidance" | "invite_reviewer";
+export type RestrictedFeature = "step_guidance" | "invite_reviewer" | "link_github";
 
 export interface UpgradeRequiredError {
   code: "upgrade_required";
@@ -32,6 +32,13 @@ function buildUpgradeRequiredError(feature: RestrictedFeature): UpgradeRequiredE
         error: "Upgrade to Pro to invite reviewers to your projects.",
         upgrade_url: "/billing",
       };
+    case "link_github":
+      return {
+        code: "upgrade_required",
+        feature,
+        error: "Linking a GitHub repository requires Pro.",
+        upgrade_url: "/billing",
+      };
   }
 }
 
@@ -49,6 +56,11 @@ export async function assertFeatureAccess(input: {
       return { allowed: false, plan, error: buildUpgradeRequiredError(input.feature) };
     case "invite_reviewer":
       if (reviewerLimit(plan) > 0) {
+        return { allowed: true, plan };
+      }
+      return { allowed: false, plan, error: buildUpgradeRequiredError(input.feature) };
+    case "link_github":
+      if (canLinkGithub(plan)) {
         return { allowed: true, plan };
       }
       return { allowed: false, plan, error: buildUpgradeRequiredError(input.feature) };

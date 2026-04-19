@@ -35,6 +35,18 @@ const sentryEnvSchema = z.object({
   SENTRY_DSN: z.string().optional(),
 });
 
+const githubEnvSchema = z.object({
+  GITHUB_CLIENT_ID: z.string().min(1),
+  GITHUB_CLIENT_SECRET: z.string().min(1),
+  GITHUB_REDIRECT_URI: z.string().url(),
+  INTEGRATIONS_ENCRYPTION_KEY: z
+    .string()
+    .refine(
+      (v) => Buffer.from(v, "base64").length === 32,
+      "INTEGRATIONS_ENCRYPTION_KEY must be 32 bytes when base64-decoded",
+    ),
+});
+
 export const clientEnv = clientEnvSchema.parse({
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -47,6 +59,7 @@ let cachedSupabaseAdminEnv: z.infer<typeof supabaseAdminEnvSchema> | null = null
 let cachedStripeEnv: z.infer<typeof stripeEnvSchema> | null = null;
 let cachedEmailEnv: z.infer<typeof emailEnvSchema> | null = null;
 let cachedSentryEnv: z.infer<typeof sentryEnvSchema> | null = null;
+let cachedGithubEnv: z.infer<typeof githubEnvSchema> | null = null;
 
 export function getAIEnv() {
   if (!cachedAIEnv) {
@@ -86,4 +99,12 @@ export function getSentryEnv() {
   }
 
   return cachedSentryEnv;
+}
+
+export function getGithubEnv() {
+  if (!cachedGithubEnv) {
+    cachedGithubEnv = githubEnvSchema.parse(process.env);
+  }
+
+  return cachedGithubEnv;
 }

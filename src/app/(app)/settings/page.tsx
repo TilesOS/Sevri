@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { resolveStoredFullName } from "@/lib/auth/names";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { settingsProfileSchema, type SettingsProfileInput } from "@/lib/validators/settings";
+import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 
@@ -60,6 +61,19 @@ export default async function SettingsPage() {
           </ul>
         </Card>
       </div>
+
+      <Card className="space-y-3">
+        <p className="editorial-kicker">Integrations</p>
+        <p className="text-sm leading-6 text-ink-soft">
+          Connect GitHub to sync commits and READMEs with your projects.
+        </p>
+        <Link
+          href="/settings/integrations"
+          className="inline-flex items-center text-sm font-semibold text-ink hover:underline"
+        >
+          Manage integrations →
+        </Link>
+      </Card>
     </div>
   );
 }
