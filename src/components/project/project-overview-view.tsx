@@ -1,3 +1,5 @@
+import { CalendarScheduleRetryButton } from "@/components/calendar/calendar-schedule-retry-button";
+import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -44,12 +46,14 @@ export function ProjectOverviewView({
   reviewers,
   invitations,
   githubIntegration,
+  showScheduleRetryNotice = false,
 }: {
   workspace: ProjectWorkspaceView;
   plan: Plan;
   reviewers: ProjectReviewerSummary[];
   invitations: ProjectInvitationSummary[];
   githubIntegration: UserIntegrationPublicRow | null;
+  showScheduleRetryNotice?: boolean;
 }) {
   const trackTheme = trackThemes[workspace.projectTrack];
   const nextStepHref = workspace.nextMilestone
@@ -61,6 +65,20 @@ export function ProjectOverviewView({
 
   return (
     <div className="space-y-8">
+      {showScheduleRetryNotice ? (
+        <Alert tone="warning" heading="Roadmap saved, but the schedule needs another try.">
+          <div className="space-y-3">
+            <p>The roadmap is ready. Calendar dates were not created on the first pass, so due dates may be missing until the schedule is rebuilt.</p>
+            <div className="flex flex-wrap gap-3">
+              <CalendarScheduleRetryButton projectId={workspace.project.id} className="rounded-full" />
+              <Button href="/calendar" variant="outline" className="rounded-full">
+                Open calendar
+              </Button>
+            </div>
+          </div>
+        </Alert>
+      ) : null}
+
       <Card tone="contrast" className="border-contrast-line">
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">

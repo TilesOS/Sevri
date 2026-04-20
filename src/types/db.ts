@@ -175,6 +175,16 @@ export interface Database {
           stretch_goals: string[];
           explanation_guide: Json;
           track_payload_json: Json;
+          scheduled_start_date: string | null;
+          scheduled_end_date: string | null;
+          schedule_timezone: string;
+          schedule_generation_source:
+            | "roadmap_generation"
+            | "manual_regenerate"
+            | "rebalance_downstream"
+            | "move_only"
+            | null;
+          last_schedule_rebalanced_at: string | null;
           raw_model_output_json: Json;
           created_at: string;
           updated_at: string;
@@ -190,6 +200,16 @@ export interface Database {
           stretch_goals: string[];
           explanation_guide: Json;
           track_payload_json?: Json;
+          scheduled_start_date?: string | null;
+          scheduled_end_date?: string | null;
+          schedule_timezone?: string;
+          schedule_generation_source?:
+            | "roadmap_generation"
+            | "manual_regenerate"
+            | "rebalance_downstream"
+            | "move_only"
+            | null;
+          last_schedule_rebalanced_at?: string | null;
           raw_model_output_json: Json;
           created_at?: string;
           updated_at?: string;
@@ -205,6 +225,9 @@ export interface Database {
           objective: string | null;
           deliverable: string | null;
           rough_time_estimate: string | null;
+          due_date: string | null;
+          schedule_duration_days: number | null;
+          is_user_scheduled_override: boolean;
           completed: boolean;
           completed_at: string | null;
           created_at: string;
@@ -218,6 +241,25 @@ export interface Database {
           objective?: string | null;
           deliverable?: string | null;
           rough_time_estimate?: string | null;
+          due_date?: string | null;
+          schedule_duration_days?: number | null;
+          is_user_scheduled_override?: boolean;
+          completed?: boolean;
+          completed_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          project_id?: string;
+          order_index?: number;
+          title?: string;
+          description?: string;
+          objective?: string | null;
+          deliverable?: string | null;
+          rough_time_estimate?: string | null;
+          due_date?: string | null;
+          schedule_duration_days?: number | null;
+          is_user_scheduled_override?: boolean;
           completed?: boolean;
           completed_at?: string | null;
           created_at?: string;

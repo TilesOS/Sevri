@@ -5,6 +5,7 @@ export const PLAN_LIMITS = {
     generation_limit: 4,
     step_guidance: false,
     readme_export: false,
+    calendar_export: false,
     portfolio_packaging: false,
     reviewer_limit: 0,
     link_github: false,
@@ -13,6 +14,7 @@ export const PLAN_LIMITS = {
     generation_limit: null,
     step_guidance: true,
     readme_export: true,
+    calendar_export: true,
     portfolio_packaging: true,
     reviewer_limit: 2,
     link_github: true,
@@ -43,6 +45,10 @@ export function hasStepGuidanceAccess(plan: Plan) {
 
 export function hasReadmeExportAccess(plan: Plan) {
   return PLAN_LIMITS[plan].readme_export;
+}
+
+export function hasCalendarExportAccess(plan: Plan) {
+  return PLAN_LIMITS[plan].calendar_export;
 }
 
 export function hasPortfolioPackagingAccess(plan: Plan) {

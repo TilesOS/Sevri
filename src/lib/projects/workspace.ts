@@ -1,6 +1,10 @@
 import { cache } from "react";
+import { getTodayDateString } from "@/lib/calendar/date-utils";
+import { deriveUrgencyState } from "@/lib/calendar/urgency";
+import type { CalendarUrgency } from "@/lib/calendar/types";
 import { getProjectWorkspace } from "@/lib/db/queries/projects";
 import { getProjectGithubLink, type ProjectGithubLinkRow } from "@/lib/db/queries/github";
+import { deriveMilestoneProgressMeta } from "@/lib/projects/milestone-status";
 import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
 import type { ProjectTrack } from "@/types/domain";
 
@@ -26,6 +30,10 @@ export interface ProjectMilestoneView {
   objective: string;
   deliverable: string;
   rough_time_estimate: string;
+  dueDate: string | null;
+  scheduleDurationDays: number | null;
+  isUserScheduledOverride: boolean;
+  urgency: CalendarUrgency | null;
   completed: boolean;
   status: ProjectStepStatus;
   isFuture: boolean;
@@ -49,6 +57,10 @@ export interface ProjectWorkspaceView {
   roadmap: RawProjectWorkspace["roadmap"];
   projectTrack: ProjectTrack;
   hasRoadmap: boolean;
+  scheduledStartDate: string | null;
+  scheduledEndDate: string | null;
+  scheduleTimezone: string;
+  scheduleReady: boolean;
   milestones: ProjectMilestoneView[];
   completedCount: number;
   completionPercent: number;
@@ -83,17 +95,15 @@ function parseTalkingPoint(point: string) {
 
 function normalizeMilestones(
   milestones: RawProjectWorkspace["milestones"],
+  scheduleTimezone: string,
 ): ProjectMilestoneView[] {
-  const firstIncompleteIndex = milestones.findIndex((milestone) => !milestone.completed);
+  const today = getTodayDateString(scheduleTimezone);
 
   return milestones.map((milestone) => {
     const stepNumber = milestone.order_index + 1;
     const guidanceGate = getStepGuidanceGate(milestones, milestone.order_index);
-    const status: ProjectStepStatus = milestone.completed
-      ? "complete"
-      : firstIncompleteIndex === -1 || milestone.order_index === firstIncompleteIndex
-        ? "in_progress"
-        : "not_started";
+    const progress = deriveMilestoneProgressMeta(milestones, milestone.order_index);
+    const status: ProjectStepStatus = progress.status;
 
     return {
       ...milestone,
@@ -110,8 +120,18 @@ function normalizeMilestones(
         typeof milestone.rough_time_estimate === "string" && milestone.rough_time_estimate.trim().length > 0
           ? milestone.rough_time_estimate
           : "About 1 week",
+      dueDate: milestone.due_date ?? null,
+      scheduleDurationDays: milestone.schedule_duration_days ?? null,
+      isUserScheduledOverride: milestone.is_user_scheduled_override,
+      urgency: milestone.due_date
+        ? deriveUrgencyState({
+            completed: milestone.completed,
+            date: milestone.due_date,
+            today,
+          })
+        : null,
       status,
-      isFuture: !milestone.completed && firstIncompleteIndex !== -1 && milestone.order_index > firstIncompleteIndex,
+      isFuture: progress.isFuture,
       guidanceLocked: guidanceGate.guidanceLocked,
       previousStepNumber: guidanceGate.previousStepNumber,
     };
@@ -134,9 +154,20 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
   const workspace = await getProjectWorkspace(projectId, userId);
   const githubLinkRow = await getProjectGithubLink(projectId).catch(() => null);
   const projectTrack = workspace.project.project_track === "research" ? "research" : "software";
-  const milestones = normalizeMilestones(workspace.milestones ?? []);
+  const scheduleTimezone =
+    typeof workspace.roadmap?.schedule_timezone === "string" && workspace.roadmap.schedule_timezone.trim().length > 0
+      ? workspace.roadmap.schedule_timezone
+      : "UTC";
+  const milestones = normalizeMilestones(workspace.milestones ?? [], scheduleTimezone);
   const completedCount = milestones.filter((milestone) => milestone.completed).length;
   const completionPercent = milestones.length === 0 ? 0 : Math.round((completedCount / milestones.length) * 100);
+  const scheduledStartDate = workspace.roadmap?.scheduled_start_date ?? null;
+  const scheduledEndDate = workspace.roadmap?.scheduled_end_date ?? null;
+  const scheduleReady =
+    Boolean(scheduledStartDate) &&
+    Boolean(scheduledEndDate) &&
+    milestones.length > 0 &&
+    milestones.every((milestone) => milestone.dueDate && milestone.scheduleDurationDays);
   const stretchGoals = (Array.isArray(workspace.roadmap?.stretch_goals) ? workspace.roadmap?.stretch_goals : []).filter(
     (goal: unknown): goal is string => typeof goal === "string" && goal.trim().length > 0,
   );
@@ -201,6 +232,10 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     roadmap: workspace.roadmap,
     projectTrack,
     hasRoadmap: Boolean(workspace.roadmap),
+    scheduledStartDate,
+    scheduledEndDate,
+    scheduleTimezone,
+    scheduleReady,
     milestones,
     completedCount,
     completionPercent,
