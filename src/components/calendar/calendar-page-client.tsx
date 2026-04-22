@@ -178,8 +178,8 @@ function getTrackSummaryLabel(
 
 function getProjectButtonClassName(selected: boolean) {
   return cn(
-    "w-full rounded-2xl border px-4 py-4 text-left transition",
-    selected ? "border-line-strong bg-paper shadow-soft" : "border-line bg-canvas/68 hover:border-line-strong hover:bg-paper",
+    "relative w-full rounded-2xl border px-4 py-4 text-left transition",
+    selected ? "z-10 border-line-strong bg-paper shadow-soft" : "border-line bg-canvas/68 hover:border-line-strong hover:bg-paper",
   );
 }
 
@@ -391,18 +391,26 @@ function DayCell({
   );
 }
 
+const TRACK_HISTORY_LIMIT = 2;
+
 function TrackSelector({
   track,
   projects,
   visibleProjectIds,
+  expandedHistory,
+  onToggleExpanded,
   onToggle,
 }: {
   track: ProjectTrack;
   projects: CalendarProjectView[];
   visibleProjectIds: string[];
+  expandedHistory: boolean;
+  onToggleExpanded: () => void;
   onToggle: (project: CalendarProjectView) => void;
 }) {
   const theme = trackThemes[track];
+  const displayedProjects = expandedHistory ? projects : projects.slice(0, TRACK_HISTORY_LIMIT);
+  const hiddenCount = projects.length - TRACK_HISTORY_LIMIT;
 
   return (
     <div className="space-y-3 rounded-[1.6rem] border border-line bg-canvas/72 p-4">
@@ -415,30 +423,41 @@ function TrackSelector({
       </div>
 
       {projects.length > 0 ? (
-        <div className="grid gap-3">
-          {projects.map((project) => {
-            const selected = visibleProjectIds.includes(project.projectId);
-            return (
-              <button
-                key={project.projectId}
-                type="button"
-                className={getProjectButtonClassName(selected)}
-                onClick={() => onToggle(project)}
-              >
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-ink">{project.projectTitle}</p>
-                    <p className="mt-1 text-xs text-ink-muted">
-                      {project.scheduleReady
-                        ? `${project.items.length} visible milestones`
-                        : "Roadmap is ready, but dates still need a schedule"}
-                    </p>
+        <div className="space-y-3">
+          <div className="grid gap-3">
+            {displayedProjects.map((project) => {
+              const selected = visibleProjectIds.includes(project.projectId);
+              return (
+                <button
+                  key={project.projectId}
+                  type="button"
+                  className={getProjectButtonClassName(selected)}
+                  onClick={() => onToggle(project)}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-semibold text-ink">{project.projectTitle}</p>
+                      <p className="mt-1 text-xs text-ink-muted">
+                        {project.scheduleReady
+                          ? `${project.items.length} visible milestones`
+                          : "Roadmap is ready, but dates still need a schedule"}
+                      </p>
+                    </div>
+                    <Badge tone={selected ? "accent" : "neutral"}>{selected ? "Visible" : "Hidden"}</Badge>
                   </div>
-                  <Badge tone={selected ? "accent" : "neutral"}>{selected ? "Visible" : "Hidden"}</Badge>
-                </div>
-              </button>
-            );
-          })}
+                </button>
+              );
+            })}
+          </div>
+          {hiddenCount > 0 ? (
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              className="w-full rounded-xl border border-line bg-canvas/48 px-3 py-2 text-xs font-medium text-ink-muted transition hover:border-line-strong hover:bg-paper hover:text-ink"
+            >
+              {expandedHistory ? "Show less" : `Show ${hiddenCount} older ${hiddenCount === 1 ? "project" : "projects"}`}
+            </button>
+          ) : null}
         </div>
       ) : (
         <p className="text-sm leading-6 text-ink-muted">No {track} projects have a roadmap yet.</p>
@@ -457,6 +476,8 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
   const [moveError, setMoveError] = useState<string | null>(null);
   const [isSavingMove, setIsSavingMove] = useState(false);
   const [exportProjectId, setExportProjectId] = useState(initialData.visibleProjectIds[0] ?? initialData.projects[0]?.projectId ?? null);
+  const [expandedSoftwareHistory, setExpandedSoftwareHistory] = useState(false);
+  const [expandedResearchHistory, setExpandedResearchHistory] = useState(false);
   const deferredVisibleProjectIds = useDeferredValue(visibleProjectIds);
 
   useEffect(() => {
@@ -640,54 +661,6 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               </Card>
             </div>
 
-            <Card className="space-y-6">
-              <div className="flex flex-wrap items-end justify-between gap-4">
-                <div className="space-y-2">
-                  <p className="editorial-kicker">Visible projects</p>
-                  <h2 className="text-2xl font-semibold text-ink">Keep at most two software and two research projects in view.</h2>
-                </div>
-                <p className="max-w-xl text-sm leading-6 text-ink-soft">
-                  Swap which timelines stay visible without turning the page into a cluttered project management wall.
-                </p>
-              </div>
-
-              <div className="grid gap-4 xl:grid-cols-2">
-                <TrackSelector
-                  track="software"
-                  projects={softwareProjects}
-                  visibleProjectIds={visibleProjectIds}
-                  onToggle={(project) => setVisibleProjectIds((current) => toggleProjectId(data.projects, current, project))}
-                />
-                <TrackSelector
-                  track="research"
-                  projects={researchProjects}
-                  visibleProjectIds={visibleProjectIds}
-                  onToggle={(project) => setVisibleProjectIds((current) => toggleProjectId(data.projects, current, project))}
-                />
-              </div>
-            </Card>
-
-            {unscheduledProjects.length > 0 ? (
-              <Alert tone="warning" heading="Some visible projects still need dates.">
-                <div className="space-y-4">
-                  <p>
-                    The roadmap exists, but the schedule was not generated or needs another pass. You can rebuild the dates without touching the underlying AI time estimates.
-                  </p>
-                  <div className="grid gap-3">
-                    {unscheduledProjects.map((project) => (
-                      <div key={project.projectId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3">
-                        <div>
-                          <p className="text-sm font-semibold text-ink">{project.projectTitle}</p>
-                          <p className="text-xs text-ink-muted">{trackThemes[project.projectTrack].label} roadmap is ready, but dates are missing.</p>
-                        </div>
-                        <CalendarScheduleRetryButton projectId={project.projectId} className="rounded-full" />
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </Alert>
-            ) : null}
-
             <Card padding="none" className="overflow-hidden">
               <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-6 py-5">
                 <div className="space-y-1">
@@ -738,6 +711,58 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                     }}
                   />
                 ))}
+              </div>
+            </Card>
+
+            {unscheduledProjects.length > 0 ? (
+              <Alert tone="warning" heading="Some visible projects still need dates.">
+                <div className="space-y-4">
+                  <p>
+                    The roadmap exists, but the schedule was not generated or needs another pass. You can rebuild the dates without touching the underlying AI time estimates.
+                  </p>
+                  <div className="grid gap-3">
+                    {unscheduledProjects.map((project) => (
+                      <div key={project.projectId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3">
+                        <div>
+                          <p className="text-sm font-semibold text-ink">{project.projectTitle}</p>
+                          <p className="text-xs text-ink-muted">{trackThemes[project.projectTrack].label} roadmap is ready, but dates are missing.</p>
+                        </div>
+                        <CalendarScheduleRetryButton projectId={project.projectId} className="rounded-full" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </Alert>
+            ) : null}
+
+            <Card className="space-y-6">
+              <div className="flex flex-wrap items-end justify-between gap-4">
+                <div className="space-y-2">
+                  <p className="editorial-kicker">Visible projects</p>
+                  <h2 className="text-2xl font-semibold text-ink">Keep at most two software and two research projects in view.</h2>
+                </div>
+                <p className="max-w-xl text-sm leading-6 text-ink-soft">
+                  Swap which timelines stay visible without turning the page into a cluttered project management wall.
+                </p>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-2">
+                <TrackSelector
+                  track="software"
+                  projects={softwareProjects}
+                  visibleProjectIds={visibleProjectIds}
+                  expandedHistory={expandedSoftwareHistory}
+                  onToggleExpanded={() => setExpandedSoftwareHistory((prev) => !prev)}
+                  onToggle={(project) => setVisibleProjectIds((current) => toggleProjectId(data.projects, current, project))}
+                />
+                <TrackSelector
+                  track="research"
+                  projects={researchProjects}
+                  visibleProjectIds={visibleProjectIds}
+                  expandedHistory={expandedResearchHistory}
+                  onToggleExpanded={() => setExpandedResearchHistory((prev) => !prev)}
+                  onToggle={(project) => setVisibleProjectIds((current) => toggleProjectId(data.projects, current, project))}
+                />
               </div>
             </Card>
           </div>

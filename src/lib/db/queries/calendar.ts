@@ -134,7 +134,7 @@ function getVisibleProjectIds(projects: ReadonlyArray<CalendarProjectView>) {
 
         return right.selectedAt.localeCompare(left.selectedAt);
       })
-      .slice(0, 2);
+      .slice(0, 1);
 
     preferred.forEach((project) => {
       selected.push(project.projectId);
