@@ -7,6 +7,9 @@ export const PLAN_LIMITS = {
     readme_export: false,
     calendar_export: false,
     portfolio_packaging: false,
+    portfolio_export: false,
+    portfolio_publish: false,
+    portfolio_regenerate_curation: false,
     reviewer_limit: 0,
     link_github: false,
   },
@@ -16,6 +19,9 @@ export const PLAN_LIMITS = {
     readme_export: true,
     calendar_export: true,
     portfolio_packaging: true,
+    portfolio_export: true,
+    portfolio_publish: true,
+    portfolio_regenerate_curation: true,
     reviewer_limit: 2,
     link_github: true,
   },
@@ -53,6 +59,18 @@ export function hasCalendarExportAccess(plan: Plan) {
 
 export function hasPortfolioPackagingAccess(plan: Plan) {
   return PLAN_LIMITS[plan].portfolio_packaging;
+}
+
+export function canGenerateExports(plan: Plan) {
+  return PLAN_LIMITS[plan].portfolio_export;
+}
+
+export function canPublishPortfolio(plan: Plan) {
+  return PLAN_LIMITS[plan].portfolio_publish;
+}
+
+export function canRegeneratePortfolioCuration(plan: Plan) {
+  return PLAN_LIMITS[plan].portfolio_regenerate_curation;
 }
 
 export function reviewerLimit(plan: Plan): number {

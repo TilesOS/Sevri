@@ -76,6 +76,7 @@ const PROSE_LONG: FieldSpec = { kind: "prose", minCredible: 60 };
 const PROSE_XLONG: FieldSpec = { kind: "prose", minCredible: 80 };
 const PROSE_BRIEF: FieldSpec = { kind: "prose", minCredible: 120 };
 const BULLET: FieldSpec = { kind: "bullet", minCredible: 16 };
+const BULLET_LONG: FieldSpec = { kind: "bullet", minCredible: 50 };
 
 // Stage 1: recommendation batch
 export const OPTIONS_QUALITY_SPEC: FieldSpecMap = {
@@ -134,6 +135,24 @@ export const WORK_EVALUATION_QUALITY_SPEC: FieldSpecMap = {
   next_best_action: PROSE_MED,
 };
 
+// Stage 5: portfolio curation and exports
+export const WORK_PORTFOLIO_CURATION_QUALITY_SPEC: FieldSpecMap = {
+  curated_summary: PROSE_XLONG,
+};
+
+export const COMMON_APP_ACTIVITY_QUALITY_SPEC: FieldSpecMap = {
+  activity_type: TITLE,
+  position_leadership_description: { kind: "title", minCredible: 5, maxUiSafe: 50 },
+  organization_name: TITLE,
+  participation_grade_levels: { kind: "title", minCredible: 2, maxUiSafe: 80 },
+  timing_of_participation: { kind: "title", minCredible: 4, maxUiSafe: 100 },
+  details: { kind: "prose", minCredible: 80 },
+};
+
+export const RESUME_BULLETS_QUALITY_SPEC: FieldSpecMap = {
+  "bullets[*]": BULLET_LONG,
+};
+
 // Handy standalone field specs for render-side safeRenderText calls.
 export const RECOMMENDATION_CARD_TITLE_SPEC: FieldSpec = TITLE;
 export const RECOMMENDATION_CARD_PROSE_SPEC: FieldSpec = PROSE_LONG;
@@ -143,3 +162,4 @@ export const STEP_TITLE_SPEC: FieldSpec = TITLE;
 export const STEP_OBJECTIVE_SPEC: FieldSpec = PROSE_MED;
 export const GUIDANCE_WHAT_TO_DO_SPEC: FieldSpec = PROSE_LONG;
 export const GUIDANCE_ENCOURAGEMENT_SPEC: FieldSpec = PROSE_MED;
+export const PORTFOLIO_SUMMARY_SPEC: FieldSpec = PROSE_XLONG;

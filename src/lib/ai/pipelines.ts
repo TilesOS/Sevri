@@ -28,25 +28,34 @@ import {
 } from "@/lib/ai/generation-context";
 import {
   ResearchGenerationContextSchema,
+  CommonAppActivitySchema,
   RecommendationBatchSchema,
+  ResumeBulletsSchema,
   RoadmapOverviewSchema,
   SoftwareGenerationContextSchema,
   StepGuidanceSchema,
   WorkEvaluationSchema,
+  WorkPortfolioCurationSchema,
+  type CommonAppActivity,
   type GenerationContext,
   type ProjectTrack,
   type ProjectOption,
   type RecommendationBatch,
+  type ResumeBullets,
   type RoadmapOverview,
   type RoadmapStep,
   type StepGuidance,
   type WorkEvaluation,
+  type WorkPortfolioCuration,
 } from "@/lib/ai/schemas";
 import {
+  COMMON_APP_ACTIVITY_QUALITY_SPEC,
   OPTIONS_QUALITY_SPEC,
+  RESUME_BULLETS_QUALITY_SPEC,
   ROADMAP_QUALITY_SPEC,
   STEP_GUIDANCE_QUALITY_SPEC,
   WORK_EVALUATION_QUALITY_SPEC,
+  WORK_PORTFOLIO_CURATION_QUALITY_SPEC,
   buildAllowedTerms,
 } from "@/lib/ai/content-quality-specs";
 
@@ -77,6 +86,51 @@ interface PipelineResult<T> {
   metrics: GenerationMetrics;
   citations: GenerationCitation[];
   refusal: string | null;
+}
+
+export interface PortfolioPipelineInput {
+  project: {
+    title: string;
+    status: string;
+    project_track: ProjectTrack | string;
+  };
+  roadmap: RoadmapOverview | null;
+  milestones: Array<{
+    id: string;
+    order_index: number;
+    title: string;
+    description?: string | null;
+    completed: boolean;
+    completed_at?: string | null;
+  }>;
+  submissions: Array<{
+    id: string;
+    milestone_id: string;
+    submission_text: string | null;
+    submission_filename: string | null;
+    created_at: string;
+  }>;
+  latestEvaluations: Array<{
+    submission_id: string;
+    evaluation_json: unknown;
+    status: string;
+  }>;
+  reviews: Array<{
+    milestone_id: string;
+    strength: string;
+    tighten: string;
+    next_action: string;
+    ready_to_mark_complete: boolean;
+  }>;
+  cachedCommits: Array<{
+    sha: string;
+    shortSha: string;
+    title: string;
+    body: string;
+    authoredAt: string | null;
+  }>;
+  existingReflection: string | null;
+  existingCuratedSummary?: string | null;
 }
 
 function contextSeed(context: GenerationContext): number {
@@ -1155,6 +1209,225 @@ export async function runWorkEvaluation(input: {
       refusal: null,
     };
   }
+}
+
+const CONSERVATIVE_OUTPUT_LANGUAGE = [
+  "Prefer understatement over overclaiming.",
+  "Never invent quantitative results the submissions do not support.",
+  "Prefer ‘built a tool that helped me understand X’ over ‘improved outcomes by 40%’ unless a specific number appears in the student’s submissions.",
+  "If unsure whether evidence supports a specific claim, omit it.",
+] as const;
+
+function formatPortfolioSystemPrompt(task: string) {
+  return [
+    task,
+    "Return only JSON that matches the schema.",
+    "Use only the supplied roadmap, submissions, latest completed evaluations, reviewer feedback, cached Git commits, and student reflection.",
+    "Do not fetch external sources. Do not infer outcomes, awards, users, metrics, deployments, revenue, grades, or institutional impact unless the supplied evidence states them.",
+    ...CONSERVATIVE_OUTPUT_LANGUAGE,
+    "Every prose field must be a complete thought ending in terminal punctuation. Avoid mojibake, broken characters, placeholder text, and truncated sentences.",
+  ].join(" ");
+}
+
+function truncateForPrompt(value: string | null | undefined, maxLength: number) {
+  if (!value) return "";
+  const clean = value.replace(/\s+/g, " ").trim();
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, maxLength).trim()}...`;
+}
+
+function compactJson(value: unknown, maxLength: number) {
+  if (value === null || value === undefined) return "";
+  try {
+    return truncateForPrompt(JSON.stringify(value), maxLength);
+  } catch {
+    return "";
+  }
+}
+
+function formatPortfolioEvidence(input: PortfolioPipelineInput) {
+  const roadmapSummary = input.roadmap
+    ? [
+        `Roadmap title: ${input.roadmap.project_title}`,
+        `Roadmap overview: ${input.roadmap.short_overview}`,
+        `Project brief: ${input.roadmap.project_brief}`,
+        `Success criteria: ${input.roadmap.success_criteria.join(" | ")}`,
+      ].join("\n")
+    : "No roadmap is available.";
+
+  const milestoneById = new Map(input.milestones.map((milestone) => [milestone.order_index, milestone]));
+  const milestoneLines = input.milestones
+    .map((milestone) => {
+      const completed = milestone.completed ? "completed" : "not completed";
+      return `Step ${milestone.order_index + 1}: ${milestone.title} (${completed}).`;
+    })
+    .join("\n") || "No milestones are available.";
+
+  const submissionLines = input.submissions
+    .slice(0, 8)
+    .map((submission) => {
+      const milestone = input.milestones.find((item) => item.id === submission.milestone_id);
+      const stepLabel = milestone ? `Step ${milestone.order_index + 1}` : "Unknown step";
+      return [
+        `${stepLabel} submission ${submission.submission_filename ? `(${submission.submission_filename})` : ""}:`,
+        truncateForPrompt(submission.submission_text, 1400),
+      ].join("\n");
+    })
+    .join("\n\n") || "No submissions are available.";
+
+  const evaluationLines = input.latestEvaluations
+    .slice(0, 8)
+    .map((evaluation) => compactJson(evaluation.evaluation_json, 900))
+    .filter(Boolean)
+    .join("\n") || "No completed evaluations are available.";
+
+  const reviewLines = input.reviews
+    .slice(0, 8)
+    .map((review) => {
+      const milestone = Array.from(milestoneById.values()).find((item) => item.id === review.milestone_id);
+      const stepLabel = milestone ? `Step ${milestone.order_index + 1}` : "Unknown step";
+      return `${stepLabel}: Strength: ${review.strength} Tighten: ${review.tighten} Next action: ${review.next_action}`;
+    })
+    .join("\n") || "No reviewer feedback is available.";
+
+  const commitLines = input.cachedCommits
+    .slice(0, 10)
+    .map((commit) => `${commit.shortSha}: ${commit.title}${commit.body ? ` - ${truncateForPrompt(commit.body, 180)}` : ""}`)
+    .join("\n") || "No cached GitHub commits are available.";
+
+  return [
+    "Project:",
+    `Title: ${input.project.title}`,
+    `Track: ${input.project.project_track}`,
+    `Status: ${input.project.status}`,
+    "",
+    "Roadmap:",
+    roadmapSummary,
+    "",
+    "Milestones:",
+    milestoneLines,
+    "",
+    "Student reflection:",
+    truncateForPrompt(input.existingReflection, 1400) || "No student reflection is available.",
+    "",
+    "Latest submissions:",
+    submissionLines,
+    "",
+    "Latest completed evaluations:",
+    evaluationLines,
+    "",
+    "Non-superseded reviewer feedback:",
+    reviewLines,
+    "",
+    "Cached Git commits:",
+    commitLines,
+    "",
+    input.existingCuratedSummary ? `Existing curation: ${truncateForPrompt(input.existingCuratedSummary, 900)}` : "",
+  ].filter((line) => line !== "").join("\n");
+}
+
+function quantitativeClaimIssues(text: string, evidence: string) {
+  const issues: string[] = [];
+  const evidenceText = evidence.toLowerCase();
+  const percentMatches = text.match(/\b\d+(?:\.\d+)?\s?%/g) ?? [];
+
+  for (const match of percentMatches) {
+    if (!evidenceText.includes(match.toLowerCase())) {
+      issues.push(`Unsupported quantitative claim "${match}" does not appear in the supplied evidence.`);
+    }
+  }
+
+  return issues;
+}
+
+export async function runPortfolioCuration(
+  input: PortfolioPipelineInput,
+): Promise<PipelineResult<WorkPortfolioCuration>> {
+  const evidence = formatPortfolioEvidence(input);
+  const result = await generateStructuredOutput({
+    stage: "portfolio_curation",
+    schema: WorkPortfolioCurationSchema,
+    schemaName: "work_portfolio_curation",
+    systemPrompt: formatPortfolioSystemPrompt(
+      "You write concise private Portfolio curation for a student's longitudinal project record.",
+    ),
+    userPrompt: [
+      evidence,
+      "Task:",
+      "Write one understated curated_summary in 2-4 sentences. Name what the student built or investigated, the strongest concrete evidence, and the current maturity of the work. Never claim public impact unless the evidence states it.",
+    ].join("\n\n"),
+    validator: (parsed) => quantitativeClaimIssues(parsed.curated_summary, evidence),
+    qualitySpec: WORK_PORTFOLIO_CURATION_QUALITY_SPEC,
+    qualityAllowedTerms: buildAllowedTerms(null),
+  });
+
+  return {
+    parsed: result.parsed,
+    raw: result.raw,
+    metrics: result.metrics,
+    citations: result.citations,
+    refusal: result.refusal,
+  };
+}
+
+export async function runCommonAppActivityExport(
+  input: PortfolioPipelineInput,
+): Promise<PipelineResult<CommonAppActivity>> {
+  const evidence = formatPortfolioEvidence(input);
+  const result = await generateStructuredOutput({
+    stage: "portfolio_export",
+    schema: CommonAppActivitySchema,
+    schemaName: "common_app_activity_export",
+    systemPrompt: formatPortfolioSystemPrompt(
+      "You convert one Sevri project into a conservative Common App activity draft.",
+    ),
+    userPrompt: [
+      evidence,
+      "Task:",
+      "Draft a Common App activity entry for this single project. Keep details at 150 characters or fewer. If hours per week or weeks per year are not explicitly evidenced, use 0. The activity should sound credible for a student, not like marketing copy.",
+    ].join("\n\n"),
+    validator: (parsed) => quantitativeClaimIssues(parsed.details, evidence),
+    qualitySpec: COMMON_APP_ACTIVITY_QUALITY_SPEC,
+    qualityAllowedTerms: buildAllowedTerms(null),
+  });
+
+  return {
+    parsed: result.parsed,
+    raw: result.raw,
+    metrics: result.metrics,
+    citations: result.citations,
+    refusal: result.refusal,
+  };
+}
+
+export async function runResumeBulletsExport(
+  input: PortfolioPipelineInput,
+): Promise<PipelineResult<ResumeBullets>> {
+  const evidence = formatPortfolioEvidence(input);
+  const result = await generateStructuredOutput({
+    stage: "portfolio_export",
+    schema: ResumeBulletsSchema,
+    schemaName: "resume_bullets_export",
+    systemPrompt: formatPortfolioSystemPrompt(
+      "You convert one Sevri project into conservative resume bullets.",
+    ),
+    userPrompt: [
+      evidence,
+      "Task:",
+      "Write 2-4 resume bullets. Start with concrete action verbs, describe the artifact and evidence, and avoid inflated impact language. Do not include unsupported percentages or user counts.",
+    ].join("\n\n"),
+    validator: (parsed) => parsed.bullets.flatMap((bullet) => quantitativeClaimIssues(bullet, evidence)),
+    qualitySpec: RESUME_BULLETS_QUALITY_SPEC,
+    qualityAllowedTerms: buildAllowedTerms(null),
+  });
+
+  return {
+    parsed: result.parsed,
+    raw: result.raw,
+    metrics: result.metrics,
+    citations: result.citations,
+    refusal: result.refusal,
+  };
 }
 
 export function getRouteGenerationMetadata(input: {
