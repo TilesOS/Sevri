@@ -178,7 +178,7 @@ function getTrackSummaryLabel(
 
 function getProjectButtonClassName(selected: boolean) {
   return cn(
-    "relative w-full rounded-2xl border px-4 py-4 text-left transition",
+    "relative w-full min-w-0 rounded-2xl border px-4 py-4 text-left transition",
     selected ? "z-10 border-line-strong bg-paper shadow-soft" : "border-line bg-canvas/68 hover:border-line-strong hover:bg-paper",
   );
 }
@@ -413,9 +413,9 @@ function TrackSelector({
   const hiddenCount = projects.length - TRACK_HISTORY_LIMIT;
 
   return (
-    <div className="space-y-3 rounded-[1.6rem] border border-line bg-canvas/72 p-4">
-      <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
+    <div className="min-w-0 space-y-3 rounded-[1.6rem] border border-line bg-canvas/72 p-4">
+      <div className="flex min-w-0 items-center justify-between gap-3">
+        <div className="flex min-w-0 items-center gap-3">
           <Badge tone={theme.badgeTone}>{theme.label}</Badge>
           <span className="text-xs font-medium text-ink-muted">{getTrackSummaryLabel(projects, visibleProjectIds, track)}</span>
         </div>
@@ -434,8 +434,8 @@ function TrackSelector({
                   className={getProjectButtonClassName(selected)}
                   onClick={() => onToggle(project)}
                 >
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="min-w-0">
+                  <div className="flex min-w-0 items-center justify-between gap-3">
+                    <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-semibold text-ink">{project.projectTitle}</p>
                       <p className="mt-1 text-xs text-ink-muted">
                         {project.scheduleReady
@@ -443,7 +443,9 @@ function TrackSelector({
                           : "Roadmap is ready, but dates still need a schedule"}
                       </p>
                     </div>
-                    <Badge tone={selected ? "accent" : "neutral"}>{selected ? "Visible" : "Hidden"}</Badge>
+                    <Badge tone={selected ? "accent" : "neutral"} className="shrink-0">
+                      {selected ? "Visible" : "Hidden"}
+                    </Badge>
                   </div>
                 </button>
               );
@@ -638,7 +640,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
         </Card>
       ) : (
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_22rem]">
-          <div className="space-y-6">
+          <div className="min-w-0 space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
               <Card>
                 <p className="editorial-kicker">Month in focus</p>
@@ -735,7 +737,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               </Alert>
             ) : null}
 
-            <Card className="space-y-6">
+            <Card className="min-w-0 space-y-6">
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="space-y-2">
                   <p className="editorial-kicker">Visible projects</p>
@@ -746,7 +748,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                 </p>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-2">
+              <div className="grid min-w-0 gap-4 xl:grid-cols-2">
                 <TrackSelector
                   track="software"
                   projects={softwareProjects}
