@@ -11,6 +11,17 @@ export const APP_EVENT_TYPES = [
   "checkout_completed",
   "work_evaluation_completed",
   "generation_feedback_submitted",
+  "portfolio_viewed",
+  "portfolio_project_opened",
+  "portfolio_curation_generated",
+  "portfolio_curation_regenerated",
+  "portfolio_reflection_saved",
+  "portfolio_export_generated",
+  "portfolio_publish_started",
+  "portfolio_publish_safety_blocked",
+  "portfolio_published",
+  "portfolio_unpublished",
+  "portfolio_public_page_viewed",
 ] as const;
 
 export const appEventSchema = z.enum(APP_EVENT_TYPES);

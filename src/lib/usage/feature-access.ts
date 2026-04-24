@@ -1,9 +1,24 @@
 import { NextResponse } from "next/server";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
-import { canLinkGithub, hasCalendarExportAccess, hasStepGuidanceAccess, reviewerLimit } from "@/lib/usage/limits";
+import {
+  canGenerateExports,
+  canLinkGithub,
+  canPublishPortfolio,
+  canRegeneratePortfolioCuration,
+  hasCalendarExportAccess,
+  hasStepGuidanceAccess,
+  reviewerLimit,
+} from "@/lib/usage/limits";
 import type { Plan } from "@/types/domain";
 
-export type RestrictedFeature = "step_guidance" | "invite_reviewer" | "link_github" | "calendar_export";
+export type RestrictedFeature =
+  | "step_guidance"
+  | "invite_reviewer"
+  | "link_github"
+  | "calendar_export"
+  | "portfolio_export"
+  | "portfolio_publish"
+  | "portfolio_regenerate_curation";
 
 export interface UpgradeRequiredError {
   code: "upgrade_required";
@@ -46,6 +61,27 @@ function buildUpgradeRequiredError(feature: RestrictedFeature): UpgradeRequiredE
         error: "Upgrade to Pro to export project schedules to your calendar.",
         upgrade_url: "/billing",
       };
+    case "portfolio_export":
+      return {
+        code: "upgrade_required",
+        feature,
+        error: "Upgrade to Pro to generate Common App and resume Portfolio exports.",
+        upgrade_url: "/billing",
+      };
+    case "portfolio_publish":
+      return {
+        code: "upgrade_required",
+        feature,
+        error: "Upgrade to Pro to publish a project Portfolio page.",
+        upgrade_url: "/billing",
+      };
+    case "portfolio_regenerate_curation":
+      return {
+        code: "upgrade_required",
+        feature,
+        error: "Upgrade to Pro to regenerate Portfolio curation.",
+        upgrade_url: "/billing",
+      };
   }
 }
 
@@ -73,6 +109,21 @@ export async function assertFeatureAccess(input: {
       return { allowed: false, plan, error: buildUpgradeRequiredError(input.feature) };
     case "calendar_export":
       if (hasCalendarExportAccess(plan)) {
+        return { allowed: true, plan };
+      }
+      return { allowed: false, plan, error: buildUpgradeRequiredError(input.feature) };
+    case "portfolio_export":
+      if (canGenerateExports(plan)) {
+        return { allowed: true, plan };
+      }
+      return { allowed: false, plan, error: buildUpgradeRequiredError(input.feature) };
+    case "portfolio_publish":
+      if (canPublishPortfolio(plan)) {
+        return { allowed: true, plan };
+      }
+      return { allowed: false, plan, error: buildUpgradeRequiredError(input.feature) };
+    case "portfolio_regenerate_curation":
+      if (canRegeneratePortfolioCuration(plan)) {
         return { allowed: true, plan };
       }
       return { allowed: false, plan, error: buildUpgradeRequiredError(input.feature) };

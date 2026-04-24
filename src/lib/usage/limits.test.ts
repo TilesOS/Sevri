@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   PLAN_LIMITS,
+  canGenerateExports,
   canGenerateRecommendations,
+  canPublishPortfolio,
+  canRegeneratePortfolioCuration,
   hasCalendarExportAccess,
   getGenerationLimit,
   hasPortfolioPackagingAccess,
@@ -31,11 +34,17 @@ test("pro plan remains unlimited and non-generation entitlements stay unchanged"
   assert.equal(hasReadmeExportAccess("free"), false);
   assert.equal(hasCalendarExportAccess("free"), false);
   assert.equal(hasPortfolioPackagingAccess("free"), false);
+  assert.equal(canGenerateExports("free"), false);
+  assert.equal(canPublishPortfolio("free"), false);
+  assert.equal(canRegeneratePortfolioCuration("free"), false);
 
   assert.equal(hasStepGuidanceAccess("pro_monthly"), true);
   assert.equal(hasReadmeExportAccess("pro_monthly"), true);
   assert.equal(hasCalendarExportAccess("pro_monthly"), true);
   assert.equal(hasPortfolioPackagingAccess("pro_monthly"), true);
+  assert.equal(canGenerateExports("pro_monthly"), true);
+  assert.equal(canPublishPortfolio("pro_monthly"), true);
+  assert.equal(canRegeneratePortfolioCuration("pro_monthly"), true);
 });
 
 test("countRecommendationBatches dedupes recommendation rows by normalized profile", () => {
