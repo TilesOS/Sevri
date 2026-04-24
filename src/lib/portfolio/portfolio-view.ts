@@ -16,6 +16,7 @@ import {
   ensurePortfolioEntriesForUserProjects,
   ensurePortfolioEntryForProject,
 } from "@/lib/db/mutations/portfolio";
+import { runFirstTimePortfolioCurationForPendingEntries } from "@/lib/portfolio/curation";
 import type { ProjectTrack } from "@/types/domain";
 
 export type PortfolioStatus = "in_progress" | "paused" | "completed" | "abandoned";
@@ -224,6 +225,45 @@ function summarizeCachedCommits(cachedCommits: unknown): PortfolioCachedCommitVi
     .slice(0, 20);
 }
 
+function buildPortfolioEntryDetailViewFromData(data: PortfolioEntryDetailData): PortfolioEntryDetailView {
+  const effectiveStatus = getEffectiveStatus(data.entry, data.project);
+  const summary = summarizePortfolioEntry({
+    entry: data.entry,
+    roadmap: data.roadmap,
+    recommendation: data.recommendation,
+  });
+  const progress = summarizeProgress(data.milestones);
+  const evaluationBySubmission = latestEvaluationBySubmissionId(data.latestEvaluations);
+  const latestEvaluations = data.latestSubmissions
+    .map((submission) => evaluationBySubmission.get(submission.id) ?? null)
+    .filter((evaluation): evaluation is PortfolioEvaluationRow => evaluation !== null);
+  const featuredSubmission =
+    data.entry.featured_submission_id
+      ? data.latestSubmissions.find((submission) => submission.id === data.entry.featured_submission_id) ?? null
+      : null;
+
+  return {
+    entry: data.entry,
+    project: data.project,
+    projectTrack: asProjectTrack(data.project.project_track),
+    effectiveStatus,
+    statusLabel: getPortfolioStatusLabel(effectiveStatus),
+    summary: summary.summary,
+    hasCuratedSummary: summary.hasCuratedSummary,
+    roadmap: data.roadmap,
+    recommendation: data.recommendation,
+    milestones: data.milestones,
+    latestSubmissions: data.latestSubmissions,
+    latestEvaluations,
+    featuredSubmission,
+    reviews: data.reviews,
+    cachedCommits: summarizeCachedCommits(data.githubActivity?.cached_commits),
+    exports: data.exports,
+    publicPage: data.publicPage,
+    ...progress,
+  };
+}
+
 function buildListingEntry(input: {
   project: PortfolioProjectRow;
   entry: PortfolioEntryRow;
@@ -266,10 +306,7 @@ function buildCounts(entries: PortfolioListingEntryView[]): PortfolioView["count
   );
 }
 
-export const getPortfolioView = cache(async (userId: string): Promise<PortfolioView> => {
-  await ensurePortfolioEntriesForUserProjects(userId);
-
-  const data = await getPortfolioListingData(userId);
+function buildPortfolioViewFromData(data: Awaited<ReturnType<typeof getPortfolioListingData>>): PortfolioView {
   const entryByProjectId = mapByProjectId(data.entries);
   const roadmapByProjectId = mapByProjectId(data.roadmaps);
   const milestoneByProjectId = groupByProjectId(data.milestones);
@@ -296,6 +333,27 @@ export const getPortfolioView = cache(async (userId: string): Promise<PortfolioV
     entries,
     counts: buildCounts(entries),
   };
+}
+
+export const getPortfolioView = cache(async (userId: string): Promise<PortfolioView> => {
+  await ensurePortfolioEntriesForUserProjects(userId);
+
+  const initialData = await getPortfolioListingData(userId);
+  const initialView = buildPortfolioViewFromData(initialData);
+  const pendingFirstCuration = initialView.entries.filter(
+    (entry) => !entry.entry.curation_attempted_at && !entry.entry.curated_summary,
+  );
+
+  if (pendingFirstCuration.length > 0) {
+    await runFirstTimePortfolioCurationForPendingEntries({
+      userId,
+      entries: pendingFirstCuration,
+    });
+
+    return buildPortfolioViewFromData(await getPortfolioListingData(userId));
+  }
+
+  return initialView;
 });
 
 export const getPortfolioEntryDetailView = cache(
@@ -310,41 +368,18 @@ export const getPortfolioEntryDetailView = cache(
       return null;
     }
 
-    const effectiveStatus = getEffectiveStatus(data.entry, data.project);
-    const summary = summarizePortfolioEntry({
-      entry: data.entry,
-      roadmap: data.roadmap,
-      recommendation: data.recommendation,
-    });
-    const progress = summarizeProgress(data.milestones);
-    const evaluationBySubmission = latestEvaluationBySubmissionId(data.latestEvaluations);
-    const latestEvaluations = data.latestSubmissions
-      .map((submission) => evaluationBySubmission.get(submission.id) ?? null)
-      .filter((evaluation): evaluation is PortfolioEvaluationRow => evaluation !== null);
-    const featuredSubmission =
-      data.entry.featured_submission_id
-        ? data.latestSubmissions.find((submission) => submission.id === data.entry.featured_submission_id) ?? null
-        : null;
+    if (!data.entry.curation_attempted_at && !data.entry.curated_summary) {
+      await runFirstTimePortfolioCurationForPendingEntries({
+        userId,
+        entries: [{ entry: data.entry, project: { id: data.project.id } }],
+      });
 
-    return {
-      entry: data.entry,
-      project: data.project,
-      projectTrack: asProjectTrack(data.project.project_track),
-      effectiveStatus,
-      statusLabel: getPortfolioStatusLabel(effectiveStatus),
-      summary: summary.summary,
-      hasCuratedSummary: summary.hasCuratedSummary,
-      roadmap: data.roadmap,
-      recommendation: data.recommendation,
-      milestones: data.milestones,
-      latestSubmissions: data.latestSubmissions,
-      latestEvaluations,
-      featuredSubmission,
-      reviews: data.reviews,
-      cachedCommits: summarizeCachedCommits(data.githubActivity?.cached_commits),
-      exports: data.exports,
-      publicPage: data.publicPage,
-      ...progress,
-    };
+      const refreshedData = await getPortfolioEntryDetailData(projectId, userId);
+      if (refreshedData) {
+        return buildPortfolioEntryDetailViewFromData(refreshedData);
+      }
+    }
+
+    return buildPortfolioEntryDetailViewFromData(data);
   },
 );

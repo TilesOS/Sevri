@@ -164,6 +164,25 @@ export const WorkEvaluationSchema = z.object({
   confidence: z.enum(["high", "medium", "low"]).optional(),
 });
 
+export const WorkPortfolioCurationSchema = z.object({
+  curated_summary: z.string().min(80).max(700),
+});
+
+export const CommonAppActivitySchema = z.object({
+  activity_type: z.string().min(4).max(80),
+  position_leadership_description: z.string().min(5).max(50),
+  organization_name: z.string().min(3).max(100),
+  participation_grade_levels: z.string().min(2).max(80),
+  timing_of_participation: z.string().min(4).max(100),
+  hours_per_week: z.number().int().min(0).max(80),
+  weeks_per_year: z.number().int().min(0).max(52),
+  details: z.string().min(80).max(150),
+});
+
+export const ResumeBulletsSchema = z.object({
+  bullets: z.array(z.string().min(50).max(220)).min(2).max(4),
+});
+
 export type ProjectTrack = z.infer<typeof ProjectTrackSchema>;
 export type GenerationContext = z.infer<typeof GenerationContextSchema>;
 export type RecommendationBatch = z.infer<typeof RecommendationBatchSchema>;
@@ -172,3 +191,6 @@ export type RoadmapOverview = z.infer<typeof RoadmapOverviewSchema>;
 export type RoadmapStep = z.infer<typeof RoadmapStepSchema>;
 export type StepGuidance = z.infer<typeof StepGuidanceSchema>;
 export type WorkEvaluation = z.infer<typeof WorkEvaluationSchema>;
+export type WorkPortfolioCuration = z.infer<typeof WorkPortfolioCurationSchema>;
+export type CommonAppActivity = z.infer<typeof CommonAppActivitySchema>;
+export type ResumeBullets = z.infer<typeof ResumeBulletsSchema>;

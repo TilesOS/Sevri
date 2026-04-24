@@ -15,7 +15,15 @@ import {
 const env = getAIEnv();
 const openai = new OpenAI({ apiKey: env.OPENAI_API_KEY });
 
-export type GenerationStage = "options" | "roadmap" | "step_guidance" | "work_evaluation" | "normalize" | "legacy";
+export type GenerationStage =
+  | "options"
+  | "roadmap"
+  | "step_guidance"
+  | "work_evaluation"
+  | "normalize"
+  | "portfolio_curation"
+  | "portfolio_export"
+  | "legacy";
 export type WebSearchReason = "recency_sensitive" | "source_seeking" | "user_requested_current";
 export type GenerationFailureKind =
   | "auth"
@@ -156,6 +164,14 @@ function getStageDefaults(stage: GenerationStage | string) {
 
   if (stage === "work_evaluation") {
     return { maxCompletionTokens: 2200, maxRetries: 1, reasoningEffort: "low" as const };
+  }
+
+  if (stage === "portfolio_curation") {
+    return { maxCompletionTokens: 1600, maxRetries: 1, reasoningEffort: "low" as const };
+  }
+
+  if (stage === "portfolio_export") {
+    return { maxCompletionTokens: 1800, maxRetries: 1, reasoningEffort: "low" as const };
   }
 
   return { maxCompletionTokens: 1800, maxRetries: 2, reasoningEffort: undefined };

@@ -184,8 +184,8 @@ function PortfolioEntryCard({ entry }: { entry: PortfolioListingEntryView }) {
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-2">
         <span className="text-xs text-ink-muted">Selected {formatDate(entry.selectedAt)}</span>
-        <Button href={`/project/${entry.project.id}`} variant="outline" className="rounded-full">
-          Open workspace
+        <Button href={`/portfolio/${entry.project.id}`} variant="outline" className="rounded-full">
+          Open entry
         </Button>
       </div>
     </Card>
