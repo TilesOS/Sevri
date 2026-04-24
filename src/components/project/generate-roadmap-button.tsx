@@ -14,14 +14,15 @@ export function GenerateRoadmapButton({ projectId, projectTrack = "software" }: 
   async function generate() {
     setIsLoading(true);
     setError(null);
+    const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
     const response = await fetch("/api/ai/roadmap", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_id: projectId }),
+      body: JSON.stringify({ project_id: projectId, timezone }),
     });
 
-    const body = (await response.json().catch(() => null)) as { error?: string } | null;
+    const body = (await response.json().catch(() => null)) as { error?: string; schedule_ready?: boolean } | null;
 
     if (!response.ok) {
       setError(body?.error ?? "Failed to generate roadmap");
@@ -29,7 +30,11 @@ export function GenerateRoadmapButton({ projectId, projectTrack = "software" }: 
       return;
     }
 
-    router.refresh();
+    if (body?.schedule_ready === false) {
+      router.replace(`/project/${projectId}?schedule=retry`);
+    } else {
+      router.refresh();
+    }
     setIsLoading(false);
   }
 

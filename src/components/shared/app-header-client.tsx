@@ -12,6 +12,7 @@ import { cn } from "@/lib/utils";
 
 const workspaceLinks = [
   { href: "/dashboard", label: "Dashboard", match: (pathname: string) => pathname === "/dashboard" },
+  { href: "/calendar", label: "Calendar", match: (pathname: string) => pathname.startsWith("/calendar") },
   { href: "/recommendations", label: "Ideas", match: (pathname: string) => pathname.startsWith("/recommendations") },
   { href: "/onboarding", label: "Onboarding", match: (pathname: string) => pathname.startsWith("/onboarding") },
   { href: "/billing", label: "Billing", match: (pathname: string) => pathname.startsWith("/billing") },

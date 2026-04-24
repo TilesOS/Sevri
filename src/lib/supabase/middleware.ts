@@ -4,6 +4,7 @@ import { clientEnv } from "@/lib/env";
 
 const PROTECTED_PATHS = [
   "/dashboard",
+  "/calendar",
   "/onboarding",
   "/recommendations",
   "/project",
@@ -11,7 +12,7 @@ const PROTECTED_PATHS = [
   "/settings",
   "/reviewer",
 ];
-const STUDENT_ONLY_PATHS = ["/dashboard", "/onboarding", "/recommendations", "/project", "/billing"];
+const STUDENT_ONLY_PATHS = ["/dashboard", "/calendar", "/onboarding", "/recommendations", "/project", "/billing"];
 const REVIEWER_ONLY_PATHS = ["/reviewer"];
 const PUBLIC_BYPASS_PATHS = ["/accept-invitation"];
 const AUTH_PATHS = ["/sign-in", "/sign-up"];

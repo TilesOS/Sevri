@@ -13,6 +13,7 @@ import { GithubStepCommits } from "@/components/project/github-step-commits";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
+import { formatDateForDisplay } from "@/lib/calendar/date-utils";
 import { hasStepGuidanceAccess } from "@/lib/usage/limits";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
@@ -174,6 +175,32 @@ function getSubmissionLockMessage(previousStepNumber: number | null) {
   }
 
   return "Detailed feedback unlocks once the previous step is complete.";
+}
+
+function getUrgencyBadgeTone(urgency: ProjectMilestoneView["urgency"]) {
+  switch (urgency) {
+    case "completed":
+      return "success" as const;
+    case "due_soon":
+      return "warning" as const;
+    case "overdue":
+      return "danger" as const;
+    default:
+      return "neutral" as const;
+  }
+}
+
+function getUrgencyLabel(urgency: ProjectMilestoneView["urgency"]) {
+  switch (urgency) {
+    case "completed":
+      return "Completed";
+    case "due_soon":
+      return "Due soon";
+    case "overdue":
+      return "Overdue";
+    default:
+      return "On track";
+  }
 }
 
 export function ProjectStepWorkspace({
@@ -404,7 +431,7 @@ export function ProjectStepWorkspace({
               {safeRenderText(milestone.objective, STEP_OBJECTIVE_SPEC).text}
             </p>
           </div>
-          <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
+          <div className="grid gap-4 lg:grid-cols-3">
             <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
               <p className="editorial-kicker text-paper/55">Deliverable</p>
               <p className="mt-3 text-lg font-semibold text-paper">{milestone.deliverable}</p>
@@ -412,6 +439,19 @@ export function ProjectStepWorkspace({
             <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
               <p className="editorial-kicker text-paper/55">Time estimate</p>
               <p className="mt-3 text-lg font-semibold text-paper">{milestone.rough_time_estimate}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="editorial-kicker text-paper/55">Due date</p>
+                {milestone.urgency ? (
+                  <Badge tone={getUrgencyBadgeTone(milestone.urgency)}>{getUrgencyLabel(milestone.urgency)}</Badge>
+                ) : null}
+              </div>
+              <p className="mt-3 text-lg font-semibold text-paper">
+                {milestone.dueDate
+                  ? formatDateForDisplay(milestone.dueDate, { month: "short", day: "numeric", year: "numeric" })
+                  : "Not scheduled yet"}
+              </p>
             </div>
           </div>
         </div>

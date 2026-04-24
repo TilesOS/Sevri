@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   PLAN_LIMITS,
   canGenerateRecommendations,
+  hasCalendarExportAccess,
   getGenerationLimit,
   hasPortfolioPackagingAccess,
   hasReadmeExportAccess,
@@ -28,10 +29,12 @@ test("pro plan remains unlimited and non-generation entitlements stay unchanged"
 
   assert.equal(hasStepGuidanceAccess("free"), false);
   assert.equal(hasReadmeExportAccess("free"), false);
+  assert.equal(hasCalendarExportAccess("free"), false);
   assert.equal(hasPortfolioPackagingAccess("free"), false);
 
   assert.equal(hasStepGuidanceAccess("pro_monthly"), true);
   assert.equal(hasReadmeExportAccess("pro_monthly"), true);
+  assert.equal(hasCalendarExportAccess("pro_monthly"), true);
   assert.equal(hasPortfolioPackagingAccess("pro_monthly"), true);
 });
 

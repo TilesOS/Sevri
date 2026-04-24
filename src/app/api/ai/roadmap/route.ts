@@ -7,6 +7,9 @@ import { runRoadmapGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipel
 import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildMilestoneInsert, buildRoadmapStorageArtifacts, coerceStoredProjectOption } from "@/lib/ai/storage";
+import { normalizeTimeZone } from "@/lib/calendar/date-utils";
+import { generateProjectSchedule } from "@/lib/calendar/schedule";
+import { clearProjectSchedule, persistProjectSchedule } from "@/lib/db/mutations/calendar";
 import { getRoadmapFeedback } from "@/lib/db/queries/generation-feedback";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
@@ -17,6 +20,7 @@ export const runtime = "nodejs";
 
 const bodySchema = z.object({
   project_id: z.string().uuid(),
+  timezone: z.string().min(1).max(120).optional(),
 });
 
 function getErrorDetails(error: unknown) {
@@ -154,6 +158,7 @@ export async function POST(request: Request) {
     const projectTrack = asProjectTrack(project.project_track ?? recommendation.project_track ?? context.project_track);
 
     stage = "upsert-roadmap";
+    const scheduleTimezone = normalizeTimeZone(body.timezone);
     const { data: roadmap, error: roadmapError } = await supabase
       .from("project_roadmaps")
       .upsert(
@@ -167,6 +172,11 @@ export async function POST(request: Request) {
           stretch_goals: storageArtifacts.stretchGoals,
           explanation_guide: storageArtifacts.explanationGuide,
           track_payload_json: storageArtifacts.trackPayloadJson,
+          scheduled_start_date: null,
+          scheduled_end_date: null,
+          schedule_timezone: scheduleTimezone,
+          schedule_generation_source: null,
+          last_schedule_rebalanced_at: null,
           raw_model_output_json: {
             roadmap: generated.parsed,
             response: generated.raw,
@@ -191,17 +201,66 @@ export async function POST(request: Request) {
     }
 
     stage = "insert-milestones";
-    const { error: milestoneError } = await supabase.from("milestones").insert(
+    const { data: insertedMilestones, error: milestoneError } = await supabase.from("milestones").insert(
       generated.parsed.steps.map((step) => ({
         project_id: project.id,
         ...buildMilestoneInsert(step),
         completed: false,
         completed_at: null,
       })),
-    );
+    )
+      .select("id, order_index, title, rough_time_estimate, due_date, schedule_duration_days, is_user_scheduled_override, completed");
 
-    if (milestoneError) {
-      throw new Error(milestoneError.message);
+    if (milestoneError || !insertedMilestones) {
+      throw new Error(milestoneError?.message ?? "Failed to insert milestones.");
+    }
+
+    let scheduleReady = false;
+
+    try {
+      stage = "reset-schedule";
+      await clearProjectSchedule({
+        projectId: project.id,
+        timeZone: scheduleTimezone,
+        client: supabase,
+      });
+
+      stage = "generate-schedule";
+      const schedule = generateProjectSchedule({
+        milestones: insertedMilestones.map((milestone) => ({
+          id: milestone.id,
+          orderIndex: milestone.order_index,
+          stepNumber: milestone.order_index + 1,
+          title: milestone.title,
+          roughTimeEstimate: milestone.rough_time_estimate,
+          dueDate: milestone.due_date,
+          scheduleDurationDays: milestone.schedule_duration_days,
+          completed: milestone.completed,
+          isUserScheduledOverride: milestone.is_user_scheduled_override,
+        })),
+        estimatedWeeks: recommendation.estimated_weeks,
+        weeklyHours: recommendation.weekly_hours,
+        projectTrack,
+        timeZone: scheduleTimezone,
+      });
+
+      stage = "persist-schedule";
+      await persistProjectSchedule({
+        projectId: project.id,
+        schedule,
+        source: "roadmap_generation",
+        client: supabase,
+      });
+      scheduleReady = true;
+    } catch (scheduleError) {
+      console.error("roadmap schedule failed", { stage, error: scheduleError });
+      captureServerError(scheduleError, {
+        route: "ai/roadmap",
+        stage: "schedule-generation",
+        project_id: project.id,
+        roadmap_id: roadmap.id,
+      });
+      stage = "post-generate";
     }
 
     const routeMetadata = getRouteGenerationMetadata({
@@ -215,6 +274,7 @@ export async function POST(request: Request) {
       project_id: project.id,
       roadmap_id: roadmap.id,
       project_track: projectTrack,
+      schedule_ready: scheduleReady,
       ...routeMetadata,
     }).catch((trackError) => {
       console.error("roadmap track failed", { stage, error: trackError });
@@ -239,6 +299,7 @@ export async function POST(request: Request) {
       {
         roadmap_id: roadmap.id,
         project_track: projectTrack,
+        schedule_ready: scheduleReady,
         timings: routeMetadata,
         ...(generated.citations.length > 0 ? { citations: generated.citations } : {}),
       },
