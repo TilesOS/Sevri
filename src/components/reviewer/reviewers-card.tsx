@@ -90,7 +90,7 @@ export function ReviewersCard({ projectId, plan, reviewers, invitations }: Revie
   }
 
   return (
-    <Card className="space-y-5" padding="lg">
+    <Card className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
           <p className="editorial-kicker">Reviewers</p>
@@ -117,7 +117,7 @@ export function ReviewersCard({ projectId, plan, reviewers, invitations }: Revie
       {!isPro ? (
         <Alert tone="info" heading="Reviewers are a Pro feature">
           Upgrade to Pro to invite up to {reviewerLimit("pro_monthly")} reviewers per project.{" "}
-          <Link href="/billing" className="font-semibold underline">
+          <Link href="/settings/billing" className="font-semibold underline">
             Upgrade to Pro
           </Link>
         </Alert>

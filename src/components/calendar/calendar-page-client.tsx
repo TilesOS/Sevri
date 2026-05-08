@@ -942,7 +942,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   <p className="text-sm leading-6 text-ink-soft">
                     Calendar exports stay behind Pro. Free users can still plan and reschedule everything inside Sevri.
                   </p>
-                  <Button href="/billing" variant="outline" className="rounded-full">
+                  <Button href="/settings/billing" variant="outline" className="rounded-full">
                     Upgrade to Pro
                   </Button>
                 </div>

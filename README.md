@@ -28,7 +28,7 @@ Do not set `NODE_ENV` in `.env.local` or in Netlify environment variables for th
 - Onboarding wizard: `/onboarding`
 - Recommendations: `/recommendations`
 - Project workspace: `/project/[id]`
-- Billing: `/billing`
+- Billing: `/settings/billing`
 
 ## Notes
 

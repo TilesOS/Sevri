@@ -1,11 +1,11 @@
-import { getRequiredUser } from "@/lib/auth/guard";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { resolveStoredFullName } from "@/lib/auth/names";
-import { SettingsForm } from "@/components/settings/settings-form";
-import { settingsProfileSchema, type SettingsProfileInput } from "@/lib/validators/settings";
 import Link from "next/link";
+import { SettingsForm } from "@/components/settings/settings-form";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+import { getRequiredUser } from "@/lib/auth/guard";
+import { resolveStoredFullName } from "@/lib/auth/names";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { settingsProfileSchema, type SettingsProfileInput } from "@/lib/validators/settings";
 
 export default async function SettingsPage() {
   const user = await getRequiredUser();
@@ -62,18 +62,33 @@ export default async function SettingsPage() {
         </Card>
       </div>
 
-      <Card className="space-y-3">
-        <p className="editorial-kicker">Integrations</p>
-        <p className="text-sm leading-6 text-ink-soft">
-          Connect GitHub to sync commits and READMEs with your projects.
-        </p>
-        <Link
-          href="/settings/integrations"
-          className="inline-flex items-center text-sm font-semibold text-ink hover:underline"
-        >
-          Manage integrations →
-        </Link>
-      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="space-y-3">
+          <p className="editorial-kicker">Billing</p>
+          <p className="text-sm leading-6 text-ink-soft">
+            Review your current plan, upgrade to Sevri Pro, or open the billing portal.
+          </p>
+          <Link
+            href="/settings/billing"
+            className="inline-flex items-center text-sm font-semibold text-ink hover:underline"
+          >
+            Manage billing -&gt;
+          </Link>
+        </Card>
+
+        <Card className="space-y-3">
+          <p className="editorial-kicker">Integrations</p>
+          <p className="text-sm leading-6 text-ink-soft">
+            Connect GitHub to sync commits and READMEs with your projects.
+          </p>
+          <Link
+            href="/settings/integrations"
+            className="inline-flex items-center text-sm font-semibold text-ink hover:underline"
+          >
+            Manage integrations -&gt;
+          </Link>
+        </Card>
+      </div>
     </div>
   );
 }

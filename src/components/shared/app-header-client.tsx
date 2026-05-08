@@ -16,7 +16,6 @@ const workspaceLinks = [
   { href: "/portfolio", label: "Portfolio", match: (pathname: string) => pathname.startsWith("/portfolio") },
   { href: "/recommendations", label: "Ideas", match: (pathname: string) => pathname.startsWith("/recommendations") },
   { href: "/onboarding", label: "Onboarding", match: (pathname: string) => pathname.startsWith("/onboarding") },
-  { href: "/billing", label: "Billing", match: (pathname: string) => pathname.startsWith("/billing") },
 ] as const;
 
 interface AppShellClientProps {

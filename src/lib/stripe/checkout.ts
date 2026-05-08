@@ -24,8 +24,8 @@ export async function createCheckoutSession(userId: string, email?: string | nul
     customerId = customer.id;
   }
 
-  const successUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
-  const cancelUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/billing?checkout=cancel`;
+  const successUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/settings/billing?checkout=success&session_id={CHECKOUT_SESSION_ID}`;
+  const cancelUrl = `${clientEnv.NEXT_PUBLIC_SITE_URL}/settings/billing?checkout=cancel`;
 
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
@@ -69,7 +69,7 @@ export async function createPortalSession(userId: string) {
 
   const session = await stripe.billingPortal.sessions.create({
     customer: data.stripe_customer_id,
-    return_url: `${clientEnv.NEXT_PUBLIC_SITE_URL}/billing`,
+    return_url: `${clientEnv.NEXT_PUBLIC_SITE_URL}/settings/billing`,
   });
 
   return session;

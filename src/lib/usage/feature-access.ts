@@ -38,49 +38,49 @@ function buildUpgradeRequiredError(feature: RestrictedFeature): UpgradeRequiredE
         code: "upgrade_required",
         feature,
         error: "Upgrade to Pro to unlock detailed step coaching and work evaluation.",
-        upgrade_url: "/billing",
+        upgrade_url: "/settings/billing",
       };
     case "invite_reviewer":
       return {
         code: "upgrade_required",
         feature,
         error: "Upgrade to Pro to invite reviewers to your projects.",
-        upgrade_url: "/billing",
+        upgrade_url: "/settings/billing",
       };
     case "link_github":
       return {
         code: "upgrade_required",
         feature,
         error: "Linking a GitHub repository requires Pro.",
-        upgrade_url: "/billing",
+        upgrade_url: "/settings/billing",
       };
     case "calendar_export":
       return {
         code: "upgrade_required",
         feature,
         error: "Upgrade to Pro to export project schedules to your calendar.",
-        upgrade_url: "/billing",
+        upgrade_url: "/settings/billing",
       };
     case "portfolio_export":
       return {
         code: "upgrade_required",
         feature,
         error: "Upgrade to Pro to generate Common App and resume Portfolio exports.",
-        upgrade_url: "/billing",
+        upgrade_url: "/settings/billing",
       };
     case "portfolio_publish":
       return {
         code: "upgrade_required",
         feature,
         error: "Upgrade to Pro to publish a project Portfolio page.",
-        upgrade_url: "/billing",
+        upgrade_url: "/settings/billing",
       };
     case "portfolio_regenerate_curation":
       return {
         code: "upgrade_required",
         feature,
         error: "Upgrade to Pro to regenerate Portfolio curation.",
-        upgrade_url: "/billing",
+        upgrade_url: "/settings/billing",
       };
   }
 }

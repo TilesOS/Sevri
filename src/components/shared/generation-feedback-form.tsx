@@ -118,7 +118,7 @@ export function GenerationFeedbackForm({
 
   if (variant === "compact") {
     return (
-      <Card className={cn("space-y-3", className)} padding="sm">
+      <Card className={cn("space-y-3", className)}>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="space-y-1">
             <p className="editorial-kicker">Learning loop</p>
