@@ -159,7 +159,7 @@ export function GithubOverviewCard({
           <p className="text-sm leading-6 text-ink-soft">
             Linking a repo is a Pro feature.
           </p>
-          <Button href="/billing" size="sm">
+          <Button href="/settings/billing" size="sm">
             Upgrade to Pro
           </Button>
         </Card>

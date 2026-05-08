@@ -507,7 +507,7 @@ export function ProjectStepWorkspace({
             Free keeps the roadmap, project pages, and each step objective visible so you can try one software project and one research project. Pro adds the full coaching experience for each step, including detailed guidance, done-when review, and AI evaluation of your work.
           </p>
           <div>
-            <Button href="/billing" className="rounded-full px-6">
+            <Button href="/settings/billing" className="rounded-full px-6">
               Upgrade to Pro
             </Button>
           </div>

@@ -29,7 +29,7 @@ Per-stage OpenAI model overrides: `OPENAI_STAGE1_MODEL`, `OPENAI_STAGE2_MODEL`, 
 
 - `(marketing)` — public pages (landing, pricing, terms, privacy)
 - `(auth)` — sign-in, sign-up
-- `(app)` — authenticated pages: dashboard, onboarding, recommendations, `/project/[id]`, billing, settings
+- `(app)` — authenticated pages: dashboard, onboarding, recommendations, `/project/[id]`, settings, billing under `/settings/billing`
 
 ### Core user flow
 

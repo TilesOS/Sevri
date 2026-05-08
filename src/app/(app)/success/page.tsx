@@ -12,5 +12,5 @@ export default async function SuccessPage({
     params.set("session_id", resolvedSearchParams.session_id);
   }
 
-  redirect(`/billing?${params.toString()}`);
+  redirect(`/settings/billing?${params.toString()}`);
 }

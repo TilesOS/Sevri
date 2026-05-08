@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function CancelPage() {
-  redirect("/billing?checkout=cancel");
+  redirect("/settings/billing?checkout=cancel");
 }
