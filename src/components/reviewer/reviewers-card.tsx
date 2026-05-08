@@ -99,19 +99,9 @@ export function ReviewersCard({ projectId, plan, reviewers, invitations }: Revie
             Reviewers see a read-only view of this project and leave structured feedback per milestone.
           </p>
         </div>
-        <div className="flex flex-col items-end gap-2">
-          <Badge tone="neutral">
-            {isPro ? `${activeCount} of ${limit}` : "Pro feature"}
-          </Badge>
-          <Button
-            type="button"
-            size="sm"
-            onClick={() => setModalOpen(true)}
-            disabled={!canInvite}
-          >
-            Invite reviewer
-          </Button>
-        </div>
+        <Badge tone="neutral">
+          {isPro ? `${activeCount} of ${limit}` : "Pro feature"}
+        </Badge>
       </div>
 
       {!isPro ? (
@@ -181,6 +171,18 @@ export function ReviewersCard({ projectId, plan, reviewers, invitations }: Revie
           ))}
         </ul>
       )}
+
+      <div className="flex justify-end">
+        <Button
+          type="button"
+          size="sm"
+          onClick={() => setModalOpen(true)}
+          disabled={!canInvite}
+          className="rounded-full px-4"
+        >
+          Invite reviewer
+        </Button>
+      </div>
 
       <ReviewerInviteModal
         projectId={projectId}
