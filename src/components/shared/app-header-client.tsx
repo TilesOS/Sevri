@@ -69,7 +69,7 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
       ) : null}
 
       {/* Desktop sidebar — always visible */}
-      <aside className="app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[var(--app-sidebar-width)] flex-col overflow-y-auto lg:flex">
+      <aside className="app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[var(--app-sidebar-width)] flex-col overflow-y-hidden lg:flex">
         <SidebarContent
           displayName={displayName}
           email={email}
@@ -84,7 +84,7 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
       {/* Mobile drawer */}
       <aside
         className={cn(
-          "app-sidebar-shell fixed inset-y-0 left-0 z-[60] flex w-[var(--app-sidebar-width)] max-w-[calc(100vw-1rem)] flex-col overflow-y-auto text-ink transition-transform duration-200 ease-out lg:hidden",
+          "app-sidebar-shell fixed inset-y-0 left-0 z-[60] flex w-[var(--app-sidebar-width)] max-w-[calc(100vw-1rem)] flex-col overflow-y-hidden text-ink transition-transform duration-200 ease-out lg:hidden",
           isMobileDrawerOpen ? "translate-x-0" : "-translate-x-[105%]",
         )}
       >
@@ -181,11 +181,13 @@ function SidebarContent({
         ))}
       </div>
 
-      {/* Project context (only on project routes) */}
-      <ProjectSidebarSection pathname={pathname} />
+      {/* Project context (only on project routes) — independently scrollable */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+        <ProjectSidebarSection pathname={pathname} />
+      </div>
 
       {/* Account section pinned to bottom */}
-      <div style={{ marginTop: 'auto', paddingTop: 16 }}>
+      <div style={{ paddingTop: 16 }}>
         <div className="hand-label" style={{ marginTop: 0 }}>~ account ~ <span className="dashes" /></div>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
           <Link
@@ -215,14 +217,7 @@ function ProjectSidebarSection({ pathname }: { pathname: string }) {
   return (
     <div style={{ paddingTop: 4 }}>
       <div className="hand-label">~ project ~ <span className="dashes" /></div>
-      <div style={{
-        border: '2px solid var(--line)',
-        borderRadius: 6,
-        padding: 12,
-        background: 'var(--paper)',
-      }}>
-        <ProjectSidebarSlot pathname={pathname} />
-      </div>
+      <ProjectSidebarSlot pathname={pathname} />
     </div>
   );
 }

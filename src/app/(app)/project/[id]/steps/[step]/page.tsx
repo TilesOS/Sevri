@@ -4,7 +4,6 @@ import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getProjectWorkspaceView } from "@/lib/projects/workspace";
 import { listMilestoneReviews } from "@/lib/db/queries/reviewers";
 import { ProjectStepWorkspace } from "@/components/project/project-step-workspace";
-import { ReviewerFeedbackPanel } from "@/components/reviewer/reviewer-feedback-panel";
 
 export default async function ProjectStepPage({
   params,
@@ -36,12 +35,7 @@ export default async function ProjectStepPage({
 
     const reviews = await listMilestoneReviews(milestone.id);
 
-    return (
-      <div className="space-y-8">
-        <ProjectStepWorkspace workspace={workspace} milestone={milestone} plan={plan} />
-        <ReviewerFeedbackPanel reviews={reviews} />
-      </div>
-    );
+    return <ProjectStepWorkspace workspace={workspace} milestone={milestone} plan={plan} reviews={reviews} />;
   } catch {
     notFound();
   }

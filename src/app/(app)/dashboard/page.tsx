@@ -140,8 +140,10 @@ function TrackSection({
   const nextActionLabel = hasIntake ? `Open ${track} ideas` : "Complete onboarding";
   const trackTheme = trackThemes[track];
 
+  const accentColor = track === "software" ? "var(--yellow)" : "var(--cyan)";
+
   return (
-    <Card className="space-y-6">
+    <Card className="space-y-6" style={{ borderTop: `4px solid ${accentColor}` }}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -169,15 +171,15 @@ function TrackSection({
       </div>
 
       <div className="grid gap-6 rounded-md bg-canvas px-5 py-4 sm:grid-cols-3" style={{ border: '2px solid var(--ink)' }}>
-        <div>
+        <div style={{ borderLeft: '3px solid var(--yellow)', paddingLeft: 12 }}>
           <p className="editorial-kicker">Saved projects</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{projects.length}</p>
         </div>
-        <div>
+        <div style={{ borderLeft: '3px solid var(--cyan)', paddingLeft: 12 }}>
           <p className="editorial-kicker">Saved directions</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{recommendationCount}</p>
         </div>
-        <div>
+        <div style={{ borderLeft: '3px solid var(--pink)', paddingLeft: 12 }}>
           <p className="editorial-kicker">Track state</p>
           <p className="mt-3 text-lg font-semibold text-ink">{hasIntake ? "Ready for action" : "Needs direction"}</p>
         </div>
@@ -185,8 +187,8 @@ function TrackSection({
 
       {projects.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((project) => (
-            <Card key={project.id} tone="subtle" className="flex h-full flex-col">
+          {projects.map((project, index) => (
+            <Card key={project.id} tone="subtle" className="flex h-full flex-col" style={{ borderTop: `3px solid ${index % 2 === 0 ? accentColor : 'var(--pink)'}` }}>
               <div className="flex items-start justify-between gap-3">
                 <Badge tone={trackTheme.badgeTone}>{track === "software" ? "Software" : "Research"}</Badge>
                 <Badge tone={project.status === "completed" ? "success" : "neutral"}>{project.status}</Badge>

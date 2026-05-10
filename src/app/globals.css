@@ -93,6 +93,9 @@
 }
 
 @layer utilities {
+  .bg-accent-green { background-color: var(--green); }
+  .bg-accent-green-soft { background-color: rgba(123, 182, 97, 0.55); }
+
   .app-shell {
     background-color: var(--canvas);
     background-image: radial-gradient(rgba(22, 20, 18, 0.13) 1px, transparent 1px);

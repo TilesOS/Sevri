@@ -78,7 +78,7 @@ export function ProjectOverviewView({
           <span className="star">✦</span>
           <span style={{ color: 'var(--ink-muted)' }}>~ active project ~</span>
         </div>
-        <h1 className="display" style={{ margin: 0, maxWidth: 900, fontSize: 'clamp(22px, 2.4vw, 38px)' }}>
+        <h1 className="display" style={{ margin: 0, maxWidth: 900, fontSize: 'clamp(40px, 5vw, 72px)' }}>
           <span className="hl-yellow">{safeProjectTitle || workspace.project.title}</span>
           <span style={{ color: 'var(--pink)' }}>.</span>
         </h1>
@@ -98,15 +98,7 @@ export function ProjectOverviewView({
             <Badge tone="contrast">{workspace.project.status}</Badge>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 24 }}>
-            <div style={{ flex: 1, minWidth: 240 }}>
-              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>
-                Project workspace
-              </p>
-              <p style={{ fontSize: 'clamp(22px,3vw,36px)', fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--paper)', margin: 0 }}>
-                {safeProjectTitle || workspace.project.title}
-              </p>
-            </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 20, marginBottom: 24 }}>
             <Button href={nextStepHref} className="shrink-0">
               {workspace.nextMilestone ? `Open Step ${workspace.nextMilestone.stepNumber}` : "Open project workspace"}
             </Button>

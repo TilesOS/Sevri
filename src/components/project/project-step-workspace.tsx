@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { GithubStepCommits } from "@/components/project/github-step-commits";
+import { ReviewerFeedbackPanel } from "@/components/reviewer/reviewer-feedback-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
@@ -23,6 +24,7 @@ import {
   STEP_TITLE_SPEC,
 } from "@/lib/ai/content-quality-specs";
 import type { ProjectMilestoneView, ProjectWorkspaceView } from "@/lib/projects/workspace";
+import type { MilestoneReviewRow } from "@/lib/db/queries/reviewers";
 import type {
   LatestCompletedMilestoneEvaluation,
   MilestoneEvaluationResponse,
@@ -207,10 +209,12 @@ export function ProjectStepWorkspace({
   workspace,
   milestone,
   plan,
+  reviews,
 }: {
   workspace: ProjectWorkspaceView;
   milestone: ProjectMilestoneView;
   plan: Plan;
+  reviews: MilestoneReviewRow[];
 }) {
   const router = useRouter();
   const hasDetailAccess = hasStepGuidanceAccess(plan);
@@ -575,7 +579,7 @@ export function ProjectStepWorkspace({
                 </div>
 
                 {activeTab === "checklist" ? (
-                  <Card tone="primary" className="space-y-4">
+                  <Card className="space-y-4" style={{ backgroundColor: 'rgba(91,208,214,0.10)', borderColor: 'var(--ink)', borderTop: '3px solid var(--cyan)' }}>
                     <p className="editorial-kicker">Checklist / Do</p>
                     <p className="text-sm leading-6 text-ink-soft">
                       {safeRenderText(guidanceSlot.guidance.what_to_do_now, GUIDANCE_WHAT_TO_DO_SPEC).text}
@@ -586,7 +590,8 @@ export function ProjectStepWorkspace({
                           <label className="flex items-start gap-3">
                             <input
                               type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-line accent-primary"
+                              className="mt-1 h-4 w-4 rounded border-line"
+                              style={{ accentColor: 'var(--yellow)' }}
                               checked={checkedItems[index] ?? false}
                               onChange={() =>
                                 setCheckedItems((current) => ({
@@ -671,6 +676,8 @@ export function ProjectStepWorkspace({
                 actionsDisabled={isGuidanceLocked}
               />
             ) : null}
+
+            <ReviewerFeedbackPanel reviews={reviews} />
           </div>
 
           <SubmissionDock

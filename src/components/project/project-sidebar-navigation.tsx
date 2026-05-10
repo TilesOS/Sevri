@@ -30,12 +30,9 @@ export function ProjectSidebarNavigation({
   const projectBasePath = `/project/${projectId}`;
 
   return (
-    <div className="space-y-5">
-      <div className="space-y-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.24em] text-ink-muted">Project</p>
-          <p className="mt-2 text-base font-semibold leading-6 text-ink">{projectTitle}</p>
-        </div>
+    <div className="space-y-2">
+      <div style={{ marginBottom: 8 }}>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--ink-muted)', marginBottom: 2 }}>{projectTitle}</p>
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-2 text-sm font-medium text-ink-soft transition hover:text-ink"
@@ -45,51 +42,44 @@ export function ProjectSidebarNavigation({
         </Link>
       </div>
 
-      <div className="space-y-2">
-        {baseSectionLinks.map((link) => {
-          const href = `${projectBasePath}${link.href}`;
-          const isActive = pathname === href;
-          const isDisabled = !hasRoadmap && link.href !== "";
+      {baseSectionLinks.map((link) => {
+        const href = `${projectBasePath}${link.href}`;
+        const isActive = pathname === href;
+        const isDisabled = !hasRoadmap && link.href !== "";
 
-          return (
-            <ProjectNavLink
-              key={href}
-              href={href}
-              label={link.label}
-              isActive={isActive}
-              isDisabled={isDisabled}
-            />
-          );
-        })}
+        return (
+          <ProjectNavLink
+            key={href}
+            href={href}
+            label={link.label}
+            isActive={isActive}
+            isDisabled={isDisabled}
+          />
+        );
+      })}
+
+      <div style={{ marginTop: 8, marginBottom: 4 }}>
+        <div className="hand-label" style={{ margin: '12px 0 4px', fontSize: 13 }}>~ steps ~ <span className="dashes" /></div>
       </div>
 
-      <div className="space-y-3 border-t border-line pt-4">
-        <div className="flex items-center gap-3">
-          <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-ink-muted">Milestones</span>
-          <span className="h-px flex-1 bg-line" aria-hidden="true" />
-        </div>
+      {milestones.map((milestone) => {
+        const href = `${projectBasePath}/steps/${milestone.stepNumber}`;
+        const isActive = pathname === href;
+        const isDisabled = !hasRoadmap;
 
-        <div className="space-y-2">
-          {milestones.map((milestone) => {
-            const href = `${projectBasePath}/steps/${milestone.stepNumber}`;
-            const isActive = pathname === href;
-            const isDisabled = !hasRoadmap;
-
-            return (
-              <ProjectNavLink
-                key={milestone.id}
-                href={href}
-                label={`Step ${milestone.stepNumber}`}
-                description={milestone.title}
-                isActive={isActive}
-                isDisabled={isDisabled}
-                status={milestone.status}
-                isFuture={milestone.isFuture}
-              />
-            );
-          })}
-        </div>
-      </div>
+        return (
+          <ProjectNavLink
+            key={milestone.id}
+            href={href}
+            label={`Step ${milestone.stepNumber}`}
+            description={milestone.title}
+            isActive={isActive}
+            isDisabled={isDisabled}
+            status={milestone.status}
+            isFuture={milestone.isFuture}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -112,11 +102,9 @@ function ProjectNavLink({
   isFuture?: boolean;
 }) {
   const className = cn(
-    "flex items-start justify-between gap-3 rounded-2xl border px-3 py-3 text-sm transition",
-    isActive
-      ? "border-line-strong bg-paper text-ink shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
-      : "border-transparent bg-transparent text-ink-soft hover:border-line hover:bg-paper/76 hover:text-ink",
-    isDisabled && "cursor-not-allowed opacity-50 hover:border-transparent hover:bg-transparent hover:text-ink-soft",
+    "tab flex items-start justify-between gap-3 text-sm",
+    isActive && "is-active",
+    isDisabled && "cursor-not-allowed opacity-50",
     isFuture && !isActive && "opacity-70",
   );
 
