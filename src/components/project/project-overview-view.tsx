@@ -3,7 +3,6 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { ReviewersCard } from "@/components/reviewer/reviewers-card";
@@ -29,14 +28,8 @@ function cleanOrUndefined(value: string | null | undefined, spec: typeof ROADMAP
 }
 
 function totalEstimatedRange(milestones: ProjectWorkspaceView["milestones"]) {
-  if (milestones.length === 0) {
-    return "No steps yet";
-  }
-
-  if (milestones.length <= 4) {
-    return "Lean roadmap paced for momentum.";
-  }
-
+  if (milestones.length === 0) return "No steps yet";
+  if (milestones.length <= 4) return "Lean roadmap paced for momentum.";
   return "Deeper roadmap paced one deliverable at a time.";
 }
 
@@ -79,24 +72,46 @@ export function ProjectOverviewView({
         </Alert>
       ) : null}
 
-      <Card tone="contrast" className="border-contrast-line">
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
+      {/* Page heading */}
+      <div>
+        <div className="kicker" style={{ marginBottom: 10 }}>
+          <span className="star">✦</span>
+          <span style={{ color: 'var(--ink-muted)' }}>~ active project ~</span>
+        </div>
+        <h1 className="display big" style={{ margin: 0, maxWidth: 900 }}>
+          <span className="hl-yellow">{safeProjectTitle || workspace.project.title}</span>
+          <span style={{ color: 'var(--pink)' }}>.</span>
+        </h1>
+        {safeOverview ? (
+          <p style={{ fontSize: 16, fontWeight: 500, color: 'var(--ink-soft)', marginTop: 20, maxWidth: 680, lineHeight: 1.6 }}>
+            {safeOverview}
+          </p>
+        ) : null}
+      </div>
+
+      {/* Hero coach card with progress */}
+      <div className="coach" style={{ boxShadow: '6px 6px 0 var(--pink)' }}>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
             <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
             <Badge tone="contrast">{workspace.project.status}</Badge>
           </div>
-          <PageHeader
-            eyebrow="Project workspace"
-            title={safeProjectTitle || workspace.project.title}
-            description={safeOverview}
-            actions={
-              <Button href={nextStepHref} className="rounded-full px-6">
-                {workspace.nextMilestone ? `Open Step ${workspace.nextMilestone.stepNumber}` : "Open project workspace"}
-              </Button>
-            }
-            className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
-          />
+
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', justifyContent: 'space-between', gap: 20, marginBottom: 24 }}>
+            <div style={{ flex: 1, minWidth: 240 }}>
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>
+                Project workspace
+              </p>
+              <p style={{ fontSize: 'clamp(22px,3vw,36px)', fontFamily: 'var(--font-display)', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 1, color: 'var(--paper)', margin: 0 }}>
+                {safeProjectTitle || workspace.project.title}
+              </p>
+            </div>
+            <Button href={nextStepHref} className="shrink-0">
+              {workspace.nextMilestone ? `Open Step ${workspace.nextMilestone.stepNumber}` : "Open project workspace"}
+            </Button>
+          </div>
+
           <ProgressBar
             value={workspace.completionPercent}
             label="Progress through the roadmap"
@@ -104,20 +119,21 @@ export function ProjectOverviewView({
             className="[&_.text-ink]:text-paper [&_.text-ink-muted]:text-paper/55"
           />
         </div>
-      </Card>
+      </div>
 
+      {/* Stat cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <p className="editorial-kicker">Roadmap structure</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{workspace.milestones.length}</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">Milestones designed to keep momentum visible.</p>
         </Card>
-        <Card tone="primary">
+        <Card tone="primary" style={{ borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--ink)' }}>
           <p className="editorial-kicker">Completed</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{workspace.completedCount}</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">Every completed step protects the finishable version.</p>
         </Card>
-        <Card tone="blush">
+        <Card tone="blush" style={{ borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--ink)' }}>
           <p className="editorial-kicker">Pacing</p>
           <p className="mt-3 text-lg font-semibold text-ink">{totalEstimatedRange(workspace.milestones)}</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">One concrete deliverable per step, not a vague phase.</p>
@@ -133,6 +149,7 @@ export function ProjectOverviewView({
         />
       ) : null}
 
+      {/* Project snapshot */}
       <Card className="space-y-6">
         <div className="space-y-2">
           <p className="editorial-kicker">Project snapshot</p>
@@ -140,11 +157,11 @@ export function ProjectOverviewView({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-3 rounded-2xl bg-canvas p-5">
+          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--line)' }}>
             <p className="editorial-kicker">Overview</p>
             <p className="text-sm leading-6 text-ink-soft">{safeOverview}</p>
           </div>
-          <div className="space-y-3 rounded-2xl bg-canvas p-5">
+          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--line)' }}>
             <p className="editorial-kicker">Next move</p>
             <p className="text-sm leading-6 text-ink-soft">
               {workspace.nextMilestone
@@ -152,15 +169,15 @@ export function ProjectOverviewView({
                 : "Your roadmap is complete. Revisit scope guardrails before expanding the project."}
             </p>
           </div>
-          <div className="space-y-3 rounded-2xl bg-canvas p-5">
+          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--line)' }}>
             <p className="editorial-kicker">Protected deliverables</p>
             <ul className="space-y-2 text-sm leading-6 text-ink-soft">
               {workspace.keyDeliverables.map((deliverable) => (
-                <li key={deliverable}>- {deliverable}</li>
+                <li key={deliverable}>— {deliverable}</li>
               ))}
             </ul>
           </div>
-          <div className="space-y-3 rounded-2xl bg-canvas p-5">
+          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--line)' }}>
             <p className="editorial-kicker">Project lens</p>
             <p className="text-sm leading-6 text-ink-soft">
               {workspace.projectLens.map((item) => item.label).join(" · ")}

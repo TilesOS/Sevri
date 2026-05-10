@@ -46,8 +46,10 @@ const config: Config = {
       },
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
-        display: ["var(--font-display)", "Georgia", "Times New Roman", "serif"],
+        display: ["var(--font-display)", "Arial Black", "sans-serif"],
         body: ["var(--font-sans)", "system-ui", "-apple-system", "Segoe UI", "sans-serif"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "monospace"],
+        hand: ["var(--font-hand)", "Caveat", "cursive"],
       },
       maxWidth: {
         editorial: "76rem",

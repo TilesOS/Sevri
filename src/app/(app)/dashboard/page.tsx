@@ -7,7 +7,6 @@ import { getPlanLabel, getTrackLabel, trackThemes } from "@/components/theme/the
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page-header";
 import { StatCard } from "@/components/ui/stat-card";
 
 export default async function DashboardPage() {
@@ -41,37 +40,52 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      <Card tone="contrast" className="border-contrast-line">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl space-y-4">
-            <PageHeader
-              eyebrow="Continue your journey"
-              title={activeProject ? activeProject.title : "Set the direction worth finishing."}
-              description={
-                activeProject
-                  ? activeProject.hasRoadmap
-                    ? "Your workspace is ready. Keep the next milestone moving and protect the finishable version of the project."
-                    : "You have already chosen a direction. The next move is to turn it into a roadmap and start executing."
-                  : "Use onboarding to shape a direction, compare strong options, and keep both your software and research tracks visible."
-              }
-              className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
-            />
-          </div>
-          <div className="flex flex-wrap gap-3">
-            <Button href={nextAction.href} className="rounded-full px-6">
+      {/* Page heading */}
+      <div style={{ marginBottom: 8 }}>
+        <div className="kicker" style={{ marginBottom: 10 }}>
+          <span className="star">✦</span>
+          <span>WORKSPACE</span>
+        </div>
+        <h1 className="display big" style={{ margin: 0 }}>
+          welcome{" "}
+          <span className="hl-yellow">back</span>
+          <span style={{ color: 'var(--pink)' }}>.</span>
+        </h1>
+      </div>
+
+      {/* Hero coach card */}
+      <div className="coach" style={{ boxShadow: '6px 6px 0 var(--cyan)' }}>
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <span className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+            <span style={{ color: 'var(--cyan)' }}>✦</span>
+            {activeProject ? "CONTINUE YOUR JOURNEY" : "SET THE DIRECTION"}
+          </span>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px,4vw,48px)', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 0.96, color: 'var(--paper)', margin: '0 0 16px', maxWidth: 680 }}>
+            {activeProject ? activeProject.title : "Set the direction worth finishing."}
+          </h2>
+          <p style={{ color: 'rgba(251,246,233,0.72)', fontSize: 15, lineHeight: 1.6, maxWidth: 560, marginBottom: 24 }}>
+            {activeProject
+              ? activeProject.hasRoadmap
+                ? "Your workspace is ready. Keep the next milestone moving and protect the finishable version of the project."
+                : "You have already chosen a direction. The next move is to turn it into a roadmap and start executing."
+              : "Use onboarding to shape a direction, compare strong options, and keep both your software and research tracks visible."}
+          </p>
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+            <Button href={nextAction.href} className="px-6">
               {nextAction.label}
             </Button>
             <Button
               href="/recommendations"
               variant="outline"
-              className="rounded-full border-contrast-line bg-paper/6 text-paper hover:bg-paper/12"
+              className="border-contrast-line bg-paper/10 text-paper hover:bg-paper/20"
             >
               View ideas
             </Button>
           </div>
         </div>
-      </Card>
+      </div>
 
+      {/* Stat cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <StatCard
           label="Current plan"
@@ -145,16 +159,16 @@ function TrackSection({
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <Button href={nextActionHref} className="rounded-full px-5">
+          <Button href={nextActionHref} className="px-5">
             {nextActionLabel}
           </Button>
-          <Button href={`/recommendations?track=${track}`} variant="outline" className="rounded-full">
+          <Button href={`/recommendations?track=${track}`} variant="outline">
             View board
           </Button>
         </div>
       </div>
 
-      <div className="grid gap-6 rounded-xl bg-canvas px-5 py-4 sm:grid-cols-3">
+      <div className="grid gap-6 rounded-md bg-canvas px-5 py-4 sm:grid-cols-3" style={{ border: '2px solid var(--line)' }}>
         <div>
           <p className="editorial-kicker">Saved projects</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{projects.length}</p>
@@ -184,7 +198,7 @@ function TrackSection({
                 </p>
               </div>
               <div className="mt-auto pt-8">
-                <Button href={`/project/${project.id}`} fullWidth className="rounded-full">
+                <Button href={`/project/${project.id}`} fullWidth>
                   Open workspace
                 </Button>
               </div>

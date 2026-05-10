@@ -6,30 +6,54 @@
   color-scheme: light;
   --color-black: #151311;
   --color-white: #fcf8f4;
-  --color-primary: #759F61;
-  --color-primary-hover: #678A55;
-  --color-primary-active: #5B7A4C;
-  --color-primary-soft: #E4EDDC;
-  --color-primary-line: rgba(117, 159, 97, 0.38);
-  --canvas: #f0ece4;
-  --paper: #f7f4ed;
-  --surface: #e8e0d5;
-  --surface-strong: #d8cfc3;
-  --surface-mint: #f0f5ed;
-  --surface-butter: #e8f0e0;
-  --line: #d7ccc1;
-  --line-strong: #aa9e92;
-  --ink: #1f1a17;
-  --ink-soft: #4c443d;
-  --ink-muted: #81736A;
-  --contrast: #151311;
-  --contrast-soft: #211e1b;
-  --contrast-line: rgba(255, 255, 255, 0.12);
-  --contrast-grid-line: rgba(255, 255, 255, 0.04);
-  --focus-ring: rgba(0, 124, 190, 0.28);
-  --shadow-soft: 0 1px 4px rgba(129, 115, 106, 0.07), 0 4px 12px rgba(129, 115, 106, 0.06);
-  --shadow-lifted: 0 4px 16px rgba(129, 115, 106, 0.10), 0 12px 32px rgba(129, 115, 106, 0.08);
-  --app-sidebar-width: 16rem;
+
+  /* Primary → hot pink */
+  --color-primary: #FF4DA6;
+  --color-primary-hover: #e63d91;
+  --color-primary-active: #cc3580;
+  --color-primary-soft: rgba(255, 77, 166, 0.10);
+  --color-primary-line: rgba(255, 77, 166, 0.32);
+
+  /* Warm cream surfaces */
+  --canvas: #F5EFE0;
+  --paper: #FBF6E9;
+  --surface: #ECE4D2;
+  --surface-strong: #cdc2af;
+  --surface-mint: #F5EFE0;
+  --surface-butter: #FBF6E9;
+
+  /* Lines */
+  --line: #cdc2af;
+  --line-strong: #9e9080;
+
+  /* Ink */
+  --ink: #161412;
+  --ink-soft: #2a2622;
+  --ink-muted: #6b635a;
+
+  /* Contrast / dark card */
+  --contrast: #161412;
+  --contrast-soft: #221f1c;
+  --contrast-line: rgba(255, 255, 255, 0.14);
+  --contrast-grid-line: rgba(255, 255, 255, 0.06);
+
+  /* Accent palette */
+  --pink: #FF4DA6;
+  --cyan: #5BD0D6;
+  --yellow: #FFD93D;
+  --green: #7BB661;
+
+  /* Aliases for recipe classes */
+  --paper-card: #FBF6E9;
+  --paper-soft: #ECE4D2;
+
+  /* Interaction */
+  --focus-ring: rgba(255, 77, 166, 0.35);
+  --shadow-soft: 3px 3px 0 var(--ink-muted);
+  --shadow-lifted: 6px 6px 0 var(--ink);
+
+  /* Sidebar */
+  --app-sidebar-width: 17.5rem;
 }
 
 @layer base {
@@ -58,7 +82,7 @@
   }
 
   ::selection {
-    background: rgba(117, 159, 97, 0.22);
+    background: rgba(255, 77, 166, 0.22);
     color: var(--ink);
   }
 
@@ -71,30 +95,34 @@
 @layer utilities {
   .app-shell {
     background-color: var(--canvas);
-    background-image:
-      radial-gradient(circle at left top, rgba(117, 159, 97, 0.10), transparent 23rem),
-      linear-gradient(rgba(247, 244, 237, 0.82), rgba(247, 244, 237, 0.18));
+    background-image: radial-gradient(rgba(22, 20, 18, 0.13) 1px, transparent 1px);
+    background-size: 14px 14px;
     background-attachment: fixed;
   }
 
   .font-display {
-    font-family: var(--font-display), Georgia, "Times New Roman", serif;
-    letter-spacing: -0.04em;
+    font-family: var(--font-display), "Arial Black", sans-serif;
+    letter-spacing: -0.03em;
   }
 
   .editorial-kicker {
-    @apply text-[11px] font-semibold uppercase tracking-[0.24em] text-ink-muted;
+    font-family: var(--font-mono), 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.24em;
+    color: var(--ink-muted);
   }
 
   .ink-divider {
-    background-image: linear-gradient(90deg, transparent, rgba(31, 26, 23, 0.24), transparent);
+    background-image: linear-gradient(90deg, transparent, rgba(22, 20, 18, 0.24), transparent);
   }
 
   .contrast-grid {
     background-image:
       linear-gradient(var(--contrast-grid-line) 1px, transparent 1px),
       linear-gradient(90deg, var(--contrast-grid-line) 1px, transparent 1px);
-    background-size: 28px 28px;
+    background-size: 24px 24px;
   }
 
   .muted-toggle-surface {
@@ -113,9 +141,334 @@
   }
 
   .app-sidebar-shell {
-    background-image:
-      linear-gradient(180deg, rgba(252, 248, 244, 0.92), rgba(247, 244, 237, 0.96)),
-      radial-gradient(circle at top left, rgba(117, 159, 97, 0.10), transparent 16rem);
-    box-shadow: 1px 0 0 rgba(170, 158, 146, 0.12);
+    background-color: var(--canvas);
+    border-right: 2px solid var(--ink);
   }
+}
+
+@layer components {
+  /* ── Typography ── */
+
+  .display {
+    font-family: var(--font-display), 'Arial Black', sans-serif;
+    font-size: clamp(36px, 4vw, 56px);
+    line-height: 0.96;
+    letter-spacing: -0.03em;
+  }
+  .display.big { font-size: clamp(56px, 6vw, 96px); }
+  .display.lg  { font-size: clamp(44px, 4.5vw, 72px); }
+
+  .kicker {
+    font-family: var(--font-mono), 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .hand-label {
+    font-family: var(--font-hand), 'Caveat', cursive;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink-muted);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 16px 0 8px;
+  }
+  .hand-label .dashes {
+    flex: 1;
+    border-top: 1.5px dashed var(--line);
+    border-bottom: none;
+  }
+
+  .handnote {
+    font-family: var(--font-hand), 'Caveat', cursive;
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--ink-muted);
+  }
+
+  /* ── Highlight ── */
+
+  .hl-yellow {
+    background: var(--yellow);
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    padding: 0 6px;
+    box-shadow: 3px 3px 0 var(--ink);
+    display: inline-block;
+    line-height: inherit;
+  }
+
+  /* ── Sidebar nav tabs ── */
+
+  .tab {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 10px 14px;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    box-shadow: 3px 3px 0 var(--ink);
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .tab:hover {
+    background: var(--surface);
+    transform: translate(-1px, -1px);
+    box-shadow: 4px 4px 0 var(--ink);
+  }
+  .tab.is-active {
+    background: var(--yellow);
+  }
+  .tab.is-active:hover {
+    background: var(--yellow);
+  }
+  .tab.flat {
+    background: transparent;
+    border-color: transparent;
+    box-shadow: none;
+  }
+  .tab.flat:hover {
+    background: var(--surface);
+    border-color: transparent;
+    box-shadow: none;
+    transform: none;
+  }
+
+  /* ── User tab (sidebar header) ── */
+
+  .user-tab {
+    background: var(--cyan);
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    box-shadow: 4px 4px 0 var(--ink);
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  /* ── Course tile (sidebar roadmap steps) ── */
+
+  .course-tile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--paper);
+    border: 2px solid var(--ink);
+    border-radius: 4px;
+    box-shadow: 3px 3px 0 var(--ink);
+  }
+  .course-tile.locked {
+    opacity: 0.55;
+    box-shadow: none;
+  }
+  .course-tile .badge {
+    width: 34px;
+    height: 34px;
+    border-radius: 4px;
+    border: 2px solid var(--ink);
+    display: grid;
+    place-items: center;
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .course-tile .name {
+    font-size: 13px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .course-tile .meta {
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-top: 2px;
+  }
+
+  /* ── Recommendation cards ── */
+
+  .rec-card {
+    position: relative;
+    border: 2.5px solid var(--ink);
+    border-radius: 6px;
+    box-shadow: 6px 6px 0 var(--ink);
+    padding: 24px;
+    background: var(--paper);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    height: 100%;
+  }
+  .rec-card.featured { background: var(--yellow); }
+  .rec-card.cyan     { background: var(--cyan); }
+
+  .rec-card .ribbon {
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 4px 10px;
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    border-radius: 0 4px 0 4px;
+  }
+  .rec-card .title   { font-size: 22px; font-weight: 800; line-height: 1.15; }
+  .rec-card .body    { font-size: 14px; line-height: 1.6; color: var(--ink-soft); }
+  .rec-card .meta-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 16px;
+    background: rgba(22, 20, 18, 0.06);
+    border-radius: 4px;
+    padding: 12px;
+  }
+  .rec-card .meta-grid .k {
+    font-family: var(--font-mono), monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+    margin-bottom: 1px;
+  }
+  .rec-card .meta-grid .v {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ink);
+    margin-bottom: 8px;
+  }
+
+  /* ── Coach card (dark contrast with grid overlay) ── */
+
+  .coach {
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 6px;
+    padding: 28px 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .coach::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+    background-size: 24px 24px;
+    pointer-events: none;
+  }
+  .coach .kicker { color: rgba(251, 246, 233, 0.6); }
+  .coach h1,
+  .coach h2,
+  .coach h3 { color: var(--paper); font-weight: 800; margin: 12px 0 8px; }
+  .coach p   { color: rgba(251, 246, 233, 0.78); font-size: 14px; line-height: 1.6; }
+
+  /* ── Step rows (project roadmap) ── */
+
+  .step-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    border: 2px solid var(--ink);
+    border-radius: 6px;
+    box-shadow: 3px 3px 0 var(--ink);
+    background: var(--paper);
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.08s, box-shadow 0.08s;
+  }
+  .step-row:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+  .step-row.active { background: var(--cyan); }
+  .step-row.done   { background: var(--surface); }
+  .step-row.locked { opacity: 0.55; box-shadow: none; cursor: default; }
+  .step-row.locked:hover { transform: none; box-shadow: none; }
+  .step-row .sub {
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+  .step-row .ttl { font-size: 15px; font-weight: 700; color: var(--ink); margin-top: 2px; }
+
+  /* ── Pills ── */
+
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    border: 1.5px solid var(--ink);
+    border-radius: 999px;
+    font-family: var(--font-mono), monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    background: var(--paper);
+    color: var(--ink);
+  }
+  .pill .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--pink);
+    flex-shrink: 0;
+  }
+
+  /* ── Meta strip ── */
+
+  .meta-strip {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    font-family: var(--font-mono), monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-muted);
+  }
+
+  /* ── Dividers ── */
+
+  .solid-thin {
+    border: none;
+    border-top: 2px solid var(--ink);
+    margin: 8px 0;
+  }
+  .dashed-line {
+    border: none;
+    border-top: 1.5px dashed var(--line);
+    margin: 8px 0;
+  }
+
+  /* ── Star / accent decorations ── */
+
+  .star { color: var(--pink); }
 }
