@@ -1,17 +1,25 @@
 import { Card } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page-header";
 import type { ProjectWorkspaceView } from "@/lib/projects/workspace";
 
 export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceView }) {
   return (
     <div className="space-y-8">
-      <PageHeader
-        eyebrow="Stay finishable"
-        title="Scope & Guardrails"
-        description="Protect the version that ships. Everything here is about keeping the project honest, narrow, and finishable."
-      />
+      <div>
+        <div className="kicker" style={{ marginBottom: 10 }}>
+          <span className="star">✦</span>
+          <span style={{ color: 'var(--ink-muted)' }}>~ stay finishable ~</span>
+        </div>
+        <h1 className="display" style={{ margin: 0 }}>
+          <span className="hl-yellow">Scope</span>
+          <span> & Guardrails</span>
+          <span style={{ color: 'var(--cyan)' }}>.</span>
+        </h1>
+        <p style={{ fontSize: 16, color: 'var(--ink-soft)', marginTop: 16, maxWidth: 600, lineHeight: 1.6 }}>
+          Protect the version that ships. Everything here is about keeping the project honest, narrow, and finishable.
+        </p>
+      </div>
 
-      <Card tone="primary" className="space-y-4">
+      <Card className="space-y-4" style={{ borderColor: 'var(--ink)', borderTop: '4px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.06)' }}>
         <p className="editorial-kicker">Core scope</p>
         <h2 className="text-3xl font-semibold text-ink">Protect the MVP before you chase the stretch version.</h2>
         <p className="text-sm leading-6 text-ink-soft">{workspace.roadmap?.mvp_scope}</p>
@@ -21,7 +29,7 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
         <p className="editorial-kicker">Deliverables to protect</p>
         <ul className="space-y-3 text-sm leading-6 text-ink-soft">
           {workspace.keyDeliverables.map((deliverable) => (
-            <li key={deliverable} className="rounded-2xl bg-canvas px-4 py-3">
+            <li key={deliverable} className="rounded-md bg-canvas px-4 py-3" style={{ borderLeft: '3px solid var(--yellow)' }}>
               {deliverable}
             </li>
           ))}
@@ -33,7 +41,7 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
         {workspace.stretchGoals.length ? (
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
             {workspace.stretchGoals.map((goal) => (
-              <li key={goal} className="rounded-2xl bg-canvas px-4 py-3">
+              <li key={goal} className="rounded-md bg-canvas px-4 py-3" style={{ borderLeft: '3px solid var(--pink)' }}>
                 {goal}
               </li>
             ))}

@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { Card } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page-header";
 import { getRequiredUser } from "@/lib/auth/guard";
 import { resolveStoredFullName } from "@/lib/auth/names";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -43,15 +42,23 @@ export default async function SettingsPage() {
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        eyebrow="Settings"
-        title="Keep your workspace defaults honest."
-        description="These details shape the context Sevri uses across onboarding, recommendations, and the rest of your project workspace."
-      />
+      <div>
+        <div className="kicker" style={{ marginBottom: 10 }}>
+          <span className="star">✦</span>
+          <span style={{ color: 'var(--ink-muted)' }}>~ account settings ~</span>
+        </div>
+        <h1 className="display" style={{ margin: 0 }}>
+          Keep your <span className="hl-yellow">defaults</span> honest
+          <span style={{ color: 'var(--cyan)' }}>.</span>
+        </h1>
+        <p style={{ fontSize: 16, color: 'var(--ink-soft)', marginTop: 16, maxWidth: 600, lineHeight: 1.6 }}>
+          These details shape the context Sevri uses across onboarding, recommendations, and the rest of your project workspace.
+        </p>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <SettingsForm email={user.email ?? ""} initialValues={settingsValues} />
-        <Card tone="primary" className="space-y-4">
+        <Card className="space-y-4" style={{ borderColor: 'var(--ink)', borderTop: '4px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.06)' }}>
           <p className="editorial-kicker">What these defaults affect</p>
           <h2 className="text-3xl font-semibold text-ink">A better starting point every time you return.</h2>
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
@@ -63,7 +70,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="space-y-3">
+        <Card className="space-y-3" style={{ borderTop: '3px solid var(--pink)' }}>
           <p className="editorial-kicker">Billing</p>
           <p className="text-sm leading-6 text-ink-soft">
             Review your current plan, upgrade to Sevri Pro, or open the billing portal.
@@ -76,7 +83,7 @@ export default async function SettingsPage() {
           </Link>
         </Card>
 
-        <Card className="space-y-3">
+        <Card className="space-y-3" style={{ borderTop: '3px solid var(--yellow)' }}>
           <p className="editorial-kicker">Integrations</p>
           <p className="text-sm leading-6 text-ink-soft">
             Connect GitHub to sync commits and READMEs with your projects.

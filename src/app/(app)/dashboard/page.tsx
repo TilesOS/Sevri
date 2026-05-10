@@ -168,7 +168,7 @@ function TrackSection({
         </div>
       </div>
 
-      <div className="grid gap-6 rounded-md bg-canvas px-5 py-4 sm:grid-cols-3" style={{ border: '2px solid var(--line)' }}>
+      <div className="grid gap-6 rounded-md bg-canvas px-5 py-4 sm:grid-cols-3" style={{ border: '2px solid var(--ink)' }}>
         <div>
           <p className="editorial-kicker">Saved projects</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{projects.length}</p>

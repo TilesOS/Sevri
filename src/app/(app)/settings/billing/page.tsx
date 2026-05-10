@@ -3,7 +3,6 @@ import { BillingReturnSync } from "@/components/billing/billing-return-sync";
 import { getPlanLabel } from "@/components/theme/theme-utils";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page-header";
 import { getRequiredStudentUser } from "@/lib/auth/guard";
 import { hasVerifiedPlanAccess } from "@/lib/billing/entitlements";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -41,14 +40,22 @@ export default async function BillingSettingsPage({
 
   return (
     <div className="space-y-8">
-      <PageHeader
-        eyebrow="Billing"
-        title="Manage the depth of your workspace."
-        description={`Start free, explore up to ${PLAN_LIMITS.free.generation_limit} idea boards, upgrade when you want unlimited idea board generations and deeper coaching, and manage your billing details without disrupting your project flow.`}
-      />
+      <div>
+        <div className="kicker" style={{ marginBottom: 10 }}>
+          <span className="star">✦</span>
+          <span style={{ color: 'var(--ink-muted)' }}>~ billing ~</span>
+        </div>
+        <h1 className="display" style={{ margin: 0 }}>
+          Manage the <span className="hl-yellow">depth</span> of your workspace
+          <span style={{ color: 'var(--pink)' }}>.</span>
+        </h1>
+        <p style={{ fontSize: 16, color: 'var(--ink-soft)', marginTop: 16, maxWidth: 640, lineHeight: 1.6 }}>
+          {`Start free, explore up to ${PLAN_LIMITS.free.generation_limit} idea boards, upgrade when you want unlimited generations and deeper coaching.`}
+        </p>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        <Card className="space-y-5">
+        <Card className="space-y-5" style={{ borderTop: '3px solid var(--pink)' }}>
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone={effectivePlan === "pro_monthly" ? "accent" : "neutral"}>{getPlanLabel(effectivePlan)}</Badge>
             <Badge tone={status === "active" ? "success" : "warning"}>{status}</Badge>
@@ -75,7 +82,7 @@ export default async function BillingSettingsPage({
           <BillingActions canManageBilling={Boolean(subscription?.stripe_customer_id)} />
         </Card>
 
-        <Card tone="blush" className="space-y-4">
+        <Card className="space-y-4" style={{ borderColor: 'var(--ink)', borderTop: '4px solid var(--yellow)', backgroundColor: 'rgba(255,217,61,0.07)' }}>
           <p className="editorial-kicker">Why upgrade</p>
           <h2 className="text-3xl font-semibold text-ink">Upgrade for better coaching, not more noise.</h2>
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
