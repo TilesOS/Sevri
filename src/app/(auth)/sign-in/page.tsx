@@ -6,7 +6,7 @@ import { AuthForm } from "@/components/shared/auth-form";
 
 export default function SignInPage() {
   return (
-    <Card className="mx-auto w-full max-w-xl space-y-6" padding="lg">
+    <Card className="mx-auto w-full max-w-xl space-y-6" padding="lg" style={{ borderTop: '4px solid var(--yellow)' }}>
       <Badge tone="neutral">Welcome back</Badge>
       <div className="space-y-2">
         <h1 className="font-display text-4xl leading-none text-ink">Pick up where you left off.</h1>
