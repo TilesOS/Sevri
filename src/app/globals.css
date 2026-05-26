@@ -53,7 +53,31 @@
   --shadow-lifted: 6px 6px 0 var(--ink);
 
   /* Sidebar */
-  --app-sidebar-width: 17.5rem;
+  --app-sidebar-width: 20.125rem;
+}
+
+/* ── Custom scrollbars (blend with cream theme) ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background-color: var(--line-strong);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--ink-muted);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 @layer base {

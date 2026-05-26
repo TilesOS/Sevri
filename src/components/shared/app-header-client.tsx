@@ -182,7 +182,7 @@ function SidebarContent({
       </div>
 
       {/* Project context (only on project routes) — independently scrollable */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginRight: -12, paddingRight: 8 }}>
         <ProjectSidebarSection pathname={pathname} />
       </div>
 

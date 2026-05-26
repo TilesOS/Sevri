@@ -72,7 +72,6 @@ export function ProjectSidebarNavigation({
             key={milestone.id}
             href={href}
             label={`Step ${milestone.stepNumber}`}
-            description={milestone.title}
             isActive={isActive}
             isDisabled={isDisabled}
             status={milestone.status}
