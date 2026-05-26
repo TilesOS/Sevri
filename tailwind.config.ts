@@ -52,7 +52,7 @@ const config: Config = {
         hand: ["var(--font-hand)", "Caveat", "cursive"],
       },
       maxWidth: {
-        editorial: "76rem",
+        editorial: "92rem",
       },
     },
   },
