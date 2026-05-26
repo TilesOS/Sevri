@@ -53,7 +53,7 @@
   --shadow-lifted: 6px 6px 0 var(--ink);
 
   /* Sidebar */
-  --app-sidebar-width: 20.125rem;
+  --app-sidebar-width: 18.000rem;
 }
 
 /* ── Custom scrollbars (blend with cream theme) ── */
