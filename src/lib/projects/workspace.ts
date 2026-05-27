@@ -4,6 +4,7 @@ import { deriveUrgencyState } from "@/lib/calendar/urgency";
 import type { CalendarUrgency } from "@/lib/calendar/types";
 import { getProjectWorkspace } from "@/lib/db/queries/projects";
 import { getProjectGithubLink, type ProjectGithubLinkRow } from "@/lib/db/queries/github";
+import { getMilestoneGuidance } from "@/lib/db/queries/milestone-guidance";
 import { deriveMilestoneProgressMeta } from "@/lib/projects/milestone-status";
 import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
 import type { ProjectTrack } from "@/types/domain";
@@ -52,6 +53,26 @@ export interface ParsedTalkingPoint {
   body: string;
 }
 
+/**
+ * Adaptive "what to do next" preview rendered on the project overview.
+ * Pulls from the current step's stored guidance + saved checklist state.
+ */
+export interface NextStepActionPreview {
+  stepNumber: number;
+  stepTitle: string;
+  stepObjective: string;
+  /** The first unchecked checklist item, or null if all are checked / no checklist saved yet. */
+  nextChecklistItem: string | null;
+  /** Total checklist items in the current guidance (0 if guidance not yet generated). */
+  totalChecklistItems: number;
+  /** How many items the user has checked off. */
+  checkedCount: number;
+  /** True when guidance exists and every checklist item is checked. */
+  allChecked: boolean;
+  /** True when no guidance row has been generated yet for this step. */
+  guidanceMissing: boolean;
+}
+
 export interface ProjectWorkspaceView {
   project: RawProjectWorkspace["project"];
   roadmap: RawProjectWorkspace["roadmap"];
@@ -74,6 +95,7 @@ export interface ProjectWorkspaceView {
   parsedTalkingPoints: ParsedTalkingPoint[];
   firstIncompleteStepNumber: number | null;
   nextMilestone: ProjectMilestoneView | null;
+  nextStepAction: NextStepActionPreview | null;
   githubLink: ProjectGithubLinkView | null;
 }
 
@@ -227,6 +249,44 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
   const firstIncompleteStepNumber = milestones.find((milestone) => !milestone.completed)?.stepNumber ?? null;
   const nextMilestone = milestones.find((milestone) => !milestone.completed) ?? milestones[milestones.length - 1] ?? null;
 
+  let nextStepAction: NextStepActionPreview | null = null;
+  if (nextMilestone) {
+    const guidance = await getMilestoneGuidance(nextMilestone.id).catch(() => null);
+
+    if (guidance) {
+      const checklist = guidance.guidance.checklist;
+      const totalChecklistItems = checklist.length;
+      const checkedCount = checklist.reduce(
+        (count, _item, index) => (guidance.checklistState[String(index)] ? count + 1 : count),
+        0,
+      );
+      const nextIndex = checklist.findIndex((_item, index) => !guidance.checklistState[String(index)]);
+      const nextChecklistItem = nextIndex >= 0 ? checklist[nextIndex] : null;
+
+      nextStepAction = {
+        stepNumber: nextMilestone.stepNumber,
+        stepTitle: nextMilestone.title,
+        stepObjective: nextMilestone.objective,
+        nextChecklistItem,
+        totalChecklistItems,
+        checkedCount,
+        allChecked: totalChecklistItems > 0 && nextIndex === -1,
+        guidanceMissing: false,
+      };
+    } else {
+      nextStepAction = {
+        stepNumber: nextMilestone.stepNumber,
+        stepTitle: nextMilestone.title,
+        stepObjective: nextMilestone.objective,
+        nextChecklistItem: null,
+        totalChecklistItems: 0,
+        checkedCount: 0,
+        allChecked: false,
+        guidanceMissing: true,
+      };
+    }
+  }
+
   return {
     project: workspace.project,
     roadmap: workspace.roadmap,
@@ -249,6 +309,7 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     parsedTalkingPoints,
     firstIncompleteStepNumber,
     nextMilestone,
+    nextStepAction,
     githubLink: summarizeGithubLink(githubLinkRow),
   };
 });

@@ -45,6 +45,7 @@ interface RouteErrorBody {
 interface GuidanceSlot {
   guidance: StepGuidance;
   guidanceId: string;
+  checklistState: Record<string, boolean>;
 }
 
 interface GuidanceLockState {
@@ -270,11 +271,29 @@ export function ProjectStepWorkspace({
 
     setCheckedItems(
       guidanceSlot.guidance.checklist.reduce<Record<number, boolean>>((accumulator, _item, index) => {
-        accumulator[index] = false;
+        accumulator[index] = Boolean(guidanceSlot.checklistState[String(index)]);
         return accumulator;
       }, {}),
     );
   }, [guidanceSlot]);
+
+  async function persistChecklistState(next: Record<number, boolean>) {
+    try {
+      const payload: Record<string, boolean> = {};
+      for (const [key, value] of Object.entries(next)) {
+        payload[key] = Boolean(value);
+      }
+
+      await fetch(`/api/ai/milestones/${milestone.id}/guidance/checklist`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ state: payload }),
+      });
+    } catch {
+      // Non-blocking — the UI keeps the optimistic toggle. The next page load will
+      // resync from the server if the save genuinely failed.
+    }
+  }
 
   async function toggleMilestone() {
     setIsCompletionPending(true);
@@ -313,7 +332,11 @@ export function ProjectStepWorkspace({
     });
 
     const body = (await response.json().catch(() => null)) as
-      | ({ guidance?: StepGuidance; milestone_guidance_id?: string } & RouteErrorBody)
+      | ({
+          guidance?: StepGuidance;
+          milestone_guidance_id?: string;
+          checklist_state?: Record<string, boolean>;
+        } & RouteErrorBody)
       | null;
 
     if (body?.code === "previous_step_incomplete") {
@@ -335,6 +358,7 @@ export function ProjectStepWorkspace({
     setGuidanceSlot({
       guidance: body.guidance,
       guidanceId: body.milestone_guidance_id,
+      checklistState: body.checklist_state ?? {},
     });
     setIsGuidancePending(false);
   }
@@ -594,10 +618,11 @@ export function ProjectStepWorkspace({
                               style={{ accentColor: 'var(--yellow)' }}
                               checked={checkedItems[index] ?? false}
                               onChange={() =>
-                                setCheckedItems((current) => ({
-                                  ...current,
-                                  [index]: !current[index],
-                                }))
+                                setCheckedItems((current) => {
+                                  const next = { ...current, [index]: !current[index] };
+                                  void persistChecklistState(next);
+                                  return next;
+                                })
                               }
                             />
                             <span className="text-sm leading-6 text-ink-soft">{normalizeGuidanceItem(item, "ordered")}</span>

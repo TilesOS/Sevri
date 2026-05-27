@@ -10,10 +10,12 @@ import { GithubOverviewCard } from "@/components/project/github-overview-card";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
+  GUIDANCE_WHAT_TO_DO_SPEC,
   ROADMAP_OVERVIEW_PROSE_SPEC,
   ROADMAP_PROJECT_TITLE_SPEC,
+  STEP_OBJECTIVE_SPEC,
 } from "@/lib/ai/content-quality-specs";
-import type { ProjectWorkspaceView } from "@/lib/projects/workspace";
+import type { NextStepActionPreview, ProjectWorkspaceView } from "@/lib/projects/workspace";
 import type {
   ProjectInvitationSummary,
   ProjectReviewerSummary,
@@ -97,6 +99,8 @@ export function ProjectOverviewView({
             <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
             <Badge tone="contrast">{workspace.project.status}</Badge>
           </div>
+
+          <NextActionPanel action={workspace.nextStepAction} />
 
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 20, marginBottom: 24 }}>
             <Button href={nextStepHref} className="shrink-0">
@@ -197,6 +201,86 @@ export function ProjectOverviewView({
           description="Optional. Share what feels sharp, too generic, or too ambitious."
         />
       ) : null}
+    </div>
+  );
+}
+
+function NextActionPanel({ action }: { action: NextStepActionPreview | null }) {
+  if (!action) {
+    return (
+      <div
+        style={{
+          marginBottom: 24,
+          padding: '16px 18px',
+          borderRadius: 12,
+          background: 'rgba(255, 255, 255, 0.05)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+        }}
+      >
+        <p className="editorial-kicker" style={{ color: 'rgba(251, 246, 233, 0.55)' }}>
+          Roadmap complete
+        </p>
+        <p style={{ marginTop: 8, color: 'rgba(251, 246, 233, 0.85)', fontSize: 15, lineHeight: 1.55 }}>
+          Every step is marked done. Revisit scope before expanding the project, or jump back into a step to polish it.
+        </p>
+      </div>
+    );
+  }
+
+  const goal = safeRenderText(action.stepObjective, STEP_OBJECTIVE_SPEC).text;
+  const nextItem = action.nextChecklistItem
+    ? safeRenderText(action.nextChecklistItem, GUIDANCE_WHAT_TO_DO_SPEC).text
+    : null;
+
+  let nextLine: string;
+  if (action.guidanceMissing) {
+    nextLine = "Open this step to load its checklist and see your next concrete action.";
+  } else if (action.allChecked) {
+    nextLine = "Every checklist item is done — submit your work for evaluation or mark the step complete.";
+  } else if (nextItem) {
+    nextLine = nextItem;
+  } else {
+    nextLine = "Open this step to pick up your next action.";
+  }
+
+  const progressLabel =
+    action.totalChecklistItems > 0
+      ? `${action.checkedCount} of ${action.totalChecklistItems} checklist items done`
+      : "Checklist not loaded yet";
+
+  return (
+    <div
+      style={{
+        marginBottom: 24,
+        padding: '18px 20px',
+        borderRadius: 12,
+        background: 'rgba(255, 255, 255, 0.06)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderLeft: '3px solid var(--yellow)',
+      }}
+    >
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
+        <p className="editorial-kicker" style={{ color: 'rgba(251, 246, 233, 0.55)', margin: 0 }}>
+          Picking up at Step {action.stepNumber}
+        </p>
+        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(251, 246, 233, 0.55)', margin: 0 }}>
+          {progressLabel}
+        </p>
+      </div>
+
+      <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(251, 246, 233, 0.6)', margin: 0 }}>
+        Step goal
+      </p>
+      <p style={{ marginTop: 4, color: 'rgba(251, 246, 233, 0.85)', fontSize: 14, lineHeight: 1.55 }}>
+        {goal}
+      </p>
+
+      <p style={{ marginTop: 14, fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(251, 246, 233, 0.6)', margin: '14px 0 0' }}>
+        Next up
+      </p>
+      <p style={{ marginTop: 4, color: 'var(--paper)', fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
+        {nextLine}
+      </p>
     </div>
   );
 }

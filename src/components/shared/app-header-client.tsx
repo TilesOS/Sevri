@@ -23,10 +23,19 @@ interface AppShellClientProps {
   email?: string | null;
 }
 
+type SectionKey = "pages" | "project" | "account";
+
 export function AppShellClient({ children, displayName, email }: AppShellClientProps) {
   const pathname = usePathname();
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
+    pages: true,
+    project: true,
+    account: true,
+  });
+  const toggleSection = (key: SectionKey) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const initials = getInitials(displayName);
 
   useEffect(() => {
@@ -78,6 +87,8 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
           onNavigate={() => {}}
           showCloseButton={false}
           onClose={() => {}}
+          openSections={openSections}
+          onToggleSection={toggleSection}
         />
       </aside>
 
@@ -96,6 +107,8 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
           onNavigate={() => setIsMobileDrawerOpen(false)}
           onClose={() => setIsMobileDrawerOpen(false)}
           showCloseButton
+          openSections={openSections}
+          onToggleSection={toggleSection}
         />
       </aside>
 
@@ -119,6 +132,8 @@ interface SidebarContentProps {
   onNavigate: () => void;
   onClose: () => void;
   showCloseButton: boolean;
+  openSections: Record<SectionKey, boolean>;
+  onToggleSection: (key: SectionKey) => void;
 }
 
 function SidebarContent({
@@ -128,7 +143,11 @@ function SidebarContent({
   onNavigate,
   onClose,
   showCloseButton,
+  openSections,
+  onToggleSection,
 }: SidebarContentProps) {
+  const isProjectRoute = pathname.startsWith("/project/");
+
   return (
     <div className="flex h-full min-h-0 flex-col p-4" style={{ gap: 0 }}>
       {/* User tab */}
@@ -164,61 +183,150 @@ function SidebarContent({
       </div>
 
       {/* Pages section */}
-      <div className="hand-label">~ pages ~ <span className="dashes" /></div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        {workspaceLinks.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={cn("tab", link.match(pathname) && "is-active")}
-            onClick={onNavigate}
-          >
-            <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
-              {link.ico}
-            </span>
-            <span>{link.label}</span>
-          </Link>
-        ))}
-      </div>
+      <CollapsibleHeader
+        label="pages"
+        sectionId="sidebar-section-pages"
+        open={openSections.pages}
+        onToggle={() => onToggleSection("pages")}
+      />
+      {openSections.pages ? (
+        <div id="sidebar-section-pages" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {workspaceLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn("tab", link.match(pathname) && "is-active")}
+              onClick={onNavigate}
+            >
+              <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+                {link.ico}
+              </span>
+              <span>{link.label}</span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
 
-      {/* Project context (only on project routes) — independently scrollable */}
-      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', marginRight: -12, paddingRight: 8 }}>
-        <ProjectSidebarSection pathname={pathname} />
+      {/* Project header (only on project routes) */}
+      {isProjectRoute ? (
+        <CollapsibleHeader
+          label="project"
+          sectionId="sidebar-section-project"
+          open={openSections.project}
+          onToggle={() => onToggleSection("project")}
+        />
+      ) : null}
+
+      {/* Spacer / scrollable project content — keeps account pinned to bottom */}
+      <div
+        id={isProjectRoute ? "sidebar-section-project" : undefined}
+        style={{
+          flex: 1,
+          minHeight: 0,
+          overflowY: isProjectRoute && openSections.project ? 'auto' : 'hidden',
+          marginRight: -12,
+          paddingRight: 8,
+        }}
+      >
+        {isProjectRoute && openSections.project ? (
+          <ProjectSidebarSlot pathname={pathname} />
+        ) : null}
       </div>
 
       {/* Account section pinned to bottom */}
       <div style={{ paddingTop: 16 }}>
-        <div className="hand-label" style={{ marginTop: 0 }}>~ account ~ <span className="dashes" /></div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <Link
-            href="/settings"
-            className="tab flat"
-            onClick={onNavigate}
-            style={{ fontSize: 13 }}
-          >
-            <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>⚙</span>
-            <span>settings</span>
-          </Link>
-          <form action="/auth/sign-out" method="post" style={{ width: '100%' }}>
-            <button type="submit" className="tab flat" style={{ fontSize: 13 }}>
-              <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>→</span>
-              <span>sign out</span>
-            </button>
-          </form>
-        </div>
+        <CollapsibleHeader
+          label="account"
+          sectionId="sidebar-section-account"
+          open={openSections.account}
+          onToggle={() => onToggleSection("account")}
+          style={{ marginTop: 0 }}
+        />
+        {openSections.account ? (
+          <div id="sidebar-section-account" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <Link
+              href="/settings"
+              className="tab flat"
+              onClick={onNavigate}
+              style={{ fontSize: 13 }}
+            >
+              <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>⚙</span>
+              <span>settings</span>
+            </Link>
+            <form action="/auth/sign-out" method="post" style={{ width: '100%' }}>
+              <button type="submit" className="tab flat" style={{ fontSize: 13 }}>
+                <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>→</span>
+                <span>sign out</span>
+              </button>
+            </form>
+          </div>
+        ) : null}
       </div>
     </div>
   );
 }
 
-function ProjectSidebarSection({ pathname }: { pathname: string }) {
-  if (!pathname.startsWith("/project/")) return null;
-
+function CollapsibleHeader({
+  label,
+  sectionId,
+  open,
+  onToggle,
+  style,
+}: {
+  label: string;
+  sectionId: string;
+  open: boolean;
+  onToggle: () => void;
+  style?: React.CSSProperties;
+}) {
   return (
-    <div style={{ paddingTop: 4 }}>
-      <div className="hand-label">~ project ~ <span className="dashes" /></div>
-      <ProjectSidebarSlot pathname={pathname} />
-    </div>
+    <button
+      type="button"
+      className="hand-label"
+      onClick={onToggle}
+      aria-expanded={open}
+      aria-controls={sectionId}
+      style={{
+        background: 'none',
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        color: 'var(--ink-muted)',
+        textAlign: 'left',
+        width: '100%',
+        ...style,
+      }}
+    >
+      <span>~ {label} ~</span>
+      <span className="dashes" />
+      <CaretIcon open={open} />
+    </button>
+  );
+}
+
+function CaretIcon({ open }: { open: boolean }) {
+  return (
+    <svg
+      viewBox="0 0 12 12"
+      width="12"
+      height="12"
+      aria-hidden="true"
+      style={{
+        flexShrink: 0,
+        transition: 'transform 0.15s ease',
+        transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
+        color: 'var(--ink-muted)',
+      }}
+    >
+      <path
+        d="M3 4.5 6 8 9 4.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
 
