@@ -237,6 +237,10 @@ export function ProjectStepWorkspace({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const fetchGuidanceRef = useRef(fetchGuidance);
   const loadSubmissionRef = useRef(loadSubmission);
+  const checklistSaveStateRef = useRef<{
+    inFlight: boolean;
+    pending: Record<number, boolean> | null;
+  }>({ inFlight: false, pending: null });
   const isGuidanceLocked = guidanceLock !== null;
   const guidanceLockMessage = getGuidanceLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
   const submissionLockMessage = getSubmissionLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
@@ -277,22 +281,49 @@ export function ProjectStepWorkspace({
     );
   }, [guidanceSlot]);
 
-  async function persistChecklistState(next: Record<number, boolean>) {
-    try {
+  function persistChecklistState(next: Record<number, boolean>) {
+    // Coalesce concurrent toggles: a save in flight defers the newest state
+    // until it returns, so a stale earlier request can't overwrite a newer one.
+    const state = checklistSaveStateRef.current;
+    state.pending = next;
+
+    if (state.inFlight) {
+      return;
+    }
+
+    void sendNextChecklistSave();
+  }
+
+  async function sendNextChecklistSave() {
+    const state = checklistSaveStateRef.current;
+    if (state.pending === null) {
+      return;
+    }
+
+    state.inFlight = true;
+
+    while (state.pending !== null) {
+      const snapshot = state.pending;
+      state.pending = null;
+
       const payload: Record<string, boolean> = {};
-      for (const [key, value] of Object.entries(next)) {
+      for (const [key, value] of Object.entries(snapshot)) {
         payload[key] = Boolean(value);
       }
 
-      await fetch(`/api/ai/milestones/${milestone.id}/guidance/checklist`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ state: payload }),
-      });
-    } catch {
-      // Non-blocking — the UI keeps the optimistic toggle. The next page load will
-      // resync from the server if the save genuinely failed.
+      try {
+        await fetch(`/api/ai/milestones/${milestone.id}/guidance/checklist`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state: payload }),
+        });
+      } catch {
+        // Non-blocking — the UI keeps the optimistic toggle. The next page load will
+        // resync from the server if the save genuinely failed.
+      }
     }
+
+    state.inFlight = false;
   }
 
   async function toggleMilestone() {
@@ -620,7 +651,7 @@ export function ProjectStepWorkspace({
                               onChange={() =>
                                 setCheckedItems((current) => {
                                   const next = { ...current, [index]: !current[index] };
-                                  void persistChecklistState(next);
+                                  persistChecklistState(next);
                                   return next;
                                 })
                               }

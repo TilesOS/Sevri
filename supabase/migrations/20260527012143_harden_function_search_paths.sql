@@ -18,16 +18,6 @@ alter function public.complete_milestone_submission_evaluation(uuid, jsonb)
 alter function public.fail_milestone_submission_evaluation(uuid, text)
   set search_path = '';
 
-alter function public.is_project_owner(uuid)
-  set search_path = '';
-
-alter function public.is_active_project_reviewer(uuid)
-  set search_path = '';
-
-alter function public.rls_auto_enable()
-  set search_path = '';
-
--- rls_auto_enable is invoked by the ensure_rls event trigger; it is not
--- an application RPC and should not be directly executable by API roles.
-revoke all on function public.rls_auto_enable()
-from public, anon, authenticated, service_role;
+-- Note: is_project_owner and is_active_project_reviewer are moved to the
+-- `private` schema in a later migration (20260527030000_move_rls_helpers_to_private_schema.sql)
+-- so they are not pinned here.
