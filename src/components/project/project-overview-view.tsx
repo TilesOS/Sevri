@@ -82,31 +82,29 @@ export function ProjectOverviewView({
         </div>
         <h1 className="display" style={{ margin: 0, maxWidth: 900, fontSize: 'clamp(40px, 5vw, 72px)' }}>
           <span className="hl-yellow">{safeProjectTitle || workspace.project.title}</span>
-          <span style={{ color: 'var(--pink)' }}>.</span>
         </h1>
         {safeOverview ? (
-          <p style={{ fontSize: 16, fontWeight: 500, color: 'var(--ink-soft)', marginTop: 20, maxWidth: 680, lineHeight: 1.6 }}>
+          <p style={{ fontSize: 16, fontWeight: 500, color: 'var(--ink-soft)', marginTop: 12, maxWidth: 680, lineHeight: 1.6 }}>
             {safeOverview}
           </p>
         ) : null}
       </div>
 
       {/* Hero coach card with progress */}
-      <div className="coach" style={{ boxShadow: '6px 6px 0 var(--pink)' }}>
+      <div className="coach" style={{ marginTop: 16, boxShadow: '6px 6px 0 var(--pink)' }}>
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
-            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
-            <Badge tone="contrast">{workspace.project.status}</Badge>
-          </div>
-
-          <NextActionPanel action={workspace.nextStepAction} />
-
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'flex-end', gap: 20, marginBottom: 24 }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
+              <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
+              <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
+              <Badge tone="contrast">{workspace.project.status}</Badge>
+            </div>
             <Button href={nextStepHref} className="shrink-0">
               {workspace.nextMilestone ? `Open Step ${workspace.nextMilestone.stepNumber}` : "Open project workspace"}
             </Button>
           </div>
+
+          <NextActionPanel action={workspace.nextStepAction} />
 
           <ProgressBar
             value={workspace.completionPercent}
@@ -256,7 +254,7 @@ function NextActionPanel({ action }: { action: NextStepActionPreview | null }) {
         borderRadius: 12,
         background: 'rgba(255, 255, 255, 0.06)',
         border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderLeft: '3px solid var(--yellow)',
+        borderLeft: '3px solid var(--cyan)',
       }}
     >
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
