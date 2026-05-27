@@ -11,7 +11,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <MarketingNav />
       <main className="flex-1 py-10 sm:py-16">
         <Container className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <Card tone="contrast" className="contrast-grid relative overflow-hidden">
+          <Card tone="contrast" className="contrast-grid relative overflow-hidden" style={{ boxShadow: '6px 6px 0 var(--cyan)' }}>
             <div className="absolute inset-x-8 top-8 h-px bg-paper/10" aria-hidden="true" />
             <div className="relative space-y-8 p-8 sm:p-10">
               <Badge tone="accent">Premium workspace</Badge>
@@ -26,13 +26,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-xl border border-contrast-line bg-paper/6 p-4">
+                <div className="rounded-xl border border-contrast-line bg-paper/6 p-4" style={{ borderTop: '3px solid var(--cyan)' }}>
                   <p className="text-sm font-semibold text-paper">Software path</p>
                   <p className="mt-2 text-sm leading-6 text-paper/72">
                     Pick a target user, define the problem, and ship an experience with a believable scope.
                   </p>
                 </div>
-                <div className="rounded-xl border border-contrast-line bg-paper/6 p-4">
+                <div className="rounded-xl border border-contrast-line bg-paper/6 p-4" style={{ borderTop: '3px solid var(--yellow)' }}>
                   <p className="text-sm font-semibold text-paper">Research path</p>
                   <p className="mt-2 text-sm leading-6 text-paper/72">
                     Translate curiosity into a research question, methodology, and evidence plan you can actually carry out.

@@ -1,0 +1,548 @@
+/* Sevri redesign — zine/editorial aesthetic
+ * Reference: bold cream paper, hot pink + cyan + highlighter yellow accents,
+ * heavy black display type, dotted background grid, "tab" chrome on cards. */
+
+@import url('https://fonts.googleapis.com/css2?family=Archivo+Black&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&family=Caveat:wght@500;700&family=Kalam:wght@700&display=swap');
+
+:root {
+  /* Zine palette — paper warmer than Sevri canonical, accents brighter */
+  --paper:       #F5EFE0;
+  --paper-soft:  #ECE4D2;
+  --paper-card:  #FBF6E9;
+  --ink:         #161412;
+  --ink-soft:    #2a2622;
+  --ink-muted:   #6b635a;
+  --line:        #cdc2af;
+  --line-strong: #2a2622;
+
+  /* Brand pop */
+  --pink:    #FF4DA6;
+  --pink-2:  #FF74BC;
+  --cyan:    #5BD0D6;
+  --cyan-2:  #8FE0E5;
+  --yellow:  #FFD93D;
+  --yellow-2:#FFE881;
+  --sage:    #759F61; /* Sevri keeper */
+  --orange:  #F39237;
+  --red:     #C9504A;
+  --blue:    #5C8FE6;
+  --green:   #7BB661;
+
+  --font-display: 'Archivo Black', 'Plus Jakarta Sans', sans-serif;
+  --font-body:    'Plus Jakarta Sans', system-ui, sans-serif;
+  --font-mono:    'JetBrains Mono', ui-monospace, monospace;
+  --font-hand:    'Caveat', cursive;
+  --font-marker:  'Kalam', cursive;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-body);
+  color: var(--ink);
+  background: var(--paper);
+  background-image:
+    radial-gradient(rgba(22,20,18,0.13) 1px, transparent 1px);
+  background-size: 14px 14px;
+  background-attachment: fixed;
+  -webkit-font-smoothing: antialiased;
+  font-weight: 500;
+}
+
+/* ---- Layout shell ----------------------------------------------------- */
+.app {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  background: var(--paper-soft);
+  border-right: 2px solid var(--ink);
+  padding: 20px 18px 28px;
+  position: relative;
+}
+
+.main-pane {
+  position: relative;
+  padding: 28px 56px 80px;
+  border-left: 2px solid var(--ink);
+  margin-left: -2px;
+}
+
+/* ---- Tab card (used everywhere — sidebar items, course chips, etc) --- */
+.tab {
+  position: relative;
+  background: var(--paper-card);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  padding: 12px 14px;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform .12s ease;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  font-family: var(--font-body);
+  font-size: 14px;
+  width: 100%;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.tab:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+.tab:active { transform: translate(2px,2px); box-shadow: 1px 1px 0 var(--ink); }
+.tab.is-active { background: var(--yellow); }
+.tab.flat { box-shadow: none; }
+
+/* User chip in sidebar — stacked tab effect */
+.user-tab {
+  position: relative;
+  background: var(--cyan);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  padding: 12px 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.user-tab::before {
+  content: "";
+  position: absolute;
+  inset: 6px -6px -6px 6px;
+  background: var(--paper-card);
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  z-index: -1;
+}
+
+/* ---- Section hand-labels in sidebar ----------------------------------- */
+.hand-label {
+  font-family: var(--font-hand);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--ink);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 22px 6px 10px;
+}
+.hand-label .dashes {
+  flex: 1;
+  height: 0;
+  border-top: 2px dashed var(--ink-muted);
+  opacity: .55;
+  margin-top: 4px;
+}
+
+/* ---- Editorial kicker (uppercase tracked) ----------------------------- */
+.kicker {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--ink);
+}
+.kicker .star { color: var(--pink); margin-right: 4px; }
+
+/* ---- Display headlines ------------------------------------------------ */
+.display {
+  font-family: var(--font-display);
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 0.92;
+  color: var(--ink);
+}
+.display.huge   { font-size: clamp(80px, 9vw, 132px); }
+.display.big    { font-size: clamp(56px, 6vw, 96px); }
+.display.lg     { font-size: 56px; }
+.display.md     { font-size: 36px; }
+
+/* Hand-marker subtitle (matches "where you are right now") */
+.handnote {
+  font-family: var(--font-hand);
+  font-weight: 700;
+  font-size: 22px;
+  color: var(--ink-soft);
+}
+
+/* ---- Highlighter mark behind text ------------------------------------- */
+.hl-yellow {
+  background: var(--yellow);
+  padding: 2px 8px 4px;
+  display: inline-block;
+  box-shadow: 3px 3px 0 var(--ink);
+  border: 2px solid var(--ink);
+  border-radius: 2px;
+}
+.hl-pink {
+  background: var(--pink);
+  color: var(--paper-card);
+  padding: 2px 8px 4px;
+  display: inline-block;
+  border: 2px solid var(--ink);
+  box-shadow: 3px 3px 0 var(--ink);
+  border-radius: 2px;
+}
+.hl-thin {
+  background: var(--yellow);
+  padding: 0 6px;
+  border-radius: 2px;
+}
+
+/* ---- Pill ------------------------------------------------------------- */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  background: var(--ink);
+  color: var(--paper-card);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 999px; background: var(--cyan); }
+.pill .accent { color: var(--yellow); }
+
+/* ---- Big pink alert card --------------------------------------------- */
+.alert-pink {
+  position: relative;
+  background: var(--pink);
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  padding: 28px 32px 26px;
+  box-shadow: 6px 6px 0 var(--ink);
+  color: var(--ink);
+}
+.alert-pink .read-me {
+  position: absolute;
+  top: -16px;
+  left: 24px;
+  background: var(--yellow);
+  border: 2px solid var(--ink);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  padding: 4px 10px 5px;
+  text-transform: uppercase;
+  transform: rotate(-2deg);
+  box-shadow: 2px 2px 0 var(--ink);
+}
+.alert-pink h2 {
+  font-family: var(--font-display);
+  font-size: 36px;
+  line-height: 1.02;
+  letter-spacing: -0.02em;
+  margin: 0 0 14px;
+  color: var(--ink);
+}
+.alert-pink ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 6px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* ---- Stat tile grid --------------------------------------------------- */
+.stat-tile {
+  position: relative;
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  padding: 18px 18px 22px;
+  box-shadow: 5px 5px 0 var(--ink);
+  min-height: 170px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+.stat-tile .ico {
+  width: 36px; height: 36px;
+  border-radius: 999px;
+  background: rgba(0,0,0,.08);
+  display: grid; place-items: center;
+  font-size: 18px;
+}
+.stat-tile .num {
+  font-family: var(--font-display);
+  font-size: 52px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.stat-tile .lbl {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.stat-tile.cyan   { background: var(--cyan); }
+.stat-tile.cyan-2 { background: var(--cyan-2); }
+.stat-tile.yellow { background: var(--yellow); }
+.stat-tile.pink   { background: var(--pink); color: var(--ink); }
+.stat-tile .hot {
+  position: absolute;
+  top: -12px; right: 12px;
+  background: var(--ink);
+  color: var(--paper-card);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  padding: 4px 10px 5px;
+  text-transform: uppercase;
+  transform: rotate(2deg);
+  border-radius: 3px;
+}
+
+/* ---- Section number marker ------------------------------------------- */
+.section-num {
+  font-family: var(--font-display);
+  font-size: 96px;
+  line-height: 0.85;
+  letter-spacing: -0.04em;
+  color: var(--ink);
+  position: relative;
+}
+.section-num::after {
+  content: "";
+  position: absolute;
+  left: -6px; right: -6px;
+  bottom: 12%;
+  height: 12px;
+  background: var(--yellow);
+  z-index: -1;
+}
+
+/* ---- Dashed divider --------------------------------------------------- */
+.dashed {
+  border: 0;
+  border-top: 2px dashed var(--ink-muted);
+  opacity: .6;
+  margin: 14px 0;
+}
+.solid-thin {
+  border: 0;
+  border-top: 1px solid var(--ink);
+  margin: 0;
+}
+
+/* ---- Top meta strip --------------------------------------------------- */
+.meta-strip {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink);
+  flex-wrap: wrap;
+}
+.meta-strip .dot { width: 6px; height: 6px; background: var(--ink-muted); border-radius: 999px; }
+.meta-strip .pink-star { color: var(--pink); }
+
+/* ---- Dotted column dots (course code circles) ------------------------ */
+.code-dot {
+  width: 38px; height: 38px;
+  border-radius: 999px;
+  border: 2px solid var(--ink);
+  display: grid; place-items: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+/* ---- Squiggle (used near greeting) ----------------------------------- */
+.squiggle { color: var(--pink); }
+
+/* ---- Course-style block ---------------------------------------------- */
+.course-tile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  border: 2px solid var(--ink);
+  background: var(--paper-card);
+  border-radius: 4px;
+  padding: 10px 12px;
+  box-shadow: 3px 3px 0 var(--ink);
+  text-align: left;
+  cursor: pointer;
+  font-family: var(--font-body);
+  margin-top: 8px;
+}
+.course-tile:hover { transform: translate(-1px,-1px); box-shadow: 4px 4px 0 var(--ink); }
+.course-tile .badge {
+  width: 40px; height: 40px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  display: grid; place-items: center;
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+.course-tile .name { font-weight: 700; font-size: 13.5px; line-height: 1.1; }
+.course-tile .meta { font-family: var(--font-mono); font-size: 10.5px; font-weight: 600; color: var(--ink-muted); margin-top: 4px; letter-spacing: 0.04em; }
+
+/* ---- Recommendation card (Ideas screen) ------------------------------ */
+.rec-card {
+  position: relative;
+  background: var(--paper-card);
+  border: 2.5px solid var(--ink);
+  border-radius: 6px;
+  padding: 22px 22px 22px;
+  box-shadow: 6px 6px 0 var(--ink);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rec-card .ribbon {
+  position: absolute;
+  top: -14px; left: 18px;
+  background: var(--ink);
+  color: var(--paper-card);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  padding: 4px 10px 5px;
+  text-transform: uppercase;
+  border-radius: 3px;
+  transform: rotate(-2deg);
+}
+.rec-card.featured { background: var(--yellow); }
+.rec-card.cyan { background: var(--cyan); }
+.rec-card .title {
+  font-family: var(--font-display);
+  font-size: 26px;
+  line-height: 1.0;
+  letter-spacing: -0.02em;
+}
+.rec-card .body { font-size: 14px; line-height: 1.5; color: var(--ink-soft); font-weight: 500; }
+.rec-card .meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+}
+.rec-card .meta-grid > div {
+  padding: 10px 12px;
+  border-right: 2px dashed var(--ink-muted);
+  border-bottom: 2px dashed var(--ink-muted);
+}
+.rec-card .meta-grid > div:nth-child(2n) { border-right: 0; }
+.rec-card .meta-grid > div:nth-child(n+3) { border-bottom: 0; }
+.rec-card .meta-grid .k { font-family: var(--font-mono); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink-muted); }
+.rec-card .meta-grid .v { font-family: var(--font-display); font-size: 18px; margin-top: 2px; line-height: 1; }
+
+/* ---- Buttons --------------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--ink);
+  color: var(--paper-card);
+  border: 2px solid var(--ink);
+  border-radius: 999px;
+  padding: 10px 18px;
+  font-family: var(--font-body);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 3px 3px 0 var(--ink-muted);
+  transition: transform .12s ease;
+}
+.btn:hover { transform: translate(-1px,-1px); }
+.btn.primary { background: var(--pink); color: var(--ink); }
+.btn.warn    { background: var(--yellow); color: var(--ink); }
+.btn.ghost   { background: transparent; color: var(--ink); box-shadow: none; }
+
+/* ---- Step row (project workspace) ------------------------------------ */
+.step-row {
+  display: grid;
+  grid-template-columns: 64px 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 18px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: var(--paper-card);
+  box-shadow: 3px 3px 0 var(--ink);
+}
+.step-row.active { background: var(--cyan); }
+.step-row.done   { background: var(--paper-soft); }
+.step-row.locked { opacity: 0.55; box-shadow: none; }
+.step-row .num { font-family: var(--font-display); font-size: 36px; line-height: 1; }
+.step-row .ttl { font-family: var(--font-display); font-size: 18px; line-height: 1.05; }
+.step-row .sub { font-family: var(--font-mono); font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ink-muted); margin-top: 4px; }
+
+/* ---- Coach panel (contrast) ------------------------------------------ */
+.coach {
+  background: var(--ink);
+  color: var(--paper-card);
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  padding: 26px;
+  box-shadow: 6px 6px 0 var(--cyan);
+  position: relative;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+.coach .kicker { color: var(--cyan); }
+.coach h3 { color: var(--paper-card); font-family: var(--font-display); font-size: 26px; line-height: 1.05; margin: 10px 0 12px; letter-spacing: -0.02em; }
+.coach p  { color: rgba(252,248,244,.85); font-size: 14.5px; line-height: 1.6; font-weight: 500; }
+
+/* ---- Squiggle SVG positioning helper --------------------------------- */
+.deco-squiggle { position: absolute; pointer-events: none; }
+
+/* ---- Right-rail course dots (matches "21!" "2!" etc) ----------------- */
+.bubble {
+  width: 56px; height: 56px;
+  border-radius: 999px;
+  border: 2.5px solid var(--ink);
+  display: grid; place-items: center;
+  font-family: var(--font-display);
+  font-size: 18px;
+  color: var(--paper-card);
+  position: relative;
+}
+.bubble.red   { background: var(--red); }
+.bubble.blue  { background: var(--blue); }
+.bubble.orange{ background: var(--orange); color: var(--ink); }
+.bubble.green { background: var(--green); color: var(--ink); }
+.bubble + .label {
+  font-family: var(--font-hand);
+  font-weight: 700;
+  font-size: 16px;
+  text-align: center;
+  margin-top: 4px;
+}
+
+/* utilities */
+.row { display: flex; }
+.col { display: flex; flex-direction: column; }
+.gap-4 { gap: 16px; } .gap-6 { gap: 24px; } .gap-8 { gap: 32px; }
+.mt-2 { margin-top: 8px; } .mt-4 { margin-top: 16px; } .mt-6 { margin-top: 24px; } .mt-8 { margin-top: 32px; } .mt-12 { margin-top: 48px; }
+.mb-2 { margin-bottom: 8px; } .mb-4 { margin-bottom: 16px; } .mb-6 { margin-bottom: 24px; }
+.center { align-items: center; }
+.between { justify-content: space-between; }
+
+/* tweak panel hide */
+[data-tweak-panel] { z-index: 50; }

@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useDeferredValue, useEffect, useState } from "react";
 import { CalendarScheduleRetryButton } from "@/components/calendar/calendar-schedule-retry-button";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
@@ -113,11 +114,22 @@ function resolveInitialSelectedDate(input: CalendarPageView) {
 function getStatusSurfaceClassName(status: CalendarCompletionState) {
   switch (status) {
     case "complete":
-      return "border-primary-line bg-primary-soft text-ink";
+      return "border-line text-ink";
     case "in_progress":
-      return "border-primary-line bg-surface-butter text-ink";
+      return "border-line text-ink";
     default:
       return "border-line bg-paper text-ink-soft";
+  }
+}
+
+function getStatusSurfaceStyle(status: CalendarCompletionState): CSSProperties | undefined {
+  switch (status) {
+    case "complete":
+      return { backgroundColor: 'rgba(91,208,214,0.18)', borderColor: 'rgba(91,208,214,0.5)' };
+    case "in_progress":
+      return { backgroundColor: 'rgba(255,217,61,0.18)', borderColor: 'rgba(255,217,61,0.5)' };
+    default:
+      return undefined;
   }
 }
 
@@ -328,9 +340,9 @@ function DayCell({
       className={cn(
         "flex min-h-[8.5rem] flex-col gap-2 border-r border-t border-line px-3 py-3 text-left transition focus-visible:outline-none",
         isCurrentMonth ? "bg-paper/92" : "bg-canvas/48 text-ink-muted",
-        selected && "bg-primary-soft/70 shadow-[inset_0_0_0_1px_rgba(81,126,95,0.22)]",
         dropActive && "bg-surface-butter shadow-[inset_0_0_0_1px_rgba(81,126,95,0.3)]",
       )}
+      style={selected ? { backgroundColor: 'rgba(91,208,214,0.14)', boxShadow: 'inset 0 0 0 2px rgba(91,208,214,0.5)' } : undefined}
       onClick={() => onSelect(date)}
       onKeyDown={(event) => {
         if (event.key === "Enter" || event.key === " ") {
@@ -349,10 +361,8 @@ function DayCell({
     >
       <div className="flex items-center justify-between gap-2">
         <span
-          className={cn(
-            "inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold",
-            isToday ? "bg-primary text-ink" : "bg-transparent text-current",
-          )}
+          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
+          style={isToday ? { backgroundColor: 'var(--yellow)', color: 'var(--ink)', border: '2px solid var(--ink)' } : undefined}
         >
           {date.slice(8, 10).replace(/^0/, "")}
         </span>
@@ -379,6 +389,7 @@ function DayCell({
               "w-full rounded-xl border px-2.5 py-2 text-left text-[11px] font-medium leading-4 transition",
               getStatusSurfaceClassName(item.status),
             )}
+            style={getStatusSurfaceStyle(item.status)}
             title={`${item.projectTitle} - ${item.title}`}
           >
             <p className="truncate">{getItemChipLabel(item)}</p>
@@ -480,6 +491,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
   const [exportProjectId, setExportProjectId] = useState(initialData.visibleProjectIds[0] ?? initialData.projects[0]?.projectId ?? null);
   const [expandedSoftwareHistory, setExpandedSoftwareHistory] = useState(false);
   const [expandedResearchHistory, setExpandedResearchHistory] = useState(false);
+  const [exportStepsExpanded, setExportStepsExpanded] = useState(false);
   const deferredVisibleProjectIds = useDeferredValue(visibleProjectIds);
 
   useEffect(() => {
@@ -642,7 +654,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_22rem]">
           <div className="min-w-0 space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
-              <Card>
+              <Card style={{ borderTop: '4px solid var(--yellow)' }}>
                 <p className="editorial-kicker">Month in focus</p>
                 <p className="mt-3 text-2xl font-semibold text-ink">{formatMonthLabel(currentMonth)}</p>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">Keep the roadmap legible at the project level before you worry about work blocks.</p>
@@ -656,7 +668,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                     : `${dueSoonCount} items are due soon across visible projects.`}
                 </p>
               </Card>
-              <Card>
+              <Card style={{ borderTop: '4px solid var(--cyan)' }}>
                 <p className="editorial-kicker">Source of truth</p>
                 <p className="mt-3 text-lg font-semibold text-ink">Due dates update everywhere.</p>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">Dragging or moving a date here updates the step due date shown in guidance across Sevri.</p>
@@ -786,7 +798,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               {dayItems.length > 0 ? (
                 <div className="space-y-3">
                   {dayItems.map((item) => (
-                    <div key={item.id} className={cn("rounded-[1.4rem] border px-4 py-4", getStatusSurfaceClassName(item.status))}>
+                    <div key={item.id} className={cn("rounded-[1.4rem] border px-4 py-4", getStatusSurfaceClassName(item.status))} style={getStatusSurfaceStyle(item.status)}>
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={trackThemes[item.projectTrack].badgeTone}>{trackThemes[item.projectTrack].label}</Badge>
                         <Badge tone={getUrgencyTone(item.urgency)}>{getUrgencyLabel(item.urgency)}</Badge>
@@ -840,12 +852,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   <span className="h-3 w-3 rounded-full bg-paper shadow-[inset_0_0_0_1px_rgba(163,173,168,0.9)]" />
                   <span className="text-sm text-ink-soft">Not started</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-line bg-surface-butter px-4 py-3">
-                  <span className="h-3 w-3 rounded-full bg-surface-butter shadow-[inset_0_0_0_1px_rgba(163,173,168,0.9)]" />
+                <div className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3" style={{ backgroundColor: 'rgba(255,217,61,0.12)' }}>
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: 'var(--yellow)', border: '1px solid rgba(22,20,18,0.3)' }} />
                   <span className="text-sm text-ink">In progress</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-primary-line bg-primary-soft px-4 py-3">
-                  <span className="h-3 w-3 rounded-full bg-primary" />
+                <div className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3" style={{ backgroundColor: 'rgba(91,208,214,0.12)' }}>
+                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: 'var(--cyan)', border: '1px solid rgba(22,20,18,0.3)' }} />
                   <span className="text-sm text-ink">Completed</span>
                 </div>
               </div>
@@ -895,33 +907,44 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                               <p className="text-sm font-semibold text-ink">{exportProject.projectTitle}</p>
                               <p className="text-xs text-ink-muted">{buildCalendarExportEvents(exportProject.items).length} all-day events ready to export.</p>
                             </div>
-                            <Button
-                              href={`/api/projects/${exportProject.projectId}/calendar/export/ics`}
-                              variant="outline"
-                              size="sm"
-                              className="rounded-full"
-                            >
-                              Download .ics
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setExportStepsExpanded((prev) => !prev)}
+                                className="rounded-full border border-line bg-canvas/72 px-3 py-1.5 text-xs font-medium text-ink-soft transition hover:border-line-strong hover:bg-paper hover:text-ink"
+                              >
+                                {exportStepsExpanded ? "Hide steps" : "Show steps"}
+                              </button>
+                              <Button
+                                href={`/api/projects/${exportProject.projectId}/calendar/export/ics`}
+                                variant="outline"
+                                size="sm"
+                                className="rounded-full"
+                              >
+                                Download .ics
+                              </Button>
+                            </div>
                           </div>
                         </div>
 
-                        <div className="space-y-3">
-                          {buildCalendarExportEvents(exportProject.items).map((event) => (
-                            <a
-                              key={event.uid}
-                              href={buildGoogleCalendarUrl(event)}
-                              target="_blank"
-                              rel="noreferrer"
-                              className="block rounded-2xl border border-line bg-paper px-4 py-3 transition hover:border-line-strong hover:bg-canvas/72"
-                            >
-                              <p className="text-sm font-semibold text-ink">{event.title}</p>
-                              <p className="mt-1 text-xs text-ink-muted">
-                                {formatDateForDisplay(event.date, { month: "short", day: "numeric", year: "numeric" })}
-                              </p>
-                            </a>
-                          ))}
-                        </div>
+                        {exportStepsExpanded ? (
+                          <div className="space-y-3">
+                            {buildCalendarExportEvents(exportProject.items).map((event) => (
+                              <a
+                                key={event.uid}
+                                href={buildGoogleCalendarUrl(event)}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="block rounded-2xl border border-line bg-paper px-4 py-3 transition hover:border-line-strong hover:bg-canvas/72"
+                              >
+                                <p className="text-sm font-semibold text-ink">{event.title}</p>
+                                <p className="mt-1 text-xs text-ink-muted">
+                                  {formatDateForDisplay(event.date, { month: "short", day: "numeric", year: "numeric" })}
+                                </p>
+                              </a>
+                            ))}
+                          </div>
+                        ) : null}
                       </>
                     ) : (
                       <div className="space-y-3 rounded-[1.4rem] border border-line bg-canvas/72 p-4">

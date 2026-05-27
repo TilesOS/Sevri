@@ -301,14 +301,14 @@ export function OnboardingWizard() {
               return (
                 <div
                   key={stepItem.key}
-                  className={cn(
-                    "rounded-xl border px-4 py-3",
+                  className="rounded-xl border-2 border-ink px-4 py-3"
+                  style={
                     isActive
-                      ? "border-line-strong bg-paper"
+                      ? { backgroundColor: 'rgba(91,208,214,0.14)', borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--ink)' }
                       : isComplete
-                        ? "border-primary-line bg-primary-soft"
-                        : "border-line bg-surface/45",
-                  )}
+                        ? { backgroundColor: 'rgba(255,217,61,0.18)', borderColor: 'var(--ink)' }
+                        : { backgroundColor: 'var(--surface)', opacity: 0.7, borderColor: 'var(--line)' }
+                  }
                 >
                   <p className="editorial-kicker">{isComplete ? "Complete" : `Step ${index + 1}`}</p>
                   <p className="mt-2 text-sm font-semibold text-ink">{stepItem.title}</p>
@@ -342,12 +342,14 @@ export function OnboardingWizard() {
                         label="Software Project"
                         description="Build and ship a product experience with a believable scope."
                         checked={projectTrack === "software"}
+                        checkedColor="yellow"
                         onClick={() => form.setValue("project_track", "software", { shouldValidate: true })}
                       />
                       <TrackRadioCard
                         label="Research Project"
                         description="Develop a credible question, method, and evidence plan."
                         checked={projectTrack === "research"}
+                        checkedColor="cyan"
                         onClick={() => form.setValue("project_track", "research", { shouldValidate: true })}
                       />
                     </div>
@@ -591,7 +593,7 @@ export function OnboardingWizard() {
           </div>
         </Card>
 
-        <Card tone={projectTrack === "research" ? "blush" : "primary"}>
+        <Card style={projectTrack === "research" ? { borderTop: '4px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.08)' } : { borderTop: '4px solid var(--yellow)', backgroundColor: 'rgba(255,217,61,0.08)' }}>
           <p className="editorial-kicker">What Sevri will optimize for</p>
           <p className="mt-3 text-lg font-semibold text-ink">
             {projectTrack === "software"
@@ -612,13 +614,18 @@ function TrackRadioCard({
   label,
   description,
   checked,
+  checkedColor = "pink",
   onClick,
 }: {
   label: string;
   description: string;
   checked: boolean;
+  checkedColor?: "yellow" | "cyan" | "pink";
   onClick: () => void;
 }) {
+  const accentVar = checkedColor === "yellow" ? 'var(--yellow)' : checkedColor === "cyan" ? 'var(--cyan)' : 'var(--pink)';
+  const accentBg = checkedColor === "yellow" ? 'rgba(255,217,61,0.16)' : checkedColor === "cyan" ? 'rgba(91,208,214,0.14)' : undefined;
+
   return (
     <button
       type="button"
@@ -626,9 +633,10 @@ function TrackRadioCard({
       aria-checked={checked}
       onClick={onClick}
       className={cn(
-        "rounded-2xl border p-5 text-left transition",
-        checked ? "border-primary-line bg-primary-soft" : "border-line bg-surface/35 hover:border-line-strong hover:bg-paper",
+        "rounded-2xl border-2 p-5 text-left transition",
+        checked ? "border-ink" : "border-line bg-surface/35 hover:border-line-strong hover:bg-paper",
       )}
+      style={checked ? { backgroundColor: accentBg, boxShadow: `3px 3px 0 ${accentVar}` } : undefined}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
@@ -636,10 +644,8 @@ function TrackRadioCard({
           <p className="mt-2 text-sm leading-6 text-ink-soft">{description}</p>
         </div>
         <span
-          className={cn(
-            "mt-1 h-5 w-5 rounded-full border",
-            checked ? "border-primary bg-primary" : "border-line-strong bg-paper",
-          )}
+          className="mt-1 h-5 w-5 rounded-full border-2 border-ink"
+          style={checked ? { backgroundColor: accentVar } : { backgroundColor: 'var(--paper)' }}
           aria-hidden="true"
         />
       </div>

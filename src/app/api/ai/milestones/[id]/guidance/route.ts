@@ -174,7 +174,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       stage = "check-cache";
       const { data: cachedGuidance } = await supabase
         .from("milestone_guidance")
-        .select("id, guidance_json, generation_version, raw_model_output_json")
+        .select("id, guidance_json, generation_version, raw_model_output_json, checklist_state_json")
         .eq("milestone_id", milestone.id)
         .maybeSingle();
 
@@ -183,10 +183,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           const parsed = StepGuidanceSchema.parse(cachedGuidance.guidance_json);
           const cachedCitations = getStoredCitations(cachedGuidance.raw_model_output_json);
           const cachedMetrics = getStoredMetrics(cachedGuidance.raw_model_output_json);
+          const cachedChecklistState =
+            cachedGuidance.checklist_state_json &&
+            typeof cachedGuidance.checklist_state_json === "object" &&
+            !Array.isArray(cachedGuidance.checklist_state_json)
+              ? (cachedGuidance.checklist_state_json as Record<string, boolean>)
+              : {};
           return NextResponse.json(
             {
               milestone_guidance_id: cachedGuidance.id,
               guidance: parsed,
+              checklist_state: cachedChecklistState,
               cache_hit: true,
               timings: {
                 stage: cachedMetrics?.stage ?? "step_guidance",
@@ -310,6 +317,8 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     });
 
     stage = "store-guidance";
+    // Reset checklist state whenever guidance regenerates: the checklist items themselves
+    // may have changed, so a previous index-keyed state would map to different items.
     const { data: storedGuidance, error: upsertError } = await supabase.from("milestone_guidance").upsert(
       {
         milestone_id: milestone.id,
@@ -323,6 +332,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
           metrics: generated.metrics,
         },
         generation_version: generated.metrics.generation_version,
+        checklist_state_json: {},
       },
       { onConflict: "milestone_id" },
     ).select("id").single();
@@ -355,6 +365,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       {
         milestone_guidance_id: storedGuidance.id,
         guidance: generated.parsed,
+        checklist_state: {},
         cache_hit: false,
         timings: routeMetadata,
         ...(generated.citations.length > 0 ? { citations: generated.citations } : {}),

@@ -30,13 +30,13 @@ export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    "border border-primary bg-primary text-ink shadow-soft hover:-translate-y-0.5 hover:border-primary-hover hover:bg-primary-hover active:translate-y-0 active:border-primary-active active:bg-primary-active",
+    "border-2 border-ink bg-primary text-ink shadow-soft hover:bg-primary-hover active:bg-primary-active active:shadow-none",
   secondary:
-    "border border-primary-line bg-primary-soft text-primary shadow-soft hover:-translate-y-0.5 hover:border-primary hover:brightness-[0.99] active:translate-y-0 active:border-primary active:brightness-[0.97]",
-  outline: "border border-line bg-paper text-ink hover:border-line-strong hover:bg-surface/70",
-  ghost: "border border-transparent bg-transparent text-ink hover:bg-surface/65",
-  contrast: "border border-contrast-line bg-contrast text-paper hover:border-white/20 hover:bg-contrast-soft",
-  danger: "border border-red-600 bg-red-600 text-white hover:bg-red-700",
+    "border-2 border-ink bg-surface text-ink shadow-soft hover:bg-surface-strong active:shadow-none",
+  outline: "border-2 border-ink bg-paper text-ink shadow-soft hover:bg-surface active:shadow-none",
+  ghost: "border-2 border-transparent bg-transparent text-ink hover:bg-surface/65",
+  contrast: "border-2 border-contrast-line bg-contrast text-paper hover:border-white/20 hover:bg-contrast-soft",
+  danger: "border-2 border-red-700 bg-red-600 text-white shadow-soft hover:bg-red-700 active:shadow-none",
 };
 
 const sizeClass: Record<ButtonSize, string> = {
@@ -53,7 +53,7 @@ function getButtonClassName({
   fullWidth,
 }: Pick<CommonButtonProps, "variant" | "size" | "className" | "fullWidth">) {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition duration-200 disabled:cursor-not-allowed disabled:opacity-60",
+    "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[box-shadow,background-color] duration-100 disabled:cursor-not-allowed disabled:opacity-60",
     "focus-visible:outline-none",
     variantClass[variant ?? "primary"],
     sizeClass[size ?? "md"],

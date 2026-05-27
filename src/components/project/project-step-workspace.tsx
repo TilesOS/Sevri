@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { GithubStepCommits } from "@/components/project/github-step-commits";
+import { ReviewerFeedbackPanel } from "@/components/reviewer/reviewer-feedback-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
@@ -23,6 +24,7 @@ import {
   STEP_TITLE_SPEC,
 } from "@/lib/ai/content-quality-specs";
 import type { ProjectMilestoneView, ProjectWorkspaceView } from "@/lib/projects/workspace";
+import type { MilestoneReviewRow } from "@/lib/db/queries/reviewers";
 import type {
   LatestCompletedMilestoneEvaluation,
   MilestoneEvaluationResponse,
@@ -43,6 +45,7 @@ interface RouteErrorBody {
 interface GuidanceSlot {
   guidance: StepGuidance;
   guidanceId: string;
+  checklistState: Record<string, boolean>;
 }
 
 interface GuidanceLockState {
@@ -207,10 +210,12 @@ export function ProjectStepWorkspace({
   workspace,
   milestone,
   plan,
+  reviews,
 }: {
   workspace: ProjectWorkspaceView;
   milestone: ProjectMilestoneView;
   plan: Plan;
+  reviews: MilestoneReviewRow[];
 }) {
   const router = useRouter();
   const hasDetailAccess = hasStepGuidanceAccess(plan);
@@ -232,6 +237,10 @@ export function ProjectStepWorkspace({
   const [toggleError, setToggleError] = useState<string | null>(null);
   const fetchGuidanceRef = useRef(fetchGuidance);
   const loadSubmissionRef = useRef(loadSubmission);
+  const checklistSaveStateRef = useRef<{
+    inFlight: boolean;
+    pending: Record<number, boolean> | null;
+  }>({ inFlight: false, pending: null });
   const isGuidanceLocked = guidanceLock !== null;
   const guidanceLockMessage = getGuidanceLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
   const submissionLockMessage = getSubmissionLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
@@ -266,11 +275,56 @@ export function ProjectStepWorkspace({
 
     setCheckedItems(
       guidanceSlot.guidance.checklist.reduce<Record<number, boolean>>((accumulator, _item, index) => {
-        accumulator[index] = false;
+        accumulator[index] = Boolean(guidanceSlot.checklistState[String(index)]);
         return accumulator;
       }, {}),
     );
   }, [guidanceSlot]);
+
+  function persistChecklistState(next: Record<number, boolean>) {
+    // Coalesce concurrent toggles: a save in flight defers the newest state
+    // until it returns, so a stale earlier request can't overwrite a newer one.
+    const state = checklistSaveStateRef.current;
+    state.pending = next;
+
+    if (state.inFlight) {
+      return;
+    }
+
+    void sendNextChecklistSave();
+  }
+
+  async function sendNextChecklistSave() {
+    const state = checklistSaveStateRef.current;
+    if (state.pending === null) {
+      return;
+    }
+
+    state.inFlight = true;
+
+    while (state.pending !== null) {
+      const snapshot = state.pending;
+      state.pending = null;
+
+      const payload: Record<string, boolean> = {};
+      for (const [key, value] of Object.entries(snapshot)) {
+        payload[key] = Boolean(value);
+      }
+
+      try {
+        await fetch(`/api/ai/milestones/${milestone.id}/guidance/checklist`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ state: payload }),
+        });
+      } catch {
+        // Non-blocking — the UI keeps the optimistic toggle. The next page load will
+        // resync from the server if the save genuinely failed.
+      }
+    }
+
+    state.inFlight = false;
+  }
 
   async function toggleMilestone() {
     setIsCompletionPending(true);
@@ -309,7 +363,11 @@ export function ProjectStepWorkspace({
     });
 
     const body = (await response.json().catch(() => null)) as
-      | ({ guidance?: StepGuidance; milestone_guidance_id?: string } & RouteErrorBody)
+      | ({
+          guidance?: StepGuidance;
+          milestone_guidance_id?: string;
+          checklist_state?: Record<string, boolean>;
+        } & RouteErrorBody)
       | null;
 
     if (body?.code === "previous_step_incomplete") {
@@ -331,6 +389,7 @@ export function ProjectStepWorkspace({
     setGuidanceSlot({
       guidance: body.guidance,
       guidanceId: body.milestone_guidance_id,
+      checklistState: body.checklist_state ?? {},
     });
     setIsGuidancePending(false);
   }
@@ -413,7 +472,7 @@ export function ProjectStepWorkspace({
 
   return (
     <div className="space-y-8 pb-52">
-      <Card tone="contrast" className="border-contrast-line">
+      <Card tone="contrast" className="border-contrast-line" style={{ boxShadow: '6px 6px 0 var(--cyan)' }}>
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
@@ -423,7 +482,10 @@ export function ProjectStepWorkspace({
             </Badge>
           </div>
           <div className="space-y-3">
-            <p className="editorial-kicker text-paper/55">Focused step workspace</p>
+            <p className="editorial-kicker text-paper/55">
+              <span style={{ color: 'var(--cyan)' }}>✦</span>
+              {" "}Focused step workspace
+            </p>
             <h1 className="font-display text-4xl leading-none text-paper sm:text-5xl">
               {safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
             </h1>
@@ -432,15 +494,15 @@ export function ProjectStepWorkspace({
             </p>
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--yellow)' }}>
               <p className="editorial-kicker text-paper/55">Deliverable</p>
               <p className="mt-3 text-lg font-semibold text-paper">{milestone.deliverable}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--pink)' }}>
               <p className="editorial-kicker text-paper/55">Time estimate</p>
               <p className="mt-3 text-lg font-semibold text-paper">{milestone.rough_time_estimate}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--cyan)' }}>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="editorial-kicker text-paper/55">Due date</p>
                 {milestone.urgency ? (
@@ -572,7 +634,7 @@ export function ProjectStepWorkspace({
                 </div>
 
                 {activeTab === "checklist" ? (
-                  <Card tone="primary" className="space-y-4">
+                  <Card className="space-y-4" style={{ backgroundColor: 'rgba(91,208,214,0.10)', borderColor: 'var(--ink)', borderTop: '3px solid var(--cyan)' }}>
                     <p className="editorial-kicker">Checklist / Do</p>
                     <p className="text-sm leading-6 text-ink-soft">
                       {safeRenderText(guidanceSlot.guidance.what_to_do_now, GUIDANCE_WHAT_TO_DO_SPEC).text}
@@ -583,13 +645,15 @@ export function ProjectStepWorkspace({
                           <label className="flex items-start gap-3">
                             <input
                               type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-line accent-primary"
+                              className="mt-1 h-4 w-4 rounded border-line"
+                              style={{ accentColor: 'var(--yellow)' }}
                               checked={checkedItems[index] ?? false}
                               onChange={() =>
-                                setCheckedItems((current) => ({
-                                  ...current,
-                                  [index]: !current[index],
-                                }))
+                                setCheckedItems((current) => {
+                                  const next = { ...current, [index]: !current[index] };
+                                  persistChecklistState(next);
+                                  return next;
+                                })
                               }
                             />
                             <span className="text-sm leading-6 text-ink-soft">{normalizeGuidanceItem(item, "ordered")}</span>
@@ -668,6 +732,8 @@ export function ProjectStepWorkspace({
                 actionsDisabled={isGuidanceLocked}
               />
             ) : null}
+
+            <ReviewerFeedbackPanel reviews={reviews} />
           </div>
 
           <SubmissionDock
@@ -719,6 +785,7 @@ function StepTimeline({
             <Link
               key={item.id}
               href={`/project/${projectId}/steps/${item.stepNumber}`}
+              style={isActive ? { borderTop: '3px solid var(--yellow)' } : undefined}
               className={cn(
                 "min-w-[11rem] rounded-2xl border px-4 py-3 transition",
                 isActive ? "muted-toggle-surface-active" : "muted-toggle-surface",
@@ -1225,11 +1292,11 @@ function EvaluationResult({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <Card tone="primary" padding="sm">
+        <Card padding="sm" style={{ borderColor: 'var(--ink)', borderTop: '3px solid var(--yellow)', backgroundColor: 'rgba(255,217,61,0.07)' }}>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Strongest aspect</p>
           <p className="mt-1 text-sm leading-6 text-ink">{evaluation.strongest_aspect}</p>
         </Card>
-        <Card tone="default" padding="sm">
+        <Card padding="sm" style={{ borderColor: 'var(--ink)', borderTop: '3px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.07)' }}>
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Clearest gap</p>
           <p className="mt-1 text-sm leading-6 text-ink">{evaluation.clearest_gap}</p>
         </Card>

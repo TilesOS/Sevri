@@ -14,8 +14,6 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PageHeader } from "@/components/ui/page-header";
-import { SegmentedControl } from "@/components/ui/segmented-control";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import type { Plan, ProjectTrack } from "@/types/domain";
 
@@ -156,29 +154,20 @@ export function RecommendationsClient({
   }
 
   function switchTrack(track: ProjectTrack) {
-    if (track === activeTrack) {
-      return;
-    }
-
+    if (track === activeTrack) return;
     setRecommendations([]);
     setError(null);
     router.push(`/recommendations?track=${track}`);
   }
 
-  const title =
-    activeTrack === "research" ? "Compare your research directions." : "Compare your software directions.";
   const subtitle =
     activeTrack === "research"
       ? "Explore multiple research directions, then compare the method, evidence plan, and finish line before you commit."
       : "Explore multiple software directions, then compare the user, problem, and version you can actually ship before you commit.";
   const generateLabel =
     activeTrack === "research"
-      ? recommendations.length
-        ? "Refresh research board"
-        : "Generate research board"
-      : recommendations.length
-        ? "Refresh software board"
-        : "Generate software board";
+      ? recommendations.length ? "Refresh research board" : "Generate research board"
+      : recommendations.length ? "Refresh software board" : "Generate software board";
 
   return (
     <div className="space-y-8">
@@ -186,66 +175,67 @@ export function RecommendationsClient({
         {error ?? (isGenerating ? "Generating recommendations." : isSelectingId ? "Selecting recommendation." : "")}
       </div>
 
-      <Card tone="contrast" elevation="none" className="border-contrast-line">
-        <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-          <div className="max-w-3xl">
-            <PageHeader
-              eyebrow="Project idea board"
-              title={title}
-              description={subtitle}
-              className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
-            />
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
-            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
-            <Button
-              onClick={handleGenerate}
-              disabled={isGenerating || !canRegenerate || !hasTrackIntake}
-              className="rounded-full px-6"
-            >
-              {isGenerating ? "Generating..." : generateLabel}
-            </Button>
-          </div>
+      {/* Page heading */}
+      <div>
+        <div className="kicker" style={{ marginBottom: 10 }}>
+          <span className="star">✦</span>
+          <span>PROJECT IDEA BOARD</span>
         </div>
+        <h1 className="display big" style={{ margin: 0 }}>
+          three <span className="hl-yellow">actually</span> different<br />
+          directions<span style={{ color: 'var(--pink)' }}>.</span>
+        </h1>
+        <p style={{ fontSize: 16, lineHeight: 1.6, fontWeight: 500, color: 'var(--ink-soft)', marginTop: 20, maxWidth: 600 }}>
+          {subtitle}
+        </p>
+      </div>
 
-        <div className="mt-6 grid gap-4 sm:grid-cols-3">
-          <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
-            <p className="editorial-kicker text-paper/55">Plan</p>
-            <p className="mt-3 text-3xl font-semibold text-paper">{getPlanLabel(plan)}</p>
-          </Card>
-          <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
-            <p className="editorial-kicker text-paper/55">Idea boards used</p>
-            <p className="mt-3 text-3xl font-semibold text-paper">
+      {/* Stats strip */}
+      <div className="coach" style={{ padding: '20px 28px', boxShadow: '6px 6px 0 var(--cyan)' }}>
+        <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
+          <div>
+            <div className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>Plan</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--paper)', fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>{getPlanLabel(plan)}</div>
+          </div>
+          <div>
+            <div className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>Boards used</div>
+            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--paper)', fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
               {unlimitedGenerations || generationLimit === null
                 ? localGenerationsUsed
                 : `${localGenerationsUsed} / ${generationLimit}`}
-            </p>
-          </Card>
-          <Card tone="contrast" elevation="none" className="border-contrast-line bg-white/[0.04]">
-            <p className="editorial-kicker text-paper/55">Track readiness</p>
-            <p className="mt-3 text-lg font-semibold text-paper">{hasTrackIntake ? "Ready to compare" : "Setup needed"}</p>
-          </Card>
+            </div>
+          </div>
+          <div>
+            <div className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>Track readiness</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--paper)' }}>{hasTrackIntake ? "Ready to compare" : "Setup needed"}</div>
+          </div>
         </div>
-      </Card>
+      </div>
 
-      <SegmentedControl
-        label="Switch track"
-        value={activeTrack}
-        onChange={switchTrack}
-        options={[
-          {
-            value: "software",
-            label: "Software",
-            description: "Compare user, problem, and core workflow.",
-          },
-          {
-            value: "research",
-            label: "Research",
-            description: "Compare question, method, and evidence plan.",
-          },
-        ]}
-      />
+      {/* Track switcher — tab buttons */}
+      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+        {(['software', 'research'] as ProjectTrack[]).map((t) => (
+          <button
+            key={t}
+            className={`tab ${activeTrack === t ? 'is-active' : ''}`}
+            style={{ width: 'auto', minWidth: 160, justifyContent: 'center', textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'var(--font-mono)', fontSize: 13 }}
+            onClick={() => switchTrack(t)}
+          >
+            {activeTrack === t && <span style={{ marginRight: 4 }}>→</span>}
+            {t}
+          </button>
+        ))}
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
+          <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
+          <Button
+            onClick={handleGenerate}
+            disabled={isGenerating || !canRegenerate || !hasTrackIntake}
+            className="px-6"
+          >
+            {isGenerating ? "Generating..." : generateLabel}
+          </Button>
+        </div>
+      </div>
 
       {!canRegenerate ? (
         <Alert
@@ -271,7 +261,7 @@ export function RecommendationsClient({
             Run onboarding again and choose the {activeTrack === "research" ? "Research Project" : "Software Project"} track to generate recommendations for it.
           </p>
           <div>
-            <Button href="/onboarding" className="rounded-full px-6">
+            <Button href="/onboarding" className="px-6">
               Open onboarding
             </Button>
           </div>
@@ -292,10 +282,11 @@ export function RecommendationsClient({
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -18 }}
           transition={{ duration: 0.28, ease: "easeOut" }}
-          className="grid gap-4 xl:grid-cols-3"
+          className="grid gap-6 xl:grid-cols-3"
         >
           {recommendations.map((item, index) => {
             const ribbon = ribbons[item.id];
+            const cardTone = ribbon === "Quickest to ship" ? "featured" : ribbon === "Most ambitious" ? "cyan" : "";
             const details =
               item.project_track === "research"
                 ? getResearchDetails(item.track_payload_json)
@@ -308,88 +299,100 @@ export function RecommendationsClient({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.28, delay: index * 0.06, ease: "easeOut" }}
               >
-                <Card className="flex h-full flex-col">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap gap-2">
-                      <Badge tone={item.project_track === "research" ? "research" : "software"}>
-                        {item.project_track === "research" ? "Research" : "Software"}
-                      </Badge>
-                      {ribbon ? <Badge tone="accent">{ribbon}</Badge> : null}
+                <div className={`rec-card ${cardTone}`} style={{ height: '100%' }}>
+                  {ribbon ? (
+                    <div
+                      className="ribbon"
+                      style={{
+                        background: cardTone === "featured" ? 'var(--ink)' : 'var(--ink)',
+                        color: 'var(--paper)',
+                      }}
+                    >
+                      {ribbon}
                     </div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted">
+                  ) : null}
+
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                    <span className="kicker">
+                      <span className="star">✦</span>
+                      OPTION 0{index + 1}
+                    </span>
+                    <span className="kicker" style={{ color: 'var(--ink-muted)' }}>
                       {difficultyLabel[item.difficulty] ?? item.difficulty}
-                    </p>
+                    </span>
                   </div>
 
-                  <div className="mt-5 space-y-3">
-                    <h2 className="text-2xl font-semibold text-ink">
+                  <div>
+                    <h2 className="title">
                       {safeRenderText(item.title, RECOMMENDATION_CARD_TITLE_SPEC).text}
                     </h2>
-                    <p className="text-sm leading-6 text-ink-soft">
+                    <p className="body" style={{ marginTop: 8 }}>
                       {safeRenderText(item.summary, RECOMMENDATION_CARD_PROSE_SPEC).text}
                     </p>
                   </div>
 
-                  <div className="mt-6 grid gap-3">
+                  {/* Detail sections */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {details.map((detail) => (
-                      <div key={detail.label} className="rounded-lg bg-canvas p-4">
-                        <p className="editorial-kicker">{detail.label}</p>
-                        <p className="mt-2 text-sm leading-6 text-ink">{detail.value}</p>
+                      <div key={detail.label} style={{ padding: '10px 12px', background: 'rgba(22,20,18,0.06)', borderRadius: 4 }}>
+                        <p className="editorial-kicker" style={{ marginBottom: 4 }}>{detail.label}</p>
+                        <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-soft)' }}>{detail.value}</p>
                       </div>
                     ))}
                   </div>
 
-                  <div className="mt-6 space-y-4 rounded-lg bg-canvas p-5">
-                    <div className="grid grid-cols-2 gap-4">
-                      <Metric label="Estimated timeline" value={`${item.estimated_weeks} weeks`} />
-                      <Metric
-                        label="Weekly load"
-                        value={item.weekly_hours ? `${item.weekly_hours} hrs` : "Flexible"}
-                      />
-                      <Metric
-                        label="Finishability"
-                        value={formatScore(item.finishability_score)}
-                      />
-                      <Metric
-                        label="Impressiveness"
-                        value={formatScore(item.impressiveness_score)}
-                      />
+                  {/* Metrics grid */}
+                  <div className="meta-grid">
+                    <div>
+                      <div className="k">Timeline</div>
+                      <div className="v">{item.estimated_weeks} wks</div>
                     </div>
-
-                    <div className="space-y-2">
-                      <p className="editorial-kicker">Why it fits</p>
-                      <p className="text-sm leading-6 text-ink-soft">
-                        {safeRenderText(item.why_it_fits, RECOMMENDATION_CARD_PROSE_SPEC).text}
-                      </p>
+                    <div>
+                      <div className="k">Weekly</div>
+                      <div className="v">{item.weekly_hours ? `${item.weekly_hours} hrs` : "Flexible"}</div>
                     </div>
-
-                    {item.authenticity_note ? (
-                      <div className="space-y-2">
-                        <p className="editorial-kicker">Authenticity note</p>
-                        <p className="text-sm leading-6 text-ink-soft">{item.authenticity_note}</p>
-                      </div>
-                    ) : null}
+                    <div>
+                      <div className="k">Finish</div>
+                      <div className="v">{formatScore(item.finishability_score)}</div>
+                    </div>
+                    <div>
+                      <div className="k">Wow</div>
+                      <div className="v">{formatScore(item.impressiveness_score)}</div>
+                    </div>
                   </div>
 
+                  {/* Why it fits */}
+                  <div>
+                    <p className="editorial-kicker" style={{ marginBottom: 6 }}>Why it fits</p>
+                    <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-soft)' }}>
+                      {safeRenderText(item.why_it_fits, RECOMMENDATION_CARD_PROSE_SPEC).text}
+                    </p>
+                  </div>
+
+                  {item.authenticity_note ? (
+                    <div>
+                      <p className="editorial-kicker" style={{ marginBottom: 6 }}>Authenticity note</p>
+                      <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-soft)' }}>{item.authenticity_note}</p>
+                    </div>
+                  ) : null}
+
                   {item.skills_demonstrated && item.skills_demonstrated.length ? (
-                    <div className="mt-6">
-                      <p className="editorial-kicker">Skills demonstrated</p>
-                      <div className="mt-3 flex flex-wrap gap-2">
+                    <div>
+                      <p className="editorial-kicker" style={{ marginBottom: 8 }}>Skills demonstrated</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                         {item.skills_demonstrated.slice(0, 4).map((skill) => (
-                          <span key={skill} className="rounded-full bg-surface-strong px-3 py-1 text-xs font-semibold text-ink-soft">
-                            {skill}
-                          </span>
+                          <span key={skill} className="pill" style={{ fontSize: 9 }}>{skill}</span>
                         ))}
                       </div>
                     </div>
                   ) : null}
 
-                  <div className="mt-auto pt-8">
+                  {/* Pick button — pinned to bottom */}
+                  <div style={{ marginTop: 'auto', paddingTop: 8 }}>
                     <Button
                       onClick={() => handleSelect(item.id)}
                       disabled={Boolean(isSelectingId)}
                       fullWidth
-                      className="rounded-full"
                     >
                       {isSelectingId === item.id
                         ? "Selecting..."
@@ -398,7 +401,7 @@ export function RecommendationsClient({
                           : "Choose this software project"}
                     </Button>
                   </div>
-                </Card>
+                </div>
               </motion.div>
             );
           })}
@@ -419,70 +422,28 @@ export function RecommendationsClient({
   );
 }
 
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="editorial-kicker">{label}</p>
-      <p className="mt-2 text-sm font-semibold text-ink">{value}</p>
-    </div>
-  );
-}
-
 function formatScore(value?: number) {
-  if (typeof value !== "number") {
-    return "Not scored";
-  }
-
+  if (typeof value !== "number") return "—";
   return `${value}/10`;
 }
 
 function getSoftwareDetails(payload?: Record<string, unknown>) {
   return [
-    {
-      label: "Target user",
-      value: getString(payload?.target_user, "A real person with a clear problem to solve."),
-    },
-    {
-      label: "Problem statement",
-      value: getString(payload?.problem_statement, "The problem definition will be clarified once you choose this direction."),
-    },
-    {
-      label: "Core workflow",
-      value: getString(payload?.core_workflow, "The first version of the workflow will stay intentionally narrow."),
-    },
-    {
-      label: "MVP boundary",
-      value: getString(payload?.mvp_boundary, "Keep the first version honest about what is in and out."),
-    },
-    {
-      label: "Validation plan",
-      value: getString(payload?.validation_plan, "Validate the product with a small set of realistic users or cases."),
-    },
+    { label: "Target user", value: getString(payload?.target_user, "A real person with a clear problem to solve.") },
+    { label: "Problem statement", value: getString(payload?.problem_statement, "The problem definition will be clarified once you choose this direction.") },
+    { label: "Core workflow", value: getString(payload?.core_workflow, "The first version of the workflow will stay intentionally narrow.") },
+    { label: "MVP boundary", value: getString(payload?.mvp_boundary, "Keep the first version honest about what is in and out.") },
+    { label: "Validation plan", value: getString(payload?.validation_plan, "Validate the product with a small set of realistic users or cases.") },
   ];
 }
 
 function getResearchDetails(payload?: Record<string, unknown>) {
   return [
-    {
-      label: "Research question",
-      value: getString(payload?.research_question, "A focused question will be refined after you choose this direction."),
-    },
-    {
-      label: "Methodology",
-      value: getString(payload?.methodology, "A method will be chosen to match your current access and time."),
-    },
-    {
-      label: "Evidence plan",
-      value: getString(payload?.evidence_plan, "The plan will be shaped around evidence you can realistically gather."),
-    },
-    {
-      label: "Scope boundaries",
-      value: getString(payload?.scope_boundaries, "Keep the first version narrow enough to finish and defend."),
-    },
-    {
-      label: "Limitation note",
-      value: getString(payload?.limitation_note, "State the main limitation early so the work stays believable."),
-    },
+    { label: "Research question", value: getString(payload?.research_question, "A focused question will be refined after you choose this direction.") },
+    { label: "Methodology", value: getString(payload?.methodology, "A method will be chosen to match your current access and time.") },
+    { label: "Evidence plan", value: getString(payload?.evidence_plan, "The plan will be shaped around evidence you can realistically gather.") },
+    { label: "Scope boundaries", value: getString(payload?.scope_boundaries, "Keep the first version narrow enough to finish and defend.") },
+    { label: "Limitation note", value: getString(payload?.limitation_note, "State the main limitation early so the work stays believable.") },
   ];
 }
 
@@ -492,10 +453,7 @@ function getString(value: unknown, fallback: string) {
 
 function deriveRibbons(items: RecommendationItem[]) {
   const ribbons: Record<string, string> = {};
-
-  if (items.length === 0) {
-    return ribbons;
-  }
+  if (items.length === 0) return ribbons;
 
   const quickest = [...items].sort((a, b) => a.estimated_weeks - b.estimated_weeks)[0];
   ribbons[quickest.id] = "Quickest to ship";
@@ -504,9 +462,7 @@ function deriveRibbons(items: RecommendationItem[]) {
   const ambitiousCandidate =
     [...remaining].sort((a, b) => {
       const difficultyDelta = (difficultyOrder[b.difficulty] ?? 0) - (difficultyOrder[a.difficulty] ?? 0);
-      if (difficultyDelta !== 0) {
-        return difficultyDelta;
-      }
+      if (difficultyDelta !== 0) return difficultyDelta;
       return b.estimated_weeks - a.estimated_weeks;
     })[0] ?? quickest;
 
@@ -519,9 +475,7 @@ function deriveRibbons(items: RecommendationItem[]) {
     [...items].sort((a, b) => {
       const weeksDelta =
         Math.abs(a.estimated_weeks - averageWeeks(items)) - Math.abs(b.estimated_weeks - averageWeeks(items));
-      if (weeksDelta !== 0) {
-        return weeksDelta;
-      }
+      if (weeksDelta !== 0) return weeksDelta;
       return (difficultyOrder[a.difficulty] ?? 0) - (difficultyOrder[b.difficulty] ?? 0);
     })[0];
 

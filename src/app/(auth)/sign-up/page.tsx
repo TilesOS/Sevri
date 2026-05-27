@@ -6,7 +6,7 @@ import { AuthForm } from "@/components/shared/auth-form";
 
 export default function SignUpPage() {
   return (
-    <Card className="mx-auto w-full max-w-xl space-y-6" padding="lg">
+    <Card className="mx-auto w-full max-w-xl space-y-6" padding="lg" style={{ borderTop: '4px solid var(--cyan)' }}>
       <Badge tone="accent">Free to start</Badge>
       <div className="space-y-2">
         <h1 className="font-display text-4xl leading-none text-ink">Create your Sevri account</h1>
