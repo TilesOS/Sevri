@@ -393,6 +393,12 @@ function buildSoftwareNormalizedPayload(rawIntake: Record<string, unknown>, anch
 
 function buildResearchNormalizedPayload(rawIntake: Record<string, unknown>, anchors: string[], skill: "beginner" | "intermediate" | "advanced") {
   const methodPreference = String(rawIntake.methodology_preference ?? "data_analysis").replace(/_/g, " ");
+  const researchReadiness =
+    skill === "advanced"
+      ? "The student can handle a moderately technical method if the question stays narrow and the evidence plan is accessible."
+      : skill === "intermediate"
+        ? "The student can handle a structured method with clear procedure, a bounded evidence source, and explicit limitation framing."
+        : "The project should stay narrow enough that method quality and limitation framing remain strong.";
 
   return {
     domain_brief: `${anchors.join(", ")} are the strongest domain anchors. The research project should ask one real question in that domain, identify a believable evidence plan, and avoid generic student-life framing unless explicitly requested.`,
@@ -400,10 +406,7 @@ function buildResearchNormalizedPayload(rawIntake: Record<string, unknown>, anch
     goal_signal: buildGoalSignal(rawIntake, "research"),
     resource_snapshot: buildResourceSnapshot(rawIntake, "research", skill),
     anti_generic_warnings: buildAntiGenericWarnings("research", rawIntake),
-    research_readiness:
-      skill === "advanced"
-        ? "The student can handle a moderately technical method if the question stays narrow and the evidence plan is accessible."
-        : "The project should stay narrow enough that method quality and limitation framing remain strong.",
+    research_readiness: researchReadiness,
     scope_guardrails: [
       "Choose one primary question and one primary evidence source.",
       "Write the limitation note early so the scope stays believable.",

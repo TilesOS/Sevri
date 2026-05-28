@@ -24,7 +24,7 @@ export const softwareOnboardingInputSchema = sharedOnboardingSchema.extend({
 export const researchOnboardingInputSchema = sharedOnboardingSchema.extend({
   project_track: z.literal("research"),
   preferred_research_domain: z.string().min(2),
-  research_experience: z.enum(["beginner", "advanced"]),
+  research_experience: z.enum(["beginner", "intermediate", "advanced"]),
   methodology_preference: z.enum(["literature_review", "experiment", "data_analysis", "survey_based", "mixed"]),
   target_research_deliverable: z.enum([
     "paper",

@@ -239,6 +239,18 @@ function buildResearchFocusSignal(rawIntake: Record<string, unknown>, anchors: s
   return `Keep the research question narrow inside ${domain} and oriented toward a believable ${deliverable}.`;
 }
 
+function buildResearchReadiness(skill: "beginner" | "intermediate" | "advanced") {
+  if (skill === "advanced") {
+    return "The student can handle a moderately technical method if the scope stays narrow.";
+  }
+
+  if (skill === "intermediate") {
+    return "The student can handle a structured method with clear procedure, a bounded evidence source, and explicit limitation framing.";
+  }
+
+  return "Keep the method simple enough that the student can defend each step clearly.";
+}
+
 function getRiskFlags(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack, anchors: string[]) {
   const skill = coerceSkillAssessment(projectTrack === "research" ? rawIntake.research_experience : rawIntake.coding_experience);
   const weeklyHours = getWeeklyHours(rawIntake);
@@ -392,10 +404,7 @@ function buildResearchContext(rawIntake: Record<string, unknown>) {
       target_outcome: targetOutcome,
       constraints_summary: buildConstraintsSummary(rawIntake),
       weekly_hours: weeklyHours,
-      research_readiness:
-        skill === "advanced"
-          ? "The student can handle a moderately technical method if the scope stays narrow."
-          : "Keep the method simple enough that the student can defend each step clearly.",
+      research_readiness: buildResearchReadiness(skill),
       methodology_guidance: `Preferred method is ${methodPreference}. Choose the cleanest evidence path that matches the student's actual access.`,
       viable_methodologies: buildResearchMethodPool(methodPreference, family),
     },
