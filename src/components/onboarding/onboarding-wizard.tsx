@@ -17,7 +17,8 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trackClientEvent } from "@/lib/analytics/events";
 import { cn, toList } from "@/lib/utils";
-import { onboardingInputSchema } from "@/lib/validators/onboarding";
+import { onboardingInputSchema, type OnboardingInput } from "@/lib/validators/onboarding";
+import type { LatestOnboardingAnswers } from "@/lib/db/queries/onboarding";
 import { studentStageOptions, targetOutcomeOptions } from "@/lib/validators/settings";
 
 const wizardSchema = z.object({
@@ -59,9 +60,9 @@ const sharedDefaults: WizardValues = {
   favorite_subjects: "",
   weekly_time_available: 6,
   coding_experience: "beginner",
-  preferred_project_style: "web app",
+  preferred_project_style: "",
   known_tools: "",
-  preferred_research_domain: "social science",
+  preferred_research_domain: "",
   research_experience: "beginner",
   methodology_preference: "data_analysis",
   target_research_deliverable: "portfolio_entry",
@@ -100,6 +101,64 @@ const deliverableOptions = [
 const targetOutcomeLabels = Object.fromEntries(
   targetOutcomeOptions.map((option) => [option.value, option.label]),
 ) as Record<WizardValues["target_outcome"], string>;
+
+const emptyInitialAnswers: LatestOnboardingAnswers = {
+  answersByTrack: {},
+  initialProjectTrack: "software",
+};
+
+function listToFieldValue(items: string[] | undefined) {
+  return items?.join(", ") ?? "";
+}
+
+function getWizardValuesFromStoredAnswers(answers: OnboardingInput): WizardValues {
+  const values: WizardValues = {
+    ...sharedDefaults,
+    project_track: answers.project_track,
+    student_stage: answers.student_stage,
+    target_outcome: answers.target_outcome,
+    interests: listToFieldValue(answers.interests),
+    favorite_subjects: listToFieldValue(answers.favorite_subjects),
+    weekly_time_available: answers.weekly_time_available,
+    constraints: answers.constraints ?? "",
+    additional_context: answers.additional_context ?? "",
+  };
+
+  if (answers.project_track === "software") {
+    return {
+      ...values,
+      coding_experience: answers.coding_experience,
+      preferred_project_style: answers.preferred_project_style,
+      known_tools: listToFieldValue(answers.known_tools),
+    };
+  }
+
+  return {
+    ...values,
+    preferred_research_domain: answers.preferred_research_domain,
+    research_experience: answers.research_experience,
+    methodology_preference: answers.methodology_preference,
+    target_research_deliverable: answers.target_research_deliverable,
+    data_or_resource_access: answers.data_or_resource_access ?? "",
+  };
+}
+
+function getInitialWizardValues(initialAnswers: LatestOnboardingAnswers): WizardValues {
+  const preferredTrack = initialAnswers.initialProjectTrack;
+  const storedAnswers =
+    initialAnswers.answersByTrack[preferredTrack] ??
+    initialAnswers.answersByTrack.software ??
+    initialAnswers.answersByTrack.research;
+
+  if (storedAnswers) {
+    return getWizardValuesFromStoredAnswers(storedAnswers);
+  }
+
+  return {
+    ...sharedDefaults,
+    project_track: preferredTrack,
+  };
+}
 
 const stepConfig = {
   software: [
@@ -166,15 +225,27 @@ const stepConfig = {
   ],
 } as const;
 
-export function OnboardingWizard() {
+export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { initialAnswers?: LatestOnboardingAnswers }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const initialDefaultValues = useMemo(() => getInitialWizardValues(initialAnswers), [initialAnswers]);
+  const savedAnswerValues = useMemo(
+    () => ({
+      software: initialAnswers.answersByTrack.software
+        ? getWizardValuesFromStoredAnswers(initialAnswers.answersByTrack.software)
+        : null,
+      research: initialAnswers.answersByTrack.research
+        ? getWizardValuesFromStoredAnswers(initialAnswers.answersByTrack.research)
+        : null,
+    }),
+    [initialAnswers],
+  );
 
   const form = useForm<WizardValues>({
     resolver: zodResolver(wizardSchema),
-    defaultValues: sharedDefaults,
+    defaultValues: initialDefaultValues,
   });
 
   const projectTrack = form.watch("project_track");
@@ -197,6 +268,23 @@ export function OnboardingWizard() {
     if (isValid) {
       setStep((current) => Math.min(current + 1, steps.length - 1));
     }
+  }
+
+  function selectProjectTrack(nextProjectTrack: WizardValues["project_track"]) {
+    const currentValues = form.getValues();
+    if (currentValues.project_track === nextProjectTrack) {
+      return;
+    }
+
+    form.reset(
+      savedAnswerValues[nextProjectTrack] ?? {
+        ...sharedDefaults,
+        ...currentValues,
+        project_track: nextProjectTrack,
+      },
+    );
+    setError(null);
+    setStep(0);
   }
 
   async function onSubmit(values: WizardValues) {
@@ -336,21 +424,26 @@ export function OnboardingWizard() {
               {currentStep.key === "direction" ? (
                 <>
                   <div className="space-y-3">
-                    <p className="text-sm font-semibold text-ink">Choose your primary track</p>
+                    <p className="text-sm font-semibold text-ink">
+                      Choose your primary track
+                      <span className="ml-1" style={{ color: "var(--cyan)" }}>
+                        *
+                      </span>
+                    </p>
                     <div role="radiogroup" aria-label="Choose your primary track" className="grid gap-3 md:grid-cols-2">
                       <TrackRadioCard
                         label="Software Project"
                         description="Build and ship a product experience with a believable scope."
                         checked={projectTrack === "software"}
                         checkedColor="yellow"
-                        onClick={() => form.setValue("project_track", "software", { shouldValidate: true })}
+                        onClick={() => selectProjectTrack("software")}
                       />
                       <TrackRadioCard
                         label="Research Project"
                         description="Develop a credible question, method, and evidence plan."
                         checked={projectTrack === "research"}
                         checkedColor="cyan"
-                        onClick={() => form.setValue("project_track", "research", { shouldValidate: true })}
+                        onClick={() => selectProjectTrack("research")}
                       />
                     </div>
                   </div>
@@ -358,6 +451,7 @@ export function OnboardingWizard() {
                   <FormField
                     label="What do you want this project to help with?"
                     hint="This lets Sevri weight the kind of proof the project should create."
+                    required
                   >
                     <Select {...form.register("target_outcome")}>
                       {targetOutcomeOptions.map((option) => (
@@ -372,7 +466,7 @@ export function OnboardingWizard() {
 
               {currentStep.key === "profile" ? (
                 <>
-                  <FormField label="Student stage" hint="Sevri uses this to calibrate ambition versus realism.">
+                  <FormField label="Student stage" required>
                     <Select {...form.register("student_stage")}>
                       {studentStageOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -391,6 +485,7 @@ export function OnboardingWizard() {
                       label="Interests"
                       hint="Comma-separated themes, domains, or problems you keep returning to."
                       error={form.formState.errors.interests?.message}
+                      required
                     >
                       <Input
                         {...form.register("interests")}
@@ -402,6 +497,7 @@ export function OnboardingWizard() {
                       label="Favorite subjects"
                       hint="Comma-separated classes or fields that feel energizing."
                       error={form.formState.errors.favorite_subjects?.message}
+                      required
                     >
                       <Input {...form.register("favorite_subjects")} placeholder="Math, economics, biology" />
                     </FormField>
@@ -409,8 +505,9 @@ export function OnboardingWizard() {
 
                   <FormField
                     label="Weekly time available"
-                    hint="Be honest. The best recommendation is the one you can actually carry."
+                    hint="Be honest. The best recommendation is the one you can actually follow through with."
                     error={form.formState.errors.weekly_time_available?.message}
+                    required
                   >
                     <Input
                       type="number"
@@ -427,6 +524,7 @@ export function OnboardingWizard() {
                   <FormField
                     label="Coding experience and preferred challenge"
                     hint="This single answer should reflect both your current comfort level and the difficulty you want Sevri to calibrate toward."
+                    required
                   >
                     <Select {...form.register("coding_experience")}>
                       {experienceOptions.map((option) => (
@@ -441,8 +539,13 @@ export function OnboardingWizard() {
                     label="Preferred project style"
                     hint="Describe the kind of software work you want to accomplish."
                     error={form.formState.errors.preferred_project_style?.message}
+                    required
                   >
-                    <Input {...form.register("preferred_project_style")} placeholder="web app, AI tool, automation" />
+                    <Input
+                      {...form.register("preferred_project_style")}
+                      className="placeholder:text-ink-muted/70"
+                      placeholder="web app for debate prep, AI study planner, automation dashboard"
+                    />
                   </FormField>
 
                   <FormField
@@ -460,15 +563,17 @@ export function OnboardingWizard() {
                     label="Preferred research domain"
                     hint="Keep it concrete and specific so that Sevri can develop directions that excite you."
                     error={form.formState.errors.preferred_research_domain?.message}
+                    required
                   >
                     <Input
                       {...form.register("preferred_research_domain")}
-                      placeholder="Biology, psychology, economics, CS theory"
+                      className="placeholder:text-ink-muted/70"
+                      placeholder="electrical engineering, neurochemistry, computational biology"
                     />
                   </FormField>
 
                   <div className="grid gap-5 md:grid-cols-2">
-                    <FormField label="Research experience">
+                    <FormField label="Research experience" required>
                       <Select {...form.register("research_experience")}>
                         {researchExperienceOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -478,7 +583,7 @@ export function OnboardingWizard() {
                       </Select>
                     </FormField>
 
-                    <FormField label="Methodology preference">
+                    <FormField label="Methodology preference" required>
                       <Select {...form.register("methodology_preference")}>
                         {methodologyOptions.map((option) => (
                           <option key={option.value} value={option.value}>
@@ -489,7 +594,7 @@ export function OnboardingWizard() {
                     </FormField>
                   </div>
 
-                  <FormField label="Target final deliverable">
+                  <FormField label="Target final deliverable" required>
                     <Select {...form.register("target_research_deliverable")}>
                       {deliverableOptions.map((option) => (
                         <option key={option.value} value={option.value}>
@@ -519,7 +624,7 @@ export function OnboardingWizard() {
                   >
                     <Textarea
                       {...form.register("constraints")}
-                      placeholder="Class load is heavy on weekdays, $200 budget, limited personal compute, no meanginful lab access..."
+                      placeholder="Class load is heavy on weekdays, $200 budget, limited personal compute, no meaningful lab access..."
                     />
                   </FormField>
 
