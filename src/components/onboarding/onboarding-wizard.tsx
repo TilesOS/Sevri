@@ -21,6 +21,14 @@ import { onboardingInputSchema, type OnboardingInput } from "@/lib/validators/on
 import type { LatestOnboardingAnswers } from "@/lib/db/queries/onboarding";
 import { studentStageOptions, targetOutcomeOptions } from "@/lib/validators/settings";
 
+const requiredTrackTextIssue = {
+  code: z.ZodIssueCode.too_small,
+  minimum: 2,
+  type: "string",
+  inclusive: true,
+  message: "String must contain at least 2 character(s)",
+} as const;
+
 const wizardSchema = z.object({
   project_track: z.enum(["software", "research"]),
   student_stage: z.string().min(2),
@@ -30,10 +38,10 @@ const wizardSchema = z.object({
   weekly_time_available: z.coerce.number().int().min(1).max(80),
 
   coding_experience: z.enum(["beginner", "intermediate", "advanced"]),
-  preferred_project_style: z.string().min(2),
+  preferred_project_style: z.string(),
   known_tools: z.string().optional(),
 
-  preferred_research_domain: z.string().min(2),
+  preferred_research_domain: z.string(),
   research_experience: z.enum(["beginner", "intermediate", "advanced"]),
   methodology_preference: z.enum(["literature_review", "experiment", "data_analysis", "survey_based", "mixed"]),
   target_research_deliverable: z.enum([
@@ -47,6 +55,20 @@ const wizardSchema = z.object({
 
   constraints: z.string().optional(),
   additional_context: z.string().optional(),
+}).superRefine((values, context) => {
+  if (values.project_track === "software" && values.preferred_project_style.length < 2) {
+    context.addIssue({
+      ...requiredTrackTextIssue,
+      path: ["preferred_project_style"],
+    });
+  }
+
+  if (values.project_track === "research" && values.preferred_research_domain.length < 2) {
+    context.addIssue({
+      ...requiredTrackTextIssue,
+      path: ["preferred_research_domain"],
+    });
+  }
 });
 
 type WizardValues = z.infer<typeof wizardSchema>;
