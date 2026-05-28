@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { canGenerateRecommendations, getGenerationLimit, hasUnlimitedGenerations } from "@/lib/usage/limits";
@@ -81,6 +81,7 @@ export function RecommendationsClient({
   trackAvailability,
 }: RecommendationsClientProps) {
   const router = useRouter();
+  const [isSwitchingTrack, startTrackTransition] = useTransition();
   const [recommendations, setRecommendations] = useState(initialRecommendations);
   const [localGenerationsUsed, setLocalGenerationsUsed] = useState(generationsUsed);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -101,6 +102,10 @@ export function RecommendationsClient({
   useEffect(() => {
     setLocalGenerationsUsed(generationsUsed);
   }, [generationsUsed]);
+
+  useEffect(() => {
+    setRecommendations(initialRecommendations);
+  }, [initialRecommendations]);
 
   async function handleGenerate() {
     setError(null);
@@ -155,9 +160,10 @@ export function RecommendationsClient({
 
   function switchTrack(track: ProjectTrack) {
     if (track === activeTrack) return;
-    setRecommendations([]);
     setError(null);
-    router.push(`/recommendations?track=${track}`);
+    startTrackTransition(() => {
+      router.push(`/recommendations?track=${track}`);
+    });
   }
 
   const subtitle =
@@ -218,8 +224,9 @@ export function RecommendationsClient({
           <button
             key={t}
             className={`tab ${activeTrack === t ? 'is-active' : ''}`}
-            style={{ width: 'auto', minWidth: 160, justifyContent: 'center', textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'var(--font-mono)', fontSize: 13 }}
+            style={{ width: 'auto', minWidth: 160, justifyContent: 'center', textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'var(--font-mono)', fontSize: 13, opacity: isSwitchingTrack && activeTrack !== t ? 0.6 : 1 }}
             onClick={() => switchTrack(t)}
+            disabled={isSwitchingTrack}
           >
             {activeTrack === t && <span style={{ marginRight: 4 }}>→</span>}
             {t}

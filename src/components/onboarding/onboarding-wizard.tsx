@@ -128,7 +128,7 @@ const stepConfig = {
     {
       key: "constraints",
       title: "Constraints",
-      description: "Name the tradeoffs, limits, and extra context that should keep the plan honest.",
+      description: "Name the tradeoffs, limits, and critical extra context that will keep your plan honest.",
       fields: ["constraints", "additional_context"] as WizardField[],
     },
   ],
@@ -160,7 +160,7 @@ const stepConfig = {
     {
       key: "constraints",
       title: "Constraints",
-      description: "Name the tradeoffs, limits, and extra context that should keep the plan honest.",
+      description: "Name the tradeoffs, limits, and critical extra context that will keep your plan honest.",
       fields: ["constraints", "additional_context"] as WizardField[],
     },
   ],
@@ -383,7 +383,7 @@ export function OnboardingWizard() {
                   </FormField>
 
                   <p className="max-w-2xl text-xs leading-5 text-ink-muted">
-                    These two answers shape idea generation the most, so specific interests and subjects work best.
+                    The following two answers shape idea generation the most, so specific interests and subjects work best.
                   </p>
 
                   <div className="grid gap-5 md:grid-cols-2">
@@ -439,7 +439,7 @@ export function OnboardingWizard() {
 
                   <FormField
                     label="Preferred project style"
-                    hint="Describe the kind of software work you want to be known for."
+                    hint="Describe the kind of software work you want to accomplish."
                     error={form.formState.errors.preferred_project_style?.message}
                   >
                     <Input {...form.register("preferred_project_style")} placeholder="web app, AI tool, automation" />
@@ -458,7 +458,7 @@ export function OnboardingWizard() {
                 <>
                   <FormField
                     label="Preferred research domain"
-                    hint="Keep it concrete enough that Sevri can make real tradeoffs."
+                    hint="Keep it concrete and specific so that Sevri can develop directions that excite you."
                     error={form.formState.errors.preferred_research_domain?.message}
                   >
                     <Input
@@ -515,21 +515,21 @@ export function OnboardingWizard() {
                 <>
                   <FormField
                     label="Constraints"
-                    hint="Anything that should keep the plan grounded: schedule, hardware, access, budget, energy, obligations."
+                    hint="Optional. Anything that should keep the plan grounded in reality: schedule, access, budget, obligations."
                   >
                     <Textarea
                       {...form.register("constraints")}
-                      placeholder="Class load is heavy on weekdays, no budget, limited laptop power, no lab access..."
+                      placeholder="Class load is heavy on weekdays, $200 budget, limited personal compute, no meanginful lab access..."
                     />
                   </FormField>
 
                   <FormField
                     label="Additional context"
-                    hint="Optional. Add any nuance that should shape the final comparison board."
+                    hint="Optional. Add any nuance that should shape the final project comparison board."
                   >
                     <Textarea
                       {...form.register("additional_context")}
-                      placeholder="I want something that feels polished enough for a summer application, but I still need it to fit around exams."
+                      placeholder="I want something that feels polished and tangible enough for college applications, but I need it to fit around a summer job."
                     />
                   </FormField>
                 </>
