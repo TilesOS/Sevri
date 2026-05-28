@@ -4,7 +4,9 @@
 // These tests exercise that composition against hand-crafted broken fixtures.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import { onboardingInputSchema } from "../validators/onboarding.ts";
 import { buildRepairFeedback, checkStructured } from "./content-quality.ts";
 import {
   OPTIONS_QUALITY_SPEC,
@@ -135,4 +137,32 @@ test("validator feedback lines reference quality issue kinds for repair context"
   const titleLine = feedback.find((line) => line.includes("recommendations[0].title"));
   assert.ok(titleLine);
   assert.ok(titleLine!.includes("mid_word_end") || titleLine!.includes("too_short"));
+});
+
+test("research onboarding accepts intermediate experience and prompt code calibrates it distinctly", () => {
+  const intake = onboardingInputSchema.parse({
+    project_track: "research",
+    student_stage: "high_school_junior",
+    target_outcome: "portfolio",
+    interests: ["behavioral economics"],
+    favorite_subjects: ["statistics"],
+    weekly_time_available: 6,
+    preferred_research_domain: "behavioral economics",
+    research_experience: "intermediate",
+    methodology_preference: "data_analysis",
+    target_research_deliverable: "paper",
+    data_or_resource_access: "Public datasets.",
+  });
+
+  const generationContextSource = readFileSync(new URL("./generation-context.ts", import.meta.url), "utf8");
+  const promptsSource = readFileSync(new URL("./prompts.ts", import.meta.url), "utf8");
+
+  assert.equal(intake.project_track, "research");
+  if (intake.project_track !== "research") {
+    throw new Error("Expected research intake.");
+  }
+  assert.equal(intake.research_experience, "intermediate");
+  assert.match(generationContextSource, /skill === "intermediate"/);
+  assert.match(generationContextSource, /structured method/i);
+  assert.match(promptsSource, /beginner, intermediate, and advanced experience levels/);
 });

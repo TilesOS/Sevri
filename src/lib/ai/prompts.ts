@@ -72,6 +72,7 @@ export function buildNormalizeUserPrompt(input: {
     "Requirements:",
     "- Reuse the user's actual technical or research language whenever possible.",
     "- Keep the normalized profile narrow enough to drive differentiated outputs.",
+    "- Treat beginner, intermediate, and advanced experience levels as distinct calibration signals for scope, method complexity, and guidance depth.",
     "- Do not introduce removed concepts like mentor access, school/company targeting, or tool access assumptions unless the raw intake explicitly names them in free text.",
   ].join("\n\n");
 }

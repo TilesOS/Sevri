@@ -34,7 +34,7 @@ const wizardSchema = z.object({
   known_tools: z.string().optional(),
 
   preferred_research_domain: z.string().min(2),
-  research_experience: z.enum(["beginner", "advanced"]),
+  research_experience: z.enum(["beginner", "intermediate", "advanced"]),
   methodology_preference: z.enum(["literature_review", "experiment", "data_analysis", "survey_based", "mixed"]),
   target_research_deliverable: z.enum([
     "paper",
@@ -79,6 +79,7 @@ const experienceOptions = [
 
 const researchExperienceOptions = [
   { value: "beginner", label: "Beginner" },
+  { value: "intermediate", label: "Intermediate" },
   { value: "advanced", label: "Advanced" },
 ] as const;
 
@@ -544,7 +545,7 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
                     <Input
                       {...form.register("preferred_project_style")}
                       className="placeholder:text-ink-muted/70"
-                      placeholder="web app for debate prep, AI study planner, automation dashboard"
+                      placeholder="web app, workflow tool, embedded project"
                     />
                   </FormField>
 
