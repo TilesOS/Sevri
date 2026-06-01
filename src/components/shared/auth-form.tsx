@@ -9,6 +9,7 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 
 type AuthMode = "sign-in" | "sign-up";
+type OAuthProvider = "google" | "github";
 
 interface AuthFormProps {
   mode: AuthMode;
@@ -22,22 +23,25 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [oauthProvider, setOauthProvider] = useState<OAuthProvider | null>(null);
 
-  async function handleGitHubSignIn() {
+  async function handleOAuthSignIn(provider: OAuthProvider) {
     setError(null);
     setIsLoading(true);
+    setOauthProvider(provider);
 
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "github",
+      provider,
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
       },
     });
 
     if (oauthError) {
       setError(oauthError.message);
       setIsLoading(false);
+      setOauthProvider(null);
     }
   }
 
@@ -45,6 +49,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     event.preventDefault();
     setError(null);
     setIsLoading(true);
+    setOauthProvider(null);
 
     const supabase = createClient();
 
@@ -97,8 +102,27 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       <div className="space-y-4">
         <div className="mx-auto w-full max-w-md space-y-4">
-          <Button type="button" variant="outline" size="lg" fullWidth disabled={isLoading} onClick={handleGitHubSignIn}>
-            Continue with GitHub
+          {mode === "sign-in" ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              fullWidth
+              disabled={isLoading}
+              onClick={() => handleOAuthSignIn("google")}
+            >
+              {oauthProvider === "google" ? "Redirecting..." : "Continue with Google"}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            fullWidth
+            disabled={isLoading}
+            onClick={() => handleOAuthSignIn("github")}
+          >
+            {oauthProvider === "github" ? "Redirecting..." : "Continue with GitHub"}
           </Button>
           <div className="flex items-center gap-3 text-xs font-semibold uppercase tracking-[0.24em] text-ink-soft/80">
             <span className="h-px flex-1 bg-line" />
