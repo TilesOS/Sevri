@@ -102,18 +102,16 @@ export function AuthForm({ mode }: AuthFormProps) {
 
       <div className="space-y-4">
         <div className="mx-auto w-full max-w-md space-y-4">
-          {mode === "sign-in" ? (
-            <Button
-              type="button"
-              variant="outline"
-              size="lg"
-              fullWidth
-              disabled={isLoading}
-              onClick={() => handleOAuthSignIn("google")}
-            >
-              {oauthProvider === "google" ? "Redirecting..." : "Continue with Google"}
-            </Button>
-          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            fullWidth
+            disabled={isLoading}
+            onClick={() => handleOAuthSignIn("google")}
+          >
+            {oauthProvider === "google" ? "Redirecting..." : "Continue with Google"}
+          </Button>
           <Button
             type="button"
             variant="outline"
