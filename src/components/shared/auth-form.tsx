@@ -31,7 +31,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     setError(null);
 
     if (mode === "sign-up" && !ageConsent) {
-      setError("Please confirm you are at least 13, or that your parent or guardian has consented.");
+      setError("Please confirm you are at least 13 years old. If you are under 13, a parent or guardian must contact support@sevri.co before an account can be created.");
       return;
     }
 
@@ -82,7 +82,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     }
 
     if (!ageConsent) {
-      setError("Please confirm you are at least 13, or that your parent or guardian has consented.");
+      setError("Please confirm you are at least 13 years old. If you are under 13, a parent or guardian must contact support@sevri.co before an account can be created.");
       setIsLoading(false);
       return;
     }
@@ -125,8 +125,7 @@ export function AuthForm({ mode }: AuthFormProps) {
             required
           />
           <span>
-            I confirm that I am at least 13 years old, or that my parent or guardian has consented to my use
-            of Sevri. I agree to the{" "}
+            I confirm that I am at least 13 years old. I agree to the{" "}
             <Link href="/terms" className="font-semibold text-ink underline">
               Terms
             </Link>{" "}
@@ -134,7 +133,11 @@ export function AuthForm({ mode }: AuthFormProps) {
             <Link href="/privacy" className="font-semibold text-ink underline">
               Privacy Policy
             </Link>
-            .
+            . If you are under 13, a parent or guardian must{" "}
+            <a className="font-semibold text-ink underline" href="mailto:support@sevri.co">
+              contact us
+            </a>{" "}
+            before an account can be created.
           </span>
         </label>
       ) : null}
