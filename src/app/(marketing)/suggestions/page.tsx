@@ -22,11 +22,14 @@ export default function SuggestionsPage() {
         <div className="space-y-5 text-sm leading-7 text-ink-soft">
           <p>
             The eventual version of this page will collect requests around onboarding, recommendation
-            quality, roadmap guidance, and the broader student project workflow.
+            quality, roadmap guidance, and the broader student project workflow in a more structured fashion.
           </p>
           <p>
-            For now, the important part is that the page feels like part of the product system instead
-            of a placeholder. The future intake form can slot into this template cleanly.
+            Until then, send ideas and feedback to{" "}
+            <a className="font-medium text-ink underline" href="mailto:suggestions@sevri.co">
+              suggestions@sevri.co
+            </a>
+            .
           </p>
         </div>
         <div className="mt-8">
