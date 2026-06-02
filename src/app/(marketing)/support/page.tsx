@@ -31,8 +31,12 @@ export default function SupportPage() {
           <Card style={{ borderTop: '4px solid var(--yellow)', borderColor: 'var(--ink)', backgroundColor: 'rgba(255,217,61,0.07)' }}>
             <h2 className="text-2xl font-semibold text-ink">Current status</h2>
             <p className="mt-4 text-sm leading-7 text-ink-soft">
-              This is intentionally minimal for now, but the route is fully designed and ready for real
-              support content when it is time to ship.
+              This is minimal for now, but will soon have more structured support content. 
+              In the meantime, reach us directly at{" "}
+              <a className="font-medium text-ink underline" href="mailto:support@sevri.co">
+                support@sevri.co
+              </a>
+              .
             </p>
             <div className="mt-6">
               <Button href="/" variant="outline" className="rounded-full">

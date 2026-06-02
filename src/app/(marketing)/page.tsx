@@ -57,7 +57,7 @@ const faqs = [
   {
     question: "Who is this built for?",
     answer:
-      "High school and early college students who want to build something real, but aren't sure where to start or how to keep the scope from getting away from them.",
+      "Students ages 13 and older, especially high school and early college students, who want to build something real but aren't sure where to start or how to keep the scope from getting away from them.",
   },
   {
     question: "Do I need to know exactly what I want to build already?",

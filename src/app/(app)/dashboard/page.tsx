@@ -92,7 +92,7 @@ export default async function DashboardPage() {
           value={getPlanLabel(plan)}
           detail={
             plan === "pro_monthly"
-              ? "Unlimited idea board generations and Pro coaching enabled."
+              ? "Unlimited idea board generations, subject to fair-use and rate limits, plus Pro coaching."
               : `Includes ${PLAN_LIMITS.free.generation_limit} free idea board generations plus roadmap access.`
           }
         />

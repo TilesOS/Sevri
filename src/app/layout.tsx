@@ -7,6 +7,15 @@ import "@/app/globals.css";
 export const metadata: Metadata = {
   title: "Sevri",
   description: "Build an authentic project you can finish and showcase.",
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+    ],
+    shortcut: "/favicon.ico",
+  },
 };
 
 const sans = Plus_Jakarta_Sans({
