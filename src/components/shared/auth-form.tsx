@@ -1,6 +1,7 @@
 "use client";
 
 import { type FormEvent, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Alert } from "@/components/ui/alert";
@@ -21,12 +22,19 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [ageConsent, setAgeConsent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [oauthProvider, setOauthProvider] = useState<OAuthProvider | null>(null);
 
   async function handleOAuthSignIn(provider: OAuthProvider) {
     setError(null);
+
+    if (mode === "sign-up" && !ageConsent) {
+      setError("Please confirm you are at least 13, or that your parent or guardian has consented.");
+      return;
+    }
+
     setIsLoading(true);
     setOauthProvider(provider);
 
@@ -73,6 +81,12 @@ export function AuthForm({ mode }: AuthFormProps) {
       return;
     }
 
+    if (!ageConsent) {
+      setError("Please confirm you are at least 13, or that your parent or guardian has consented.");
+      setIsLoading(false);
+      return;
+    }
+
     const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
@@ -99,6 +113,31 @@ export function AuthForm({ mode }: AuthFormProps) {
       <div aria-live="polite" className="sr-only">
         {error ?? (isLoading ? "Submitting form." : "")}
       </div>
+
+      {mode === "sign-up" ? (
+        <label className="flex items-start gap-3 text-sm leading-6 text-ink-soft">
+          <input
+            type="checkbox"
+            checked={ageConsent}
+            onChange={(event) => setAgeConsent(event.target.checked)}
+            disabled={isLoading}
+            className="mt-1"
+            required
+          />
+          <span>
+            I confirm that I am at least 13 years old, or that my parent or guardian has consented to my use
+            of Sevri. I agree to the{" "}
+            <Link href="/terms" className="font-semibold text-ink underline">
+              Terms
+            </Link>{" "}
+            and{" "}
+            <Link href="/privacy" className="font-semibold text-ink underline">
+              Privacy Policy
+            </Link>
+            .
+          </span>
+        </label>
+      ) : null}
 
       <div className="space-y-4">
         <div className="mx-auto w-full max-w-md space-y-4">
@@ -170,9 +209,11 @@ export function AuthForm({ mode }: AuthFormProps) {
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
       {mode === "sign-up" ? (
-        <p className="text-sm leading-6 text-ink-soft">
-          After you create your account, check your email for a confirmation link to finish setup.
-        </p>
+        <div className="space-y-3">
+          <p className="text-sm leading-6 text-ink-soft">
+            After you create your account, check your email for a confirmation link to finish setup.
+          </p>
+        </div>
       ) : null}
 
       <Button type="submit" size="lg" fullWidth disabled={isLoading} className="mt-1">

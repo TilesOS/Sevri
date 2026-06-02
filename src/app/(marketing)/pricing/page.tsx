@@ -10,7 +10,7 @@ const comparisonRows = [
   {
     label: "Idea board generations",
     free: `${freeGenerationLimit} total`,
-    pro: "Unlimited",
+    pro: "Unlimited, subject to fair-use and rate limits",
   },
   {
     label: "Exploration room",
@@ -38,7 +38,7 @@ const faqItems = [
   {
     question: "Who is Pro for?",
     answer:
-      "Pro is for students who want unlimited idea board generations plus detailed per-step coaching and evaluation while they execute.",
+      "Pro is for students who want unlimited idea board generations, subject to fair-use and rate limits, plus detailed per-step coaching and evaluation while they execute.",
   },
   {
     question: "Can I upgrade later?",
@@ -61,7 +61,7 @@ export default function PricingPage() {
             <span style={{ color: 'var(--cyan)' }}>.</span>
           </h1>
           <p style={{ fontSize: 16, color: 'var(--ink-soft)', marginTop: 16, maxWidth: 640, lineHeight: 1.6 }}>
-            {`Start free while you validate the workflow. Explore up to ${freeGenerationLimit} idea boards, then upgrade when you want unlimited generations, deeper coaching, and a stronger finishing environment.`}
+            {`Start free while you validate the workflow. Explore up to ${freeGenerationLimit} idea boards, then upgrade when you want unlimited generations subject to fair-use and rate limits, deeper coaching, and a stronger finishing environment.`}
           </p>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
@@ -98,11 +98,11 @@ export default function PricingPage() {
                 <p className="pb-1 text-sm text-paper/72">/ month</p>
               </div>
               <p className="mt-4 text-sm leading-6 text-paper/72">
-                Best for students who already know they want deeper planning support, unlimited iteration,
-                and detailed coaching while the project moves.
+                Best for students who already know they want deeper planning support, more iteration room under
+                fair-use and rate limits, and detailed coaching while the project moves.
               </p>
               <ul className="mt-6 space-y-3 text-sm leading-6 text-paper/72">
-                <li>Unlimited idea board generations</li>
+                <li>Unlimited idea board generations, subject to fair-use and rate limits</li>
                 <li>Detailed step guidance and work evaluation</li>
                 <li>Built for sustained use during execution</li>
                 <li>Better fit once you are committed to shipping</li>
@@ -160,7 +160,7 @@ export default function PricingPage() {
             <Card className="h-full" style={{ borderTop: '4px solid var(--cyan)', borderColor: 'var(--ink)', backgroundColor: 'rgba(91,208,214,0.06)' }}>
               <h2 className="text-3xl font-semibold text-ink">Pro fits best when you are committed.</h2>
               <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Upgrade when you want unlimited iteration space, richer step coaching, and better finishing support while the project is actively moving.
+                Upgrade when you want more iteration space under fair-use and rate limits, richer step coaching, and better finishing support while the project is actively moving.
               </p>
             </Card>
           </Reveal>

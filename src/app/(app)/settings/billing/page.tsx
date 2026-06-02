@@ -50,7 +50,7 @@ export default async function BillingSettingsPage({
           <span style={{ color: 'var(--pink)' }}>.</span>
         </h1>
         <p style={{ fontSize: 16, color: 'var(--ink-soft)', marginTop: 16, maxWidth: 640, lineHeight: 1.6 }}>
-          {`Start free, explore up to ${PLAN_LIMITS.free.generation_limit} idea boards, upgrade when you want unlimited generations and deeper coaching.`}
+          {`Start free, explore up to ${PLAN_LIMITS.free.generation_limit} idea boards, upgrade when you want unlimited generations subject to fair-use and rate limits plus deeper coaching.`}
         </p>
       </div>
 
@@ -66,7 +66,7 @@ export default async function BillingSettingsPage({
             </h2>
             <p className="text-sm leading-6 text-ink-soft">
               {effectivePlan === "pro_monthly"
-                ? "You have unlimited idea board generations plus detailed step coaching and evaluation while the project evolves."
+                ? "You have unlimited idea board generations, subject to fair-use and rate limits, plus detailed step coaching and evaluation while the project evolves."
                 : `The free tier is perfect for validating the workflow. You can explore up to ${PLAN_LIMITS.free.generation_limit} idea boards, test both software and research paths, build the roadmap, and upgrade when you want deeper coaching.`}
             </p>
           </div>

@@ -15,7 +15,7 @@ export function roadmapReadyTemplate(projectTitle: string) {
 export function upgradeConfirmationTemplate() {
   return {
     subject: "Sevri Pro is active",
-    html: "<p>Your Pro plan is active. You now have unlimited idea board generations plus detailed step coaching and evaluation.</p>",
+    html: "<p>Your Pro plan is active. You now have unlimited idea board generations, subject to fair-use and rate limits, plus detailed step coaching and evaluation.</p>",
   };
 }
 
