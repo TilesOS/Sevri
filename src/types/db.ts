@@ -403,6 +403,56 @@ export interface Database {
           created_at?: string;
         };
       };
+      project_work_sessions: {
+        Row: {
+          id: string;
+          user_id: string;
+          project_id: string;
+          milestone_id: string | null;
+          local_date: string;
+          local_time: string;
+          schedule_timezone: string;
+          trigger_context: string;
+          work_description: string;
+          location: string | null;
+          duration_minutes: number;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          project_id: string;
+          milestone_id?: string | null;
+          local_date: string;
+          local_time: string;
+          schedule_timezone?: string;
+          trigger_context?: string;
+          work_description: string;
+          location?: string | null;
+          duration_minutes: number;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          project_id?: string;
+          milestone_id?: string | null;
+          local_date?: string;
+          local_time?: string;
+          schedule_timezone?: string;
+          trigger_context?: string;
+          work_description?: string;
+          location?: string | null;
+          duration_minutes?: number;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       generation_feedback: {
         Row: {
           id: string;
