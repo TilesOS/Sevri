@@ -2,12 +2,14 @@
 
 import { useEffect, useState } from "react";
 import { ProjectSidebarNavigation } from "@/components/project/project-sidebar-navigation";
+import type { ProjectProgressSummary } from "@/lib/projects/progress";
 import type { ProjectMilestoneView } from "@/lib/projects/workspace";
 
 interface ProjectSidebarPayload {
   projectId: string;
   projectTitle: string;
   hasRoadmap: boolean;
+  progress: ProjectProgressSummary;
   milestones: ProjectMilestoneView[];
 }
 
@@ -82,6 +84,7 @@ export function ProjectSidebarSlot({ pathname }: { pathname: string }) {
         projectId={state.payload.projectId}
         projectTitle={state.payload.projectTitle}
         hasRoadmap={state.payload.hasRoadmap}
+        progress={state.payload.progress}
         milestones={state.payload.milestones}
       />
     );

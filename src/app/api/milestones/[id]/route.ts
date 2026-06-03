@@ -26,14 +26,54 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         completed_at: body.completed ? new Date().toISOString() : null,
       })
       .eq("id", id)
-      .select("id, completed, completed_at")
+      .select("id, project_id, completed, completed_at")
       .single();
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json(data, { status: 200 });
+    const [{ data: project, error: projectError }, { data: milestones, error: milestonesError }] = await Promise.all([
+      supabase.from("projects").select("id, status").eq("id", data.project_id).single(),
+      supabase.from("milestones").select("completed").eq("project_id", data.project_id),
+    ]);
+
+    if (projectError || milestonesError) {
+      return NextResponse.json({ error: projectError?.message ?? milestonesError?.message }, { status: 400 });
+    }
+
+    const allMilestonesComplete = (milestones ?? []).length > 0 && (milestones ?? []).every((milestone) => milestone.completed);
+    let projectStatus = project.status;
+
+    if (allMilestonesComplete && (project.status === "active" || project.status === "paused")) {
+      const { data: updatedProject, error: updateProjectError } = await supabase
+        .from("projects")
+        .update({ status: "completed" })
+        .eq("id", data.project_id)
+        .select("status")
+        .single();
+
+      if (updateProjectError) {
+        return NextResponse.json({ error: updateProjectError.message }, { status: 400 });
+      }
+
+      projectStatus = updatedProject.status;
+    } else if (!allMilestonesComplete && project.status === "completed") {
+      const { data: updatedProject, error: updateProjectError } = await supabase
+        .from("projects")
+        .update({ status: "active" })
+        .eq("id", data.project_id)
+        .select("status")
+        .single();
+
+      if (updateProjectError) {
+        return NextResponse.json({ error: updateProjectError.message }, { status: 400 });
+      }
+
+      projectStatus = updatedProject.status;
+    }
+
+    return NextResponse.json({ ...data, project_status: projectStatus }, { status: 200 });
   } catch {
     return NextResponse.json({ error: "Failed to update milestone" }, { status: 400 });
   }

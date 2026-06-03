@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
+import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
+import type { ProjectProgressSummary } from "@/lib/projects/progress";
 
 export default async function DashboardPage() {
   const user = await getRequiredUser();
@@ -131,7 +133,15 @@ function TrackSection({
   recommendationCount,
 }: {
   title: string;
-  projects: Array<{ id: string; title: string; status: string; hasRoadmap: boolean }>;
+  projects: Array<{
+    id: string;
+    title: string;
+    status: string;
+    hasRoadmap: boolean;
+    completedMilestones: number;
+    totalMilestones: number;
+    progress: ProjectProgressSummary;
+  }>;
   track: "software" | "research";
   hasIntake: boolean;
   recommendationCount: number;
@@ -141,6 +151,14 @@ function TrackSection({
   const trackTheme = trackThemes[track];
 
   const accentColor = track === "software" ? "var(--yellow)" : "var(--cyan)";
+  const trackState =
+    projects.length > 0
+      ? "Project underway"
+      : recommendationCount > 0
+        ? "Ideating"
+        : hasIntake
+          ? "Ready for ideas"
+          : "Needs direction";
 
   return (
     <Card className="space-y-6" style={{ borderTop: `4px solid ${accentColor}` }}>
@@ -181,7 +199,7 @@ function TrackSection({
         </div>
         <div style={{ borderLeft: '3px solid var(--pink)', paddingLeft: 12 }}>
           <p className="editorial-kicker">Track state</p>
-          <p className="mt-3 text-lg font-semibold text-ink">{hasIntake ? "Ready for action" : "Needs direction"}</p>
+          <p className="mt-3 text-lg font-semibold text-ink">{trackState}</p>
         </div>
       </div>
 
@@ -191,14 +209,15 @@ function TrackSection({
             <Card key={project.id} tone="subtle" className="flex h-full flex-col" style={{ borderTop: `3px solid ${index % 2 === 0 ? accentColor : 'var(--pink)'}` }}>
               <div className="flex items-start justify-between gap-3">
                 <Badge tone={trackTheme.badgeTone}>{track === "software" ? "Software" : "Research"}</Badge>
-                <Badge tone={project.status === "completed" ? "success" : "neutral"}>{project.status}</Badge>
+                <Badge tone={project.status === "completed" ? "success" : "neutral"}>{project.progress.stageLabel}</Badge>
               </div>
               <div className="mt-5 space-y-3">
                 <h3 className="text-xl font-semibold text-ink">{project.title}</h3>
                 <p className="text-sm leading-6 text-ink-soft">
-                  {project.hasRoadmap ? "Roadmap ready and workspace available." : "Direction chosen. Roadmap still needs to be generated."}
+                  {project.progress.stageDetail}
                 </p>
               </div>
+              <ProjectProgressTracker progress={project.progress} compact className="mt-5" />
               <div className="mt-auto pt-8">
                 <Button href={`/project/${project.id}`} fullWidth>
                   Open workspace

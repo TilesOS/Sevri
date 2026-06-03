@@ -214,6 +214,17 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+        Update: {
+          id?: string;
+          user_id?: string;
+          recommendation_id?: string;
+          project_track?: string;
+          title?: string;
+          status?: string;
+          selected_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
       };
       milestones: {
         Row: {

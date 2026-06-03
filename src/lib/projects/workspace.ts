@@ -6,6 +6,7 @@ import { getProjectWorkspace } from "@/lib/db/queries/projects";
 import { getProjectGithubLink, type ProjectGithubLinkRow } from "@/lib/db/queries/github";
 import { getMilestoneGuidance } from "@/lib/db/queries/milestone-guidance";
 import { deriveMilestoneProgressMeta } from "@/lib/projects/milestone-status";
+import { getProjectProgressSummary, type ProjectProgressSummary } from "@/lib/projects/progress";
 import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
 import type { ProjectTrack } from "@/types/domain";
 
@@ -85,6 +86,7 @@ export interface ProjectWorkspaceView {
   milestones: ProjectMilestoneView[];
   completedCount: number;
   completionPercent: number;
+  progress: ProjectProgressSummary;
   stretchGoals: string[];
   projectBrief: string;
   projectLens: ProjectLensItem[];
@@ -183,6 +185,12 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
   const milestones = normalizeMilestones(workspace.milestones ?? [], scheduleTimezone);
   const completedCount = milestones.filter((milestone) => milestone.completed).length;
   const completionPercent = milestones.length === 0 ? 0 : Math.round((completedCount / milestones.length) * 100);
+  const progress = getProjectProgressSummary({
+    hasRoadmap: Boolean(workspace.roadmap),
+    completedCount,
+    totalMilestones: milestones.length,
+    projectStatus: workspace.project.status,
+  });
   const scheduledStartDate = workspace.roadmap?.scheduled_start_date ?? null;
   const scheduledEndDate = workspace.roadmap?.scheduled_end_date ?? null;
   const scheduleReady =
@@ -299,6 +307,7 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     milestones,
     completedCount,
     completionPercent,
+    progress,
     stretchGoals,
     projectBrief,
     projectLens,
