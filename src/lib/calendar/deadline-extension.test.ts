@@ -1,6 +1,32 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { getDeadlineExtensionDecision } from "./deadline-extension.ts";
+import { getDeadlineExtensionDecision, getDeadlineExtensionReviewTarget } from "./deadline-extension.ts";
+
+test("kickoff rebalances review the resulting project completion deadline", () => {
+  const target = getDeadlineExtensionReviewTarget({
+    itemType: "project_start",
+    targetDate: "2026-06-03",
+    moveMode: "rebalance_downstream",
+    nextScheduledEndDate: "2026-06-30",
+  });
+
+  assert.deepEqual(target, {
+    itemType: "project_end",
+    milestoneId: null,
+    requestedDate: "2026-06-30",
+  });
+});
+
+test("moving kickoff only is not a deadline extension review target", () => {
+  const target = getDeadlineExtensionReviewTarget({
+    itemType: "project_start",
+    targetDate: "2026-06-03",
+    moveMode: "move_only",
+    nextScheduledEndDate: "2026-06-30",
+  });
+
+  assert.equal(target, null);
+});
 
 test("moving a due date earlier does not require warning or cooldown", () => {
   const decision = getDeadlineExtensionDecision({

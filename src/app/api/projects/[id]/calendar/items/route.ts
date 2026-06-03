@@ -4,6 +4,7 @@ import { requireApiStudent } from "@/lib/auth/api";
 import { compareDateStrings, isDateString, normalizeTimeZone } from "@/lib/calendar/date-utils";
 import {
   getDeadlineExtensionDecision,
+  getDeadlineExtensionReviewTarget,
   type DeadlineExtensionEventInput,
   type DeadlineExtensionItemType,
 } from "@/lib/calendar/deadline-extension";
@@ -137,31 +138,36 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             milestoneId: body.milestoneId,
             targetDate: body.targetDate,
           });
-    const deadlineItemType =
-      body.itemType === "milestone" || body.itemType === "project_end" ? body.itemType : null;
+    const deadlineReviewTarget = getDeadlineExtensionReviewTarget({
+      itemType: body.itemType,
+      milestoneId: body.milestoneId ?? null,
+      targetDate: body.targetDate,
+      moveMode: body.mode,
+      nextScheduledEndDate: nextState.scheduledEndDate ?? project.scheduledEndDate,
+    });
     let deadlineExtensionEvent: DeadlineExtensionEventInput | null = null;
 
-    if (deadlineItemType) {
+    if (deadlineReviewTarget) {
       const currentDeadline = getCurrentDeadline({
         project: projectWithTimezone,
-        itemType: deadlineItemType,
-        milestoneId: body.milestoneId ?? null,
+        itemType: deadlineReviewTarget.itemType,
+        milestoneId: deadlineReviewTarget.milestoneId,
       });
 
       if (!currentDeadline) {
         return NextResponse.json({ error: "Scheduled due date not found." }, { status: 400 });
       }
 
-      if (compareDateStrings(body.targetDate, currentDeadline) > 0) {
+      if (compareDateStrings(deadlineReviewTarget.requestedDate, currentDeadline) > 0) {
         const history = await getDeadlineExtensionHistory({
           userId: user.id,
           projectId,
-          itemType: deadlineItemType,
-          milestoneId: deadlineItemType === "milestone" ? body.milestoneId ?? null : null,
+          itemType: deadlineReviewTarget.itemType,
+          milestoneId: deadlineReviewTarget.milestoneId,
         });
         const decision = getDeadlineExtensionDecision({
           currentDate: currentDeadline,
-          targetDate: body.targetDate,
+          targetDate: deadlineReviewTarget.requestedDate,
           history,
           confirmed: body.deadlineExtensionConfirmed === true,
           timeZone: scheduleTimezone,
@@ -194,10 +200,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
           deadlineExtensionEvent = {
             userId: user.id,
             projectId,
-            itemType: deadlineItemType,
-            milestoneId: deadlineItemType === "milestone" ? body.milestoneId ?? null : null,
+            itemType: deadlineReviewTarget.itemType,
+            milestoneId: deadlineReviewTarget.milestoneId,
             previousDate: currentDeadline,
-            requestedDate: body.targetDate,
+            requestedDate: deadlineReviewTarget.requestedDate,
             moveMode: body.mode,
             extensionNumber: decision.extensionNumber,
           };

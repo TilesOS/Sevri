@@ -41,6 +41,46 @@ export interface DeadlineExtensionEventInput {
   extensionNumber: number;
 }
 
+export interface DeadlineExtensionReviewTarget {
+  itemType: DeadlineExtensionItemType;
+  milestoneId: string | null;
+  requestedDate: string;
+}
+
+export function getDeadlineExtensionReviewTarget(input: {
+  itemType: CalendarItemType;
+  milestoneId?: string | null;
+  targetDate: string;
+  moveMode: CalendarMoveMode;
+  nextScheduledEndDate?: string | null;
+}): DeadlineExtensionReviewTarget | null {
+  if (input.itemType === "milestone") {
+    return {
+      itemType: "milestone",
+      milestoneId: input.milestoneId ?? null,
+      requestedDate: input.targetDate,
+    };
+  }
+
+  if (input.itemType === "project_end") {
+    return {
+      itemType: "project_end",
+      milestoneId: null,
+      requestedDate: input.targetDate,
+    };
+  }
+
+  if (input.itemType === "project_start" && input.moveMode === "rebalance_downstream" && input.nextScheduledEndDate) {
+    return {
+      itemType: "project_end",
+      milestoneId: null,
+      requestedDate: input.nextScheduledEndDate,
+    };
+  }
+
+  return null;
+}
+
 function getExtensionLabel(extensionNumber: number) {
   if (extensionNumber === 1) return "first";
   if (extensionNumber === 2) return "second";
