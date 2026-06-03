@@ -403,6 +403,129 @@ export interface Database {
           created_at?: string;
         };
       };
+      user_integrations: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider: "github" | "google_calendar";
+          access_token_encrypted: string;
+          refresh_token_encrypted: string | null;
+          token_expires_at: string | null;
+          scopes: string[];
+          provider_user_id: string;
+          provider_username: string;
+          status: "active" | "revoked" | "invalid";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider: "github" | "google_calendar";
+          access_token_encrypted: string | Buffer;
+          refresh_token_encrypted?: string | Buffer | null;
+          token_expires_at?: string | null;
+          scopes?: string[];
+          provider_user_id: string;
+          provider_username: string;
+          status?: "active" | "revoked" | "invalid";
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          provider?: "github" | "google_calendar";
+          access_token_encrypted?: string | Buffer;
+          refresh_token_encrypted?: string | Buffer | null;
+          token_expires_at?: string | null;
+          scopes?: string[];
+          provider_user_id?: string;
+          provider_username?: string;
+          status?: "active" | "revoked" | "invalid";
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      google_calendar_sync_settings: {
+        Row: {
+          id: string;
+          user_id: string;
+          integration_id: string;
+          calendar_id: string | null;
+          calendar_summary: string;
+          sync_enabled: boolean;
+          status: "active" | "invalid" | "error";
+          last_synced_at: string | null;
+          last_error: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          integration_id: string;
+          calendar_id?: string | null;
+          calendar_summary?: string;
+          sync_enabled?: boolean;
+          status?: "active" | "invalid" | "error";
+          last_synced_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          integration_id?: string;
+          calendar_id?: string | null;
+          calendar_summary?: string;
+          sync_enabled?: boolean;
+          status?: "active" | "invalid" | "error";
+          last_synced_at?: string | null;
+          last_error?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      google_calendar_sync_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          project_id: string;
+          item_key: string;
+          item_type: "project_start" | "milestone" | "project_end" | "work_session";
+          google_calendar_id: string;
+          google_event_id: string;
+          last_synced_hash: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          project_id: string;
+          item_key: string;
+          item_type: "project_start" | "milestone" | "project_end" | "work_session";
+          google_calendar_id: string;
+          google_event_id: string;
+          last_synced_hash: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          project_id?: string;
+          item_key?: string;
+          item_type?: "project_start" | "milestone" | "project_end" | "work_session";
+          google_calendar_id?: string;
+          google_event_id?: string;
+          last_synced_hash?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       project_work_sessions: {
         Row: {
           id: string;

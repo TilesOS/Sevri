@@ -11,6 +11,7 @@ import { buildProjectCalendarItems } from "@/lib/calendar/items";
 import { applyMoveOnly, applyRebalanceDownstream } from "@/lib/calendar/schedule";
 import { persistProjectSchedulePatch } from "@/lib/db/mutations/calendar";
 import { getProjectScheduleGenerationContext } from "@/lib/db/queries/calendar";
+import { syncProjectToGoogleCalendar } from "@/lib/integrations/google-calendar/sync";
 import { captureServerError } from "@/lib/sentry/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ProjectScheduleState } from "@/lib/calendar/types";
@@ -219,6 +220,17 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     }
 
     const refreshed = await getProjectScheduleGenerationContext(projectId, user.id);
+    await syncProjectToGoogleCalendar({
+      userId: user.id,
+      project: refreshed,
+    }).catch((syncError) => {
+      captureServerError(syncError, {
+        route: "projects/calendar/items",
+        step: "google-calendar-sync",
+        project_id: projectId,
+      });
+    });
+
     return NextResponse.json(
       {
         project: refreshed,

@@ -47,6 +47,21 @@ const githubEnvSchema = z.object({
     ),
 });
 
+const googleCalendarEnvSchema = z.object({
+  GOOGLE_CALENDAR_CLIENT_ID: z.string().min(1),
+  GOOGLE_CALENDAR_CLIENT_SECRET: z.string().min(1),
+  GOOGLE_CALENDAR_REDIRECT_URI: z.string().url(),
+});
+
+const integrationsEnvSchema = z.object({
+  INTEGRATIONS_ENCRYPTION_KEY: z
+    .string()
+    .refine(
+      (v) => Buffer.from(v, "base64").length === 32,
+      "INTEGRATIONS_ENCRYPTION_KEY must be 32 bytes when base64-decoded",
+    ),
+});
+
 export const clientEnv = clientEnvSchema.parse({
   NEXT_PUBLIC_SITE_URL: process.env.NEXT_PUBLIC_SITE_URL,
   NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -60,6 +75,8 @@ let cachedStripeEnv: z.infer<typeof stripeEnvSchema> | null = null;
 let cachedEmailEnv: z.infer<typeof emailEnvSchema> | null = null;
 let cachedSentryEnv: z.infer<typeof sentryEnvSchema> | null = null;
 let cachedGithubEnv: z.infer<typeof githubEnvSchema> | null = null;
+let cachedGoogleCalendarEnv: z.infer<typeof googleCalendarEnvSchema> | null = null;
+let cachedIntegrationsEnv: z.infer<typeof integrationsEnvSchema> | null = null;
 
 export function getAIEnv() {
   if (!cachedAIEnv) {
@@ -107,4 +124,20 @@ export function getGithubEnv() {
   }
 
   return cachedGithubEnv;
+}
+
+export function getGoogleCalendarEnv() {
+  if (!cachedGoogleCalendarEnv) {
+    cachedGoogleCalendarEnv = googleCalendarEnvSchema.parse(process.env);
+  }
+
+  return cachedGoogleCalendarEnv;
+}
+
+export function getIntegrationsEnv() {
+  if (!cachedIntegrationsEnv) {
+    cachedIntegrationsEnv = integrationsEnvSchema.parse(process.env);
+  }
+
+  return cachedIntegrationsEnv;
 }

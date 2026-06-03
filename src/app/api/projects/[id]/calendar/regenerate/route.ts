@@ -6,6 +6,7 @@ import { buildProjectCalendarItems } from "@/lib/calendar/items";
 import { generateProjectSchedule } from "@/lib/calendar/schedule";
 import { clearProjectSchedule, persistProjectSchedule } from "@/lib/db/mutations/calendar";
 import { getProjectScheduleGenerationContext } from "@/lib/db/queries/calendar";
+import { syncProjectToGoogleCalendar } from "@/lib/integrations/google-calendar/sync";
 import { captureServerError } from "@/lib/sentry/server";
 
 const bodySchema = z.object({
@@ -49,6 +50,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     });
 
     const refreshed = await getProjectScheduleGenerationContext(projectId, user.id);
+    await syncProjectToGoogleCalendar({
+      userId: user.id,
+      project: refreshed,
+    }).catch((syncError) => {
+      captureServerError(syncError, {
+        route: "projects/calendar/regenerate",
+        step: "google-calendar-sync",
+        project_id: projectId,
+      });
+    });
+
     return NextResponse.json(
       {
         project: refreshed,

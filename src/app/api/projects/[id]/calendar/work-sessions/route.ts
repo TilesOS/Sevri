@@ -4,6 +4,7 @@ import { requireApiStudent } from "@/lib/auth/api";
 import { isDateString, normalizeTimeZone } from "@/lib/calendar/date-utils";
 import { buildProjectCalendarItems } from "@/lib/calendar/items";
 import { getProjectScheduleGenerationContext } from "@/lib/db/queries/calendar";
+import { syncProjectToGoogleCalendar } from "@/lib/integrations/google-calendar/sync";
 import { captureServerError } from "@/lib/sentry/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -74,6 +75,17 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     const refreshed = await getProjectScheduleGenerationContext(projectId, user.id);
+    await syncProjectToGoogleCalendar({
+      userId: user.id,
+      project: refreshed,
+    }).catch((syncError) => {
+      captureServerError(syncError, {
+        route: "projects/calendar/work-sessions:create",
+        step: "google-calendar-sync",
+        project_id: projectId,
+      });
+    });
+
     return NextResponse.json(
       {
         project: refreshed,
