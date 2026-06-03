@@ -365,6 +365,44 @@ export interface Database {
           updated_at?: string;
         };
       };
+      deadline_extension_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          project_id: string;
+          milestone_id: string | null;
+          item_type: "milestone" | "project_end";
+          previous_date: string;
+          requested_date: string;
+          move_mode: "move_only" | "rebalance_downstream";
+          extension_number: number;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          project_id: string;
+          milestone_id?: string | null;
+          item_type: "milestone" | "project_end";
+          previous_date: string;
+          requested_date: string;
+          move_mode: "move_only" | "rebalance_downstream";
+          extension_number: number;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          project_id?: string;
+          milestone_id?: string | null;
+          item_type?: "milestone" | "project_end";
+          previous_date?: string;
+          requested_date?: string;
+          move_mode?: "move_only" | "rebalance_downstream";
+          extension_number?: number;
+          created_at?: string;
+        };
+      };
       generation_feedback: {
         Row: {
           id: string;

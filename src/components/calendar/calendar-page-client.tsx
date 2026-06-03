@@ -57,6 +57,10 @@ interface CalendarMutationProject {
 
 interface CalendarMutationResponse {
   error?: string;
+  code?: "deadline_extension_confirmation_required" | "deadline_extension_cooldown_active";
+  message?: string;
+  extension_number?: number;
+  cooldown_ends_at?: string;
   project?: CalendarMutationProject;
   items?: CalendarDisplayItem[];
 }
@@ -64,6 +68,12 @@ interface CalendarMutationResponse {
 interface RescheduleDraft {
   item: CalendarDisplayItem;
   targetDate: string;
+}
+
+interface DeadlineMoveConfirmation {
+  key: string;
+  extensionNumber: number;
+  message: string;
 }
 
 function getClientTimeZone() {
@@ -309,6 +319,10 @@ function getItemChipLabel(item: CalendarDisplayItem) {
   }
 }
 
+function getMoveConfirmationKey(item: CalendarDisplayItem, targetDate: string, mode: CalendarMoveMode) {
+  return `${item.id}:${mode}:${targetDate}`;
+}
+
 function DayCell({
   date,
   currentMonth,
@@ -487,6 +501,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
   const [rescheduleDraft, setRescheduleDraft] = useState<RescheduleDraft | null>(null);
   const [dragItem, setDragItem] = useState<CalendarDisplayItem | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
+  const [deadlineMoveConfirmation, setDeadlineMoveConfirmation] = useState<DeadlineMoveConfirmation | null>(null);
   const [isSavingMove, setIsSavingMove] = useState(false);
   const [exportProjectId, setExportProjectId] = useState(initialData.visibleProjectIds[0] ?? initialData.projects[0]?.projectId ?? null);
   const [expandedSoftwareHistory, setExpandedSoftwareHistory] = useState(false);
@@ -551,6 +566,8 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
 
     setIsSavingMove(true);
     setMoveError(null);
+    const confirmationKey = getMoveConfirmationKey(rescheduleDraft.item, rescheduleDraft.targetDate, mode);
+    const hasConfirmedDeadlineExtension = deadlineMoveConfirmation?.key === confirmationKey;
 
     const response = await fetch(`/api/projects/${rescheduleDraft.item.projectId}/calendar/items`, {
       method: "PATCH",
@@ -561,13 +578,32 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
         targetDate: rescheduleDraft.targetDate,
         mode,
         timezone: getClientTimeZone(),
+        deadlineExtensionConfirmed: hasConfirmedDeadlineExtension,
       }),
     });
 
     const body = (await response.json().catch(() => null)) as CalendarMutationResponse | null;
 
+    if (!response.ok && body?.code === "deadline_extension_confirmation_required") {
+      setDeadlineMoveConfirmation({
+        key: confirmationKey,
+        extensionNumber: body.extension_number ?? 1,
+        message: body.message ?? "Confirm this later due date before saving.",
+      });
+      setMoveError(null);
+      setIsSavingMove(false);
+      return;
+    }
+
+    if (!response.ok && body?.code === "deadline_extension_cooldown_active") {
+      setDeadlineMoveConfirmation(null);
+      setMoveError(body.message ?? "Wait before moving this due date later again.");
+      setIsSavingMove(false);
+      return;
+    }
+
     if (!response.ok || !body?.project || !body.items) {
-      setMoveError(body?.error ?? "Failed to update the calendar.");
+      setMoveError(body?.error ?? body?.message ?? "Failed to update the calendar.");
       setIsSavingMove(false);
       return;
     }
@@ -581,6 +617,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
     setSelectedDate(rescheduleDraft.targetDate);
     setRescheduleDraft(null);
     setDragItem(null);
+    setDeadlineMoveConfirmation(null);
     setIsSavingMove(false);
   }
 
@@ -591,6 +628,13 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
       setSelectedDate(nextMonth);
     }
   }
+
+  const moveOnlyConfirmationActive = rescheduleDraft
+    ? deadlineMoveConfirmation?.key === getMoveConfirmationKey(rescheduleDraft.item, rescheduleDraft.targetDate, "move_only")
+    : false;
+  const rebalanceConfirmationActive = rescheduleDraft
+    ? deadlineMoveConfirmation?.key === getMoveConfirmationKey(rescheduleDraft.item, rescheduleDraft.targetDate, "rebalance_downstream")
+    : false;
 
   return (
     <div className="space-y-8 pb-10">
@@ -717,11 +761,13 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                         targetDate,
                       });
                       setMoveError(null);
+                      setDeadlineMoveConfirmation(null);
                       setSelectedDate(targetDate);
                     }}
                     onDragItemStart={(item) => {
                       setDragItem(item);
                       setMoveError(null);
+                      setDeadlineMoveConfirmation(null);
                     }}
                   />
                 ))}
@@ -827,6 +873,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                               targetDate: item.date,
                             });
                             setMoveError(null);
+                            setDeadlineMoveConfirmation(null);
                           }}
                         >
                           Move date
@@ -1008,6 +1055,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   onChange={(event) => {
                     setRescheduleDraft((current) => (current ? { ...current, targetDate: event.target.value } : current));
                     setMoveError(null);
+                    setDeadlineMoveConfirmation(null);
                   }}
                 />
               </div>
@@ -1020,6 +1068,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               </p>
             </div>
 
+            {deadlineMoveConfirmation ? (
+              <Alert tone="warning" heading={`Postponement ${deadlineMoveConfirmation.extensionNumber}`}>
+                {deadlineMoveConfirmation.message}
+              </Alert>
+            ) : null}
+
             {moveError ? <Alert tone="danger">{moveError}</Alert> : null}
 
             <div className="flex flex-wrap justify-end gap-3">
@@ -1031,6 +1085,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   setRescheduleDraft(null);
                   setDragItem(null);
                   setMoveError(null);
+                  setDeadlineMoveConfirmation(null);
                 }}
                 disabled={isSavingMove}
               >
@@ -1043,7 +1098,11 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                 onClick={() => void submitMove("move_only")}
                 disabled={isSavingMove}
               >
-                {isSavingMove ? "Saving..." : getMoveSummaryLabel(rescheduleDraft.item)}
+                {isSavingMove
+                  ? "Saving..."
+                  : moveOnlyConfirmationActive
+                    ? "Confirm postponement"
+                    : getMoveSummaryLabel(rescheduleDraft.item)}
               </Button>
               {rescheduleDraft.item.itemType !== "project_end" ? (
                 <Button
@@ -1052,7 +1111,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   onClick={() => void submitMove("rebalance_downstream")}
                   disabled={isSavingMove}
                 >
-                  {isSavingMove ? "Saving..." : "Rebalance downstream"}
+                  {isSavingMove ? "Saving..." : rebalanceConfirmationActive ? "Confirm postponement" : "Rebalance downstream"}
                 </Button>
               ) : null}
             </div>
