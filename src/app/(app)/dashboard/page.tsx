@@ -22,6 +22,17 @@ export default async function DashboardPage() {
 
   const softwareProjects = projects.filter((project) => project.project_track === "software");
   const researchProjects = projects.filter((project) => project.project_track === "research");
+  const outputTotals = projects.reduce(
+    (totals, project) => {
+      if (project.project_track === "research") {
+        totals.researchWords += project.outputMetrics.wordCount;
+      } else {
+        totals.softwareCommits += project.outputMetrics.commitCount;
+      }
+      return totals;
+    },
+    { softwareCommits: 0, researchWords: 0 },
+  );
   const activeProject =
     projects.find((project) => project.status === "active" || project.status === "paused") ?? projects[0] ?? null;
 
@@ -72,6 +83,20 @@ export default async function DashboardPage() {
                 : "You have already chosen a direction. The next move is to turn it into a roadmap and start executing."
               : "Use onboarding to shape a direction, compare strong options, and keep both your software and research tracks visible."}
           </p>
+          <div className="grid max-w-2xl gap-3 pb-6 sm:grid-cols-2">
+            <DashboardOutputStat
+              accentColor="var(--yellow)"
+              label="Commits pushed"
+              value={formatMetricNumber(outputTotals.softwareCommits)}
+              detail="Linked software projects"
+            />
+            <DashboardOutputStat
+              accentColor="var(--cyan)"
+              label="Words written"
+              value={formatMetricNumber(outputTotals.researchWords)}
+              detail="Research milestone drafts"
+            />
+          </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Button href={nextAction.href} className="px-6">
               {nextAction.label}
@@ -121,6 +146,39 @@ export default async function DashboardPage() {
         hasIntake={trackAvailability.research.hasIntake}
         recommendationCount={trackAvailability.research.recommendationCount}
       />
+    </div>
+  );
+}
+
+function formatMetricNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function DashboardOutputStat({
+  accentColor,
+  label,
+  value,
+  detail,
+}: {
+  accentColor: string;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div
+      className="rounded-md px-4 py-3"
+      style={{
+        border: `1px solid rgba(251,246,233,0.24)`,
+        borderLeft: `4px solid ${accentColor}`,
+        background: "rgba(251,246,233,0.08)",
+      }}
+    >
+      <p className="editorial-kicker" style={{ color: "rgba(251,246,233,0.6)" }}>
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-semibold leading-none text-paper">{value}</p>
+      <p className="mt-2 text-xs font-medium text-paper/60">{detail}</p>
     </div>
   );
 }

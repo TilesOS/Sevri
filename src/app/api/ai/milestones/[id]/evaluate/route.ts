@@ -11,6 +11,7 @@ import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
 import { buildRoadmapOverviewFromStorage } from "@/lib/ai/storage";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
 import { trackEvent } from "@/lib/analytics/track";
+import { countWords } from "@/lib/projects/output-metrics";
 import { captureServerError } from "@/lib/sentry/server";
 import type {
   EvaluationLifecycleStatus,
@@ -476,11 +477,15 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       });
 
       stage = "track-evaluation";
+      const projectTrack = project.project_track === "research" ? "research" : "software";
       void trackEvent(user.id, "work_evaluation_completed", {
         project_id: project.id,
         milestone_id: milestone.id,
         submission_id: persistedRecord.submission_id,
-        project_track: project.project_track === "research" ? "research" : "software",
+        project_track: projectTrack,
+        ...(projectTrack === "research"
+          ? { submission_word_count: countWords(body.submission_text) }
+          : {}),
         ...routeMetadata,
       }).catch((trackError) => {
         console.error("work evaluation track failed", { stage, error: trackError });
