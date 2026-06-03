@@ -1,6 +1,8 @@
 import { getRequiredUser } from "@/lib/auth/guard";
+import { getGoogleCalendarSyncSettings } from "@/lib/db/queries/google-calendar";
 import { getUserIntegrationPublic } from "@/lib/db/queries/github";
 import { PageHeader } from "@/components/ui/page-header";
+import { GoogleCalendarIntegrationCard } from "@/components/settings/google-calendar-integration-card";
 import { GithubIntegrationCard } from "@/components/settings/github-integration-card";
 
 interface IntegrationsPageProps {
@@ -10,7 +12,11 @@ interface IntegrationsPageProps {
 export default async function IntegrationsPage({ searchParams }: IntegrationsPageProps) {
   const user = await getRequiredUser();
   const sp = (await searchParams) ?? {};
-  const integration = await getUserIntegrationPublic(user.id, "github");
+  const [githubIntegration, googleCalendarIntegration, googleCalendarSettings] = await Promise.all([
+    getUserIntegrationPublic(user.id, "github"),
+    getUserIntegrationPublic(user.id, "google_calendar"),
+    getGoogleCalendarSyncSettings(user.id),
+  ]);
 
   return (
     <div className="space-y-8">
@@ -19,8 +25,14 @@ export default async function IntegrationsPage({ searchParams }: IntegrationsPag
         title="Connect external services."
         description="Link Sevri to the tools you already use."
       />
+      <GoogleCalendarIntegrationCard
+        integration={googleCalendarIntegration}
+        settings={googleCalendarSettings}
+        connectedFlag={sp.connected === "google_calendar"}
+        errorFlag={sp.error ?? null}
+      />
       <GithubIntegrationCard
-        integration={integration}
+        integration={githubIntegration}
         connectedFlag={sp.connected === "github"}
         errorFlag={sp.error ?? null}
       />

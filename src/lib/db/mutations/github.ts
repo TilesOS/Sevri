@@ -6,7 +6,7 @@ import {
 
 export interface UpsertIntegrationInput {
   userId: string;
-  provider: "github";
+  provider: "github" | "google_calendar";
   accessTokenEncrypted: Buffer;
   refreshTokenEncrypted?: Buffer | null;
   tokenExpiresAt?: string | null;
@@ -51,7 +51,7 @@ export async function upsertUserIntegration(
 
 export async function markIntegrationInvalid(
   userId: string,
-  provider: "github",
+  provider: "github" | "google_calendar",
 ): Promise<void> {
   const supabase = createAdminSupabaseClient();
   const { error } = await supabase
@@ -67,7 +67,7 @@ export async function markIntegrationInvalid(
 
 export async function deleteUserIntegration(
   userId: string,
-  provider: "github",
+  provider: "github" | "google_calendar",
 ): Promise<void> {
   const supabase = createAdminSupabaseClient();
   const { error } = await supabase
@@ -78,6 +78,37 @@ export async function deleteUserIntegration(
 
   if (error) {
     throw new Error(`Failed to delete integration: ${error.message}`);
+  }
+}
+
+export async function updateUserIntegrationTokens(input: {
+  userId: string;
+  provider: "github" | "google_calendar";
+  accessTokenEncrypted: Buffer;
+  refreshTokenEncrypted?: Buffer | null;
+  tokenExpiresAt?: string | null;
+  status?: "active" | "revoked" | "invalid";
+}): Promise<void> {
+  const supabase = createAdminSupabaseClient();
+  const update: Record<string, unknown> = {
+    access_token_encrypted: input.accessTokenEncrypted,
+    token_expires_at: input.tokenExpiresAt ?? null,
+    status: input.status ?? "active",
+    updated_at: new Date().toISOString(),
+  };
+
+  if (input.refreshTokenEncrypted !== undefined) {
+    update.refresh_token_encrypted = input.refreshTokenEncrypted;
+  }
+
+  const { error } = await supabase
+    .from("user_integrations")
+    .update(update)
+    .eq("user_id", input.userId)
+    .eq("provider", input.provider);
+
+  if (error) {
+    throw new Error(`Failed to update integration tokens: ${error.message}`);
   }
 }
 

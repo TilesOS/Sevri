@@ -50,6 +50,27 @@ function buildItems(): CalendarDisplayItem[] {
       href: "/project/project-1",
       description: "Portfolio Builder - Completion target on 2026-05-18.",
     },
+    {
+      id: "session-1",
+      projectId: "project-1",
+      projectTitle: "Portfolio Builder",
+      projectTrack: "software",
+      itemType: "work_session",
+      title: "30 min: Draft README outline",
+      date: "2026-04-24",
+      status: "not_started",
+      urgency: "on_track",
+      stepNumber: 1,
+      startTime: "16:00",
+      scheduleTimezone: "America/New_York",
+      durationMinutes: 30,
+      triggerContext: "after calculus",
+      workDescription: "Draft README outline",
+      location: "library",
+      isUserScheduledOverride: false,
+      href: "/project/project-1/steps/1",
+      description: "Portfolio Builder - When 2026-04-24 at 4:00 PM, after calculus, I will spend 30 min on Draft README outline at library. Step 1.",
+    },
   ];
 }
 
@@ -62,6 +83,7 @@ test("buildCalendarExportEvents preserves titles and dates", () => {
       { uid: "project-1:start@sevri.app", title: "Portfolio Builder kickoff", date: "2026-04-20" },
       { uid: "step-1@sevri.app", title: "Step 1: Define scope", date: "2026-04-23" },
       { uid: "project-1:end@sevri.app", title: "Portfolio Builder completion target", date: "2026-05-18" },
+      { uid: "session-1@sevri.app", title: "30 min: Draft README outline", date: "2026-04-24" },
     ],
   );
 });
@@ -89,4 +111,20 @@ test("buildGoogleCalendarUrl uses a one-day all-day range", () => {
   assert.equal(url.searchParams.get("action"), "TEMPLATE");
   assert.equal(url.searchParams.get("text"), "Portfolio Builder kickoff");
   assert.equal(url.searchParams.get("dates"), "20260420/20260421");
+});
+
+test("timed work sessions export with local start and end times", () => {
+  const event = buildCalendarExportEvents(buildItems()).find((candidate) => candidate.uid === "session-1@sevri.app");
+  assert.ok(event);
+
+  const ics = buildIcsFile({
+    events: [event],
+    generatedAt: new Date("2026-04-19T12:00:00.000Z"),
+  });
+  const url = new URL(buildGoogleCalendarUrl(event));
+
+  assert.match(ics, /DTSTART;TZID=America\/New_York:20260424T160000/);
+  assert.match(ics, /DTEND;TZID=America\/New_York:20260424T163000/);
+  assert.equal(url.searchParams.get("dates"), "20260424T160000/20260424T163000");
+  assert.equal(url.searchParams.get("ctz"), "America/New_York");
 });

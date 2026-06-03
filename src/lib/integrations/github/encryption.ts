@@ -6,13 +6,13 @@ import {
   type DecipherGCM,
 } from "crypto";
 
-import { getGithubEnv } from "@/lib/env";
+import { getIntegrationsEnv } from "@/lib/env";
 
 const IV_LENGTH = 12;
 const AUTH_TAG_LENGTH = 16;
 
 function getKey(): Buffer {
-  const env = getGithubEnv();
+  const env = getIntegrationsEnv();
   const key = Buffer.from(env.INTEGRATIONS_ENCRYPTION_KEY, "base64");
   if (key.length !== 32) {
     throw new Error("INTEGRATIONS_ENCRYPTION_KEY must decode to 32 bytes");

@@ -18,6 +18,7 @@ export async function GET(_request: Request, context: { params: Promise<{ id: st
         projectId: workspace.project.id,
         projectTitle: workspace.project.title,
         hasRoadmap: workspace.hasRoadmap,
+        progress: workspace.progress,
         milestones: workspace.milestones,
       },
       { status: 200 },

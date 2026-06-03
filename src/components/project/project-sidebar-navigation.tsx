@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
 import { roadmapStatusClassName } from "@/components/project/project-status";
 import { cn } from "@/lib/utils";
+import type { ProjectProgressSummary } from "@/lib/projects/progress";
 import type { ProjectMilestoneView } from "@/lib/projects/workspace";
 
 interface ProjectSidebarNavigationProps {
   projectId: string;
   projectTitle: string;
   hasRoadmap: boolean;
+  progress: ProjectProgressSummary;
   milestones: ProjectMilestoneView[];
 }
 
@@ -24,6 +27,7 @@ export function ProjectSidebarNavigation({
   projectId,
   projectTitle,
   hasRoadmap,
+  progress,
   milestones,
 }: ProjectSidebarNavigationProps) {
   const pathname = usePathname();
@@ -40,6 +44,11 @@ export function ProjectSidebarNavigation({
           <span aria-hidden="true">&larr;</span>
           <span>Back to Dashboard</span>
         </Link>
+      </div>
+
+      <div className="rounded-md border border-line bg-surface/60 p-3">
+        <p className="mb-2 text-xs font-semibold text-ink">{progress.stageLabel}</p>
+        <ProjectProgressTracker progress={progress} compact />
       </div>
 
       {baseSectionLinks.map((link) => {

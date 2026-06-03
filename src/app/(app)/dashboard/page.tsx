@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
+import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
+import type { ProjectProgressSummary } from "@/lib/projects/progress";
 
 export default async function DashboardPage() {
   const user = await getRequiredUser();
@@ -20,6 +22,17 @@ export default async function DashboardPage() {
 
   const softwareProjects = projects.filter((project) => project.project_track === "software");
   const researchProjects = projects.filter((project) => project.project_track === "research");
+  const outputTotals = projects.reduce(
+    (totals, project) => {
+      if (project.project_track === "research") {
+        totals.researchWords += project.outputMetrics.wordCount;
+      } else {
+        totals.softwareCommits += project.outputMetrics.commitCount;
+      }
+      return totals;
+    },
+    { softwareCommits: 0, researchWords: 0 },
+  );
   const activeProject =
     projects.find((project) => project.status === "active" || project.status === "paused") ?? projects[0] ?? null;
 
@@ -70,6 +83,20 @@ export default async function DashboardPage() {
                 : "You have already chosen a direction. The next move is to turn it into a roadmap and start executing."
               : "Use onboarding to shape a direction, compare strong options, and keep both your software and research tracks visible."}
           </p>
+          <div className="grid max-w-2xl gap-3 pb-6 sm:grid-cols-2">
+            <DashboardOutputStat
+              accentColor="var(--yellow)"
+              label="Commits pushed"
+              value={formatMetricNumber(outputTotals.softwareCommits)}
+              detail="Linked software projects"
+            />
+            <DashboardOutputStat
+              accentColor="var(--cyan)"
+              label="Words written"
+              value={formatMetricNumber(outputTotals.researchWords)}
+              detail="Research milestone drafts"
+            />
+          </div>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <Button href={nextAction.href} className="px-6">
               {nextAction.label}
@@ -123,6 +150,39 @@ export default async function DashboardPage() {
   );
 }
 
+function formatMetricNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function DashboardOutputStat({
+  accentColor,
+  label,
+  value,
+  detail,
+}: {
+  accentColor: string;
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <div
+      className="rounded-md px-4 py-3"
+      style={{
+        border: `1px solid rgba(251,246,233,0.24)`,
+        borderLeft: `4px solid ${accentColor}`,
+        background: "rgba(251,246,233,0.08)",
+      }}
+    >
+      <p className="editorial-kicker" style={{ color: "rgba(251,246,233,0.6)" }}>
+        {label}
+      </p>
+      <p className="mt-2 text-3xl font-semibold leading-none text-paper">{value}</p>
+      <p className="mt-2 text-xs font-medium text-paper/60">{detail}</p>
+    </div>
+  );
+}
+
 function TrackSection({
   title,
   projects,
@@ -131,7 +191,15 @@ function TrackSection({
   recommendationCount,
 }: {
   title: string;
-  projects: Array<{ id: string; title: string; status: string; hasRoadmap: boolean }>;
+  projects: Array<{
+    id: string;
+    title: string;
+    status: string;
+    hasRoadmap: boolean;
+    completedMilestones: number;
+    totalMilestones: number;
+    progress: ProjectProgressSummary;
+  }>;
   track: "software" | "research";
   hasIntake: boolean;
   recommendationCount: number;
@@ -141,6 +209,14 @@ function TrackSection({
   const trackTheme = trackThemes[track];
 
   const accentColor = track === "software" ? "var(--yellow)" : "var(--cyan)";
+  const trackState =
+    projects.length > 0
+      ? "Project underway"
+      : recommendationCount > 0
+        ? "Ideating"
+        : hasIntake
+          ? "Ready for ideas"
+          : "Needs direction";
 
   return (
     <Card className="space-y-6" style={{ borderTop: `4px solid ${accentColor}` }}>
@@ -181,7 +257,7 @@ function TrackSection({
         </div>
         <div style={{ borderLeft: '3px solid var(--pink)', paddingLeft: 12 }}>
           <p className="editorial-kicker">Track state</p>
-          <p className="mt-3 text-lg font-semibold text-ink">{hasIntake ? "Ready for action" : "Needs direction"}</p>
+          <p className="mt-3 text-lg font-semibold text-ink">{trackState}</p>
         </div>
       </div>
 
@@ -191,14 +267,15 @@ function TrackSection({
             <Card key={project.id} tone="subtle" className="flex h-full flex-col" style={{ borderTop: `3px solid ${index % 2 === 0 ? accentColor : 'var(--pink)'}` }}>
               <div className="flex items-start justify-between gap-3">
                 <Badge tone={trackTheme.badgeTone}>{track === "software" ? "Software" : "Research"}</Badge>
-                <Badge tone={project.status === "completed" ? "success" : "neutral"}>{project.status}</Badge>
+                <Badge tone={project.status === "completed" ? "success" : "neutral"}>{project.progress.stageLabel}</Badge>
               </div>
               <div className="mt-5 space-y-3">
                 <h3 className="text-xl font-semibold text-ink">{project.title}</h3>
                 <p className="text-sm leading-6 text-ink-soft">
-                  {project.hasRoadmap ? "Roadmap ready and workspace available." : "Direction chosen. Roadmap still needs to be generated."}
+                  {project.progress.stageDetail}
                 </p>
               </div>
+              <ProjectProgressTracker progress={project.progress} compact className="mt-5" />
               <div className="mt-auto pt-8">
                 <Button href={`/project/${project.id}`} fullWidth>
                   Open workspace

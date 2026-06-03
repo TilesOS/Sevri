@@ -6,7 +6,7 @@ export type ScheduleGenerationSource =
   | "rebalance_downstream"
   | "move_only";
 
-export type CalendarItemType = "project_start" | "milestone" | "project_end";
+export type CalendarItemType = "project_start" | "milestone" | "project_end" | "work_session";
 export type CalendarMoveMode = "move_only" | "rebalance_downstream";
 export type CalendarCompletionState = "not_started" | "in_progress" | "complete";
 export type CalendarUrgency = "on_track" | "due_soon" | "overdue" | "completed";
@@ -48,6 +48,23 @@ export interface ProjectScheduleState {
   scheduleGenerationSource: ScheduleGenerationSource | null;
   lastScheduleRebalancedAt: string | null;
   milestones: ScheduleMilestoneInput[];
+  workSessions: CalendarWorkSession[];
+}
+
+export interface CalendarWorkSession {
+  id: string;
+  projectId: string;
+  milestoneId: string | null;
+  stepNumber: number | null;
+  date: string;
+  startTime: string;
+  scheduleTimezone: string;
+  triggerContext: string;
+  workDescription: string;
+  location: string | null;
+  durationMinutes: number;
+  completedAt: string | null;
+  createdAt: string;
 }
 
 export interface CalendarDisplayItem {
@@ -61,6 +78,12 @@ export interface CalendarDisplayItem {
   status: CalendarCompletionState;
   urgency: CalendarUrgency;
   stepNumber: number | null;
+  startTime?: string;
+  scheduleTimezone?: string;
+  durationMinutes?: number;
+  triggerContext?: string;
+  workDescription?: string;
+  location?: string | null;
   isUserScheduledOverride: boolean;
   href: string;
   description: string;

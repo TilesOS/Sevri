@@ -53,6 +53,7 @@ function buildProjectState(): ProjectScheduleState {
     scheduleGenerationSource: "roadmap_generation",
     lastScheduleRebalancedAt: null,
     milestones: buildMilestones(),
+    workSessions: [],
   };
 }
 

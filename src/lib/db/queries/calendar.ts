@@ -4,6 +4,7 @@ import type {
   CalendarCompletionState,
   CalendarDisplayItem,
   CalendarUrgency,
+  CalendarWorkSession,
   ProjectScheduleState,
   ScheduleGenerationSource,
   ScheduleMilestoneInput,
@@ -118,6 +119,54 @@ function isScheduleReady(project: {
   return project.milestones.every((milestone) => milestone.dueDate && milestone.scheduleDurationDays);
 }
 
+function normalizeTimeString(value: string | null) {
+  return (value ?? "00:00").slice(0, 5);
+}
+
+function buildWorkSessionViews(input: {
+  sessions: Array<{
+    id: string;
+    project_id: string;
+    milestone_id: string | null;
+    local_date: string;
+    local_time: string | null;
+    schedule_timezone: string | null;
+    trigger_context: string | null;
+    work_description: string;
+    location: string | null;
+    duration_minutes: number;
+    completed_at: string | null;
+    created_at: string;
+  }>;
+  milestones: ReadonlyArray<CalendarMilestoneView>;
+}) {
+  const stepNumberByMilestoneId = new Map(input.milestones.map((milestone) => [milestone.id, milestone.stepNumber]));
+
+  return input.sessions
+    .map((session) => ({
+      id: session.id,
+      projectId: session.project_id,
+      milestoneId: session.milestone_id,
+      stepNumber: session.milestone_id ? stepNumberByMilestoneId.get(session.milestone_id) ?? null : null,
+      date: session.local_date,
+      startTime: normalizeTimeString(session.local_time),
+      scheduleTimezone: session.schedule_timezone ?? "UTC",
+      triggerContext: session.trigger_context ?? "",
+      workDescription: session.work_description,
+      location: session.location,
+      durationMinutes: session.duration_minutes,
+      completedAt: session.completed_at,
+      createdAt: session.created_at,
+    } satisfies CalendarWorkSession))
+    .sort((left, right) => {
+      if (left.date !== right.date) {
+        return left.date.localeCompare(right.date);
+      }
+
+      return left.startTime.localeCompare(right.startTime);
+    });
+}
+
 function getVisibleProjectIds(projects: ReadonlyArray<CalendarProjectView>) {
   const trackPriority: Array<ProjectTrack> = ["software", "research"];
   const selected: string[] = [];
@@ -168,7 +217,11 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
     };
   }
 
-  const [{ data: roadmaps, error: roadmapError }, { data: milestones, error: milestoneError }] = await Promise.all([
+  const [
+    { data: roadmaps, error: roadmapError },
+    { data: milestones, error: milestoneError },
+    { data: workSessions, error: workSessionError },
+  ] = await Promise.all([
     supabase
       .from("project_roadmaps")
       .select(
@@ -182,6 +235,14 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
       )
       .in("project_id", projectIds)
       .order("order_index", { ascending: true }),
+    supabase
+      .from("project_work_sessions")
+      .select(
+        "id, project_id, milestone_id, local_date, local_time, schedule_timezone, trigger_context, work_description, location, duration_minutes, completed_at, created_at",
+      )
+      .in("project_id", projectIds)
+      .order("local_date", { ascending: true })
+      .order("local_time", { ascending: true }),
   ]);
 
   if (roadmapError) {
@@ -192,8 +253,13 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
     throw new Error(`Failed to fetch calendar milestones: ${milestoneError.message}`);
   }
 
+  if (workSessionError) {
+    throw new Error(`Failed to fetch planned work sessions: ${workSessionError.message}`);
+  }
+
   const roadmapByProjectId = new Map((roadmaps ?? []).map((roadmap) => [roadmap.project_id, roadmap]));
   const milestonesByProjectId = groupByProjectId(milestones ?? []);
+  const workSessionsByProjectId = groupByProjectId(workSessions ?? []);
   const calendarProjects = (projects ?? [])
     .filter((project) => roadmapByProjectId.has(project.id))
     .map((project) => {
@@ -208,6 +274,10 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
         milestones: milestonesByProjectId[project.id] ?? [],
         today,
       });
+      const sessionViews = buildWorkSessionViews({
+        sessions: workSessionsByProjectId[project.id] ?? [],
+        milestones: milestoneViews,
+      });
       const scheduleState: ProjectScheduleState = {
         projectId: project.id,
         projectTitle: project.title,
@@ -219,6 +289,7 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
         scheduleGenerationSource: asScheduleSource(roadmap.schedule_generation_source),
         lastScheduleRebalancedAt: roadmap.last_schedule_rebalanced_at,
         milestones: milestoneViews,
+        workSessions: sessionViews,
       };
 
       return {
@@ -267,7 +338,12 @@ export async function getProjectScheduleGenerationContext(
     throw new Error(projectError?.message ?? "Project not found.");
   }
 
-  const [{ data: roadmap, error: roadmapError }, { data: milestones, error: milestoneError }, { data: recommendation, error: recommendationError }] =
+  const [
+    { data: roadmap, error: roadmapError },
+    { data: milestones, error: milestoneError },
+    { data: recommendation, error: recommendationError },
+    { data: workSessions, error: workSessionError },
+  ] =
     await Promise.all([
       supabase
         .from("project_roadmaps")
@@ -288,6 +364,14 @@ export async function getProjectScheduleGenerationContext(
         .select("estimated_weeks, weekly_hours")
         .eq("id", project.recommendation_id)
         .single(),
+      supabase
+        .from("project_work_sessions")
+        .select(
+          "id, project_id, milestone_id, local_date, local_time, schedule_timezone, trigger_context, work_description, location, duration_minutes, completed_at, created_at",
+        )
+        .eq("project_id", projectId)
+        .order("local_date", { ascending: true })
+        .order("local_time", { ascending: true }),
     ]);
 
   if (roadmapError || !roadmap) {
@@ -302,6 +386,16 @@ export async function getProjectScheduleGenerationContext(
     throw new Error(recommendationError?.message ?? "Recommendation not found.");
   }
 
+  if (workSessionError) {
+    throw new Error(`Failed to fetch planned work sessions: ${workSessionError.message}`);
+  }
+
+  const milestoneViews = buildMilestoneViews({
+    projectId,
+    milestones: milestones ?? [],
+    today: getTodayDateString(roadmap.schedule_timezone ?? "UTC"),
+  });
+
   return {
     projectId: project.id,
     projectTitle: project.title,
@@ -314,10 +408,10 @@ export async function getProjectScheduleGenerationContext(
     lastScheduleRebalancedAt: roadmap.last_schedule_rebalanced_at,
     estimatedWeeks: recommendation.estimated_weeks,
     weeklyHours: recommendation.weekly_hours,
-    milestones: buildMilestoneViews({
-      projectId,
-      milestones: milestones ?? [],
-      today: getTodayDateString(roadmap.schedule_timezone ?? "UTC"),
+    milestones: milestoneViews,
+    workSessions: buildWorkSessionViews({
+      sessions: workSessions ?? [],
+      milestones: milestoneViews,
     }),
   };
 }

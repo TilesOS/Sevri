@@ -10,7 +10,9 @@ import { buildMilestoneInsert, buildRoadmapStorageArtifacts, coerceStoredProject
 import { normalizeTimeZone } from "@/lib/calendar/date-utils";
 import { generateProjectSchedule } from "@/lib/calendar/schedule";
 import { clearProjectSchedule, persistProjectSchedule } from "@/lib/db/mutations/calendar";
+import { getProjectScheduleGenerationContext } from "@/lib/db/queries/calendar";
 import { getRoadmapFeedback } from "@/lib/db/queries/generation-feedback";
+import { syncProjectToGoogleCalendar } from "@/lib/integrations/google-calendar/sync";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 import { sendEmail } from "@/lib/email/resend";
@@ -252,6 +254,20 @@ export async function POST(request: Request) {
         client: supabase,
       });
       scheduleReady = true;
+
+      stage = "google-calendar-sync";
+      const refreshedProject = await getProjectScheduleGenerationContext(project.id, user.id);
+      await syncProjectToGoogleCalendar({
+        userId: user.id,
+        project: refreshedProject,
+      }).catch((syncError) => {
+        captureServerError(syncError, {
+          route: "ai/roadmap",
+          stage: "google-calendar-sync",
+          project_id: project.id,
+          roadmap_id: roadmap.id,
+        });
+      });
     } catch (scheduleError) {
       console.error("roadmap schedule failed", { stage, error: scheduleError });
       captureServerError(scheduleError, {

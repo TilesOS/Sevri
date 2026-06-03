@@ -1,12 +1,21 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireApiStudent } from "@/lib/auth/api";
-import { isDateString, normalizeTimeZone } from "@/lib/calendar/date-utils";
+import { compareDateStrings, isDateString, normalizeTimeZone } from "@/lib/calendar/date-utils";
+import {
+  getDeadlineExtensionDecision,
+  getDeadlineExtensionReviewTarget,
+  type DeadlineExtensionEventInput,
+  type DeadlineExtensionItemType,
+} from "@/lib/calendar/deadline-extension";
 import { buildProjectCalendarItems } from "@/lib/calendar/items";
 import { applyMoveOnly, applyRebalanceDownstream } from "@/lib/calendar/schedule";
 import { persistProjectSchedulePatch } from "@/lib/db/mutations/calendar";
 import { getProjectScheduleGenerationContext } from "@/lib/db/queries/calendar";
+import { syncProjectToGoogleCalendar } from "@/lib/integrations/google-calendar/sync";
 import { captureServerError } from "@/lib/sentry/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+import type { ProjectScheduleState } from "@/lib/calendar/types";
 
 const bodySchema = z.object({
   itemType: z.enum(["project_start", "milestone", "project_end"]),
@@ -14,7 +23,70 @@ const bodySchema = z.object({
   targetDate: z.string(),
   mode: z.enum(["move_only", "rebalance_downstream"]),
   timezone: z.string().min(1).max(120).optional(),
+  deadlineExtensionConfirmed: z.boolean().optional(),
 });
+
+function getCurrentDeadline(input: {
+  project: ProjectScheduleState;
+  itemType: "milestone" | "project_end";
+  milestoneId?: string | null;
+}) {
+  if (input.itemType === "project_end") {
+    return input.project.scheduledEndDate;
+  }
+
+  if (!input.milestoneId) {
+    throw new Error("milestoneId is required when moving a step due date.");
+  }
+
+  return input.project.milestones.find((milestone) => milestone.id === input.milestoneId)?.dueDate ?? null;
+}
+
+async function getDeadlineExtensionHistory(input: {
+  userId: string;
+  projectId: string;
+  itemType: DeadlineExtensionItemType;
+  milestoneId: string | null;
+}) {
+  const supabase = await createServerSupabaseClient();
+  let query = supabase
+    .from("deadline_extension_events")
+    .select("created_at", { count: "exact" })
+    .eq("user_id", input.userId)
+    .eq("project_id", input.projectId)
+    .eq("item_type", input.itemType);
+
+  query = input.milestoneId ? query.eq("milestone_id", input.milestoneId) : query.is("milestone_id", null);
+
+  const { data, error, count } = await query.order("created_at", { ascending: false }).limit(1);
+
+  if (error) {
+    throw new Error(`Failed to inspect deadline extension history: ${error.message}`);
+  }
+
+  return {
+    extensionCount: count ?? 0,
+    latestExtensionCreatedAt: data?.[0]?.created_at ?? null,
+  };
+}
+
+async function recordDeadlineExtensionEvent(input: DeadlineExtensionEventInput) {
+  const supabase = await createServerSupabaseClient();
+  const { error } = await supabase.from("deadline_extension_events").insert({
+    user_id: input.userId,
+    project_id: input.projectId,
+    milestone_id: input.milestoneId,
+    item_type: input.itemType,
+    previous_date: input.previousDate,
+    requested_date: input.requestedDate,
+    move_mode: input.moveMode,
+    extension_number: input.extensionNumber,
+  });
+
+  if (error) {
+    throw new Error(`Failed to record deadline extension: ${error.message}`);
+  }
+}
 
 export async function PATCH(request: Request, context: { params: Promise<{ id: string }> }) {
   const { user, response } = await requireApiStudent();
@@ -52,7 +124,6 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       ...project,
       scheduleTimezone,
     };
-
     const nextState =
       body.mode === "move_only"
         ? applyMoveOnly({
@@ -67,6 +138,78 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
             milestoneId: body.milestoneId,
             targetDate: body.targetDate,
           });
+    const deadlineReviewTarget = getDeadlineExtensionReviewTarget({
+      itemType: body.itemType,
+      milestoneId: body.milestoneId ?? null,
+      targetDate: body.targetDate,
+      moveMode: body.mode,
+      nextScheduledEndDate: nextState.scheduledEndDate ?? project.scheduledEndDate,
+    });
+    let deadlineExtensionEvent: DeadlineExtensionEventInput | null = null;
+
+    if (deadlineReviewTarget) {
+      const currentDeadline = getCurrentDeadline({
+        project: projectWithTimezone,
+        itemType: deadlineReviewTarget.itemType,
+        milestoneId: deadlineReviewTarget.milestoneId,
+      });
+
+      if (!currentDeadline) {
+        return NextResponse.json({ error: "Scheduled due date not found." }, { status: 400 });
+      }
+
+      if (compareDateStrings(deadlineReviewTarget.requestedDate, currentDeadline) > 0) {
+        const history = await getDeadlineExtensionHistory({
+          userId: user.id,
+          projectId,
+          itemType: deadlineReviewTarget.itemType,
+          milestoneId: deadlineReviewTarget.milestoneId,
+        });
+        const decision = getDeadlineExtensionDecision({
+          currentDate: currentDeadline,
+          targetDate: deadlineReviewTarget.requestedDate,
+          history,
+          confirmed: body.deadlineExtensionConfirmed === true,
+          timeZone: scheduleTimezone,
+        });
+
+        if (decision.status === "confirmation_required") {
+          return NextResponse.json(
+            {
+              code: "deadline_extension_confirmation_required",
+              extension_number: decision.extensionNumber,
+              message: decision.message,
+            },
+            { status: 409 },
+          );
+        }
+
+        if (decision.status === "cooldown_active") {
+          return NextResponse.json(
+            {
+              code: "deadline_extension_cooldown_active",
+              extension_number: decision.extensionNumber,
+              cooldown_ends_at: decision.cooldownEndsAt,
+              message: decision.message,
+            },
+            { status: 429 },
+          );
+        }
+
+        if (decision.status === "allowed") {
+          deadlineExtensionEvent = {
+            userId: user.id,
+            projectId,
+            itemType: deadlineReviewTarget.itemType,
+            milestoneId: deadlineReviewTarget.milestoneId,
+            previousDate: currentDeadline,
+            requestedDate: deadlineReviewTarget.requestedDate,
+            moveMode: body.mode,
+            extensionNumber: decision.extensionNumber,
+          };
+        }
+      }
+    }
 
     await persistProjectSchedulePatch({
       projectId,
@@ -78,7 +221,22 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       milestoneUpdates: nextState.milestones,
     });
 
+    if (deadlineExtensionEvent) {
+      await recordDeadlineExtensionEvent(deadlineExtensionEvent);
+    }
+
     const refreshed = await getProjectScheduleGenerationContext(projectId, user.id);
+    await syncProjectToGoogleCalendar({
+      userId: user.id,
+      project: refreshed,
+    }).catch((syncError) => {
+      captureServerError(syncError, {
+        route: "projects/calendar/items",
+        step: "google-calendar-sync",
+        project_id: projectId,
+      });
+    });
+
     return NextResponse.json(
       {
         project: refreshed,

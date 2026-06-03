@@ -3,10 +3,10 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { ProgressBar } from "@/components/ui/progress-bar";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { ReviewersCard } from "@/components/reviewer/reviewers-card";
 import { GithubOverviewCard } from "@/components/project/github-overview-card";
+import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
@@ -106,12 +106,7 @@ export function ProjectOverviewView({
 
           <NextActionPanel action={workspace.nextStepAction} />
 
-          <ProgressBar
-            value={workspace.completionPercent}
-            label="Progress through the roadmap"
-            helperText={`${workspace.completedCount} of ${workspace.milestones.length} milestones complete`}
-            className="[&_.text-ink]:text-paper [&_.text-ink-muted]:text-paper/55"
-          />
+          <ProjectProgressTracker progress={workspace.progress} contrast />
         </div>
       </div>
 

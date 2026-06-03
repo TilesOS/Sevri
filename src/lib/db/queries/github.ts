@@ -4,7 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export interface UserIntegrationRow {
   id: string;
   user_id: string;
-  provider: "github";
+  provider: "github" | "google_calendar";
   access_token_encrypted: Buffer;
   refresh_token_encrypted: Buffer | null;
   token_expires_at: string | null;
@@ -18,7 +18,7 @@ export interface UserIntegrationRow {
 
 export interface UserIntegrationPublicRow {
   id: string;
-  provider: "github";
+  provider: "github" | "google_calendar";
   scopes: string[];
   provider_user_id: string;
   provider_username: string;
@@ -65,7 +65,7 @@ function decodeBytea(value: unknown): Buffer | null {
 
 export async function getUserIntegrationPublic(
   userId: string,
-  provider: "github",
+  provider: "github" | "google_calendar",
 ): Promise<UserIntegrationPublicRow | null> {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
@@ -87,7 +87,7 @@ export async function getUserIntegrationPublic(
 // and decryption only happens inside the integration client module.
 export async function getUserIntegrationWithToken(
   userId: string,
-  provider: "github",
+  provider: "github" | "google_calendar",
 ): Promise<UserIntegrationRow | null> {
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
@@ -111,7 +111,7 @@ export async function getUserIntegrationWithToken(
   return {
     id: row.id as string,
     user_id: row.user_id as string,
-    provider: row.provider as "github",
+    provider: row.provider as "github" | "google_calendar",
     access_token_encrypted: accessToken,
     refresh_token_encrypted: decodeBytea(row.refresh_token_encrypted),
     token_expires_at: (row.token_expires_at as string | null) ?? null,

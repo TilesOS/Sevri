@@ -3,6 +3,7 @@ import { deriveUrgencyState } from "@/lib/calendar/urgency";
 import type {
   CalendarCompletionState,
   CalendarDisplayItem,
+  CalendarWorkSession,
   ProjectScheduleState,
   ScheduleMilestoneInput,
 } from "@/lib/calendar/types";
@@ -27,6 +28,38 @@ function buildProjectBoundaryDescription(input: {
   date: string;
 }) {
   return `${input.projectTitle} - ${input.label} on ${input.date}.`;
+}
+
+function formatSessionTime(value: string) {
+  const [hourPart, minutePart] = value.split(":");
+  const hour = Number.parseInt(hourPart ?? "", 10);
+  const minute = Number.parseInt(minutePart ?? "", 10);
+
+  if (!Number.isInteger(hour) || !Number.isInteger(minute)) {
+    return value;
+  }
+
+  const suffix = hour >= 12 ? "PM" : "AM";
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${displayHour}:${String(minute).padStart(2, "0")} ${suffix}`;
+}
+
+function buildWorkSessionTitle(session: CalendarWorkSession) {
+  return `${session.durationMinutes} min: ${session.workDescription}`;
+}
+
+function buildWorkSessionDescription(input: {
+  projectTitle: string;
+  session: CalendarWorkSession;
+}) {
+  const context = input.session.triggerContext.trim();
+  const location = input.session.location?.trim();
+  const stepLabel = input.session.stepNumber ? ` Step ${input.session.stepNumber}.` : "";
+  const when = `${input.session.date} at ${formatSessionTime(input.session.startTime)}`;
+  const contextPhrase = context ? `, ${context}` : "";
+  const locationPhrase = location ? ` at ${location}` : "";
+
+  return `${input.projectTitle} - When ${when}${contextPhrase}, I will spend ${input.session.durationMinutes} min on ${input.session.workDescription}${locationPhrase}.${stepLabel}`;
 }
 
 function getProjectEndStatus(input: {
@@ -148,8 +181,46 @@ export function buildProjectCalendarItems(input: {
     });
   }
 
+  input.project.workSessions.forEach((session) => {
+    const title = buildWorkSessionTitle(session);
+    items.push({
+      id: session.id,
+      projectId: input.project.projectId,
+      projectTitle: input.project.projectTitle,
+      projectTrack: input.project.projectTrack,
+      itemType: "work_session",
+      title,
+      date: session.date,
+      status: session.completedAt ? "complete" : "not_started",
+      urgency: deriveUrgencyState({
+        completed: Boolean(session.completedAt),
+        date: session.date,
+        today,
+      }),
+      stepNumber: session.stepNumber,
+      startTime: session.startTime,
+      scheduleTimezone: session.scheduleTimezone,
+      durationMinutes: session.durationMinutes,
+      triggerContext: session.triggerContext,
+      workDescription: session.workDescription,
+      location: session.location,
+      isUserScheduledOverride: false,
+      href: session.stepNumber
+        ? `/project/${input.project.projectId}/steps/${session.stepNumber}`
+        : `/project/${input.project.projectId}`,
+      description: buildWorkSessionDescription({
+        projectTitle: input.project.projectTitle,
+        session,
+      }),
+    });
+  });
+
   return items.sort((left, right) => {
     if (left.date === right.date) {
+      if ((left.startTime ?? "") !== (right.startTime ?? "")) {
+        return (left.startTime ?? "").localeCompare(right.startTime ?? "");
+      }
+
       if (left.itemType === right.itemType) {
         return left.title.localeCompare(right.title);
       }
