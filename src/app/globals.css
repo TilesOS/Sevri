@@ -14,13 +14,13 @@
   --color-primary-soft: rgba(255, 107, 76, 0.10);
   --color-primary-line: rgba(255, 107, 76, 0.28);
 
-  /* Warm cream surfaces (light base) */
-  --canvas: #FBF6E9;
-  --paper: #FFFDE2;
-  --surface: #F3ECD9;
+  /* Warm cream surfaces (light base) — warmer canvas + dimmed cards so they mesh */
+  --canvas: #F4EBD1;
+  --paper: #FBF4E1;
+  --surface: #F0E7CF;
   --surface-strong: #E7DDC7;
-  --surface-mint: #EEF7F2;   /* faint teal-tinted panel */
-  --surface-butter: #FFF9E8;
+  --surface-mint: #E9F2EA;   /* faint teal-tinted panel */
+  --surface-butter: #FCF6E4;
 
   /* Lines */
   --line: #E7DDC7;
@@ -57,9 +57,9 @@
 
   /* RGB channel triples — let Tailwind apply <alpha-value> (e.g. text-cream/70).
      The hex vars above stay for direct CSS/inline use. */
-  --canvas-rgb: 251 246 233;
-  --paper-rgb: 255 253 226;
-  --surface-rgb: 243 236 217;
+  --canvas-rgb: 244 235 209;
+  --paper-rgb: 251 244 225;
+  --surface-rgb: 240 231 207;
   --surface-strong-rgb: 231 221 199;
   --line-rgb: 231 221 199;
   --line-strong-rgb: 214 201 172;
@@ -79,8 +79,8 @@
   --contrast-soft-rgb: 16 38 92;
 
   /* Aliases for recipe classes */
-  --paper-card: #FFFDE2;
-  --paper-soft: #F3ECD9;
+  --paper-card: #FBF4E1;
+  --paper-soft: #F0E7CF;
 
   /* Interaction — soft diffuse shadows (premium, not brutalist offset) */
   --focus-ring: rgba(255, 107, 76, 0.38);
@@ -101,6 +101,21 @@
   width: 0;
   height: 0;
   display: none;
+}
+
+/* ── Lenis smooth scroll ── */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
 }
 
 @layer base {

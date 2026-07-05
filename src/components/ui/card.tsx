@@ -6,11 +6,11 @@ type CardPadding = "none" | "sm" | "md" | "lg";
 type CardElevation = "none" | "soft" | "lifted";
 
 const toneClassName: Record<CardTone, string> = {
-  default: "border border-line bg-paper text-ink",
-  subtle: "border border-line bg-surface text-ink",
-  blush: "border border-primary-line bg-primary-soft text-ink",
-  primary: "border border-primary-line bg-primary-soft text-ink",
-  butter: "border border-line bg-surface-butter text-ink",
+  default: "bg-paper text-ink",
+  subtle: "bg-surface text-ink",
+  blush: "bg-primary-soft text-ink",
+  primary: "bg-primary-soft text-ink",
+  butter: "bg-surface-butter text-ink",
   contrast: "border border-contrast-line bg-navy text-cream",
 };
 

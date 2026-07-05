@@ -23,7 +23,7 @@ export function ExpandableCard({ num, numColor, title, body, more }: ExpandableC
       whileHover={{ y: -6 }}
       whileTap={{ scale: 0.985 }}
       transition={{ type: "spring", stiffness: 320, damping: 26 }}
-      className="group flex h-full w-full flex-col rounded-2xl border border-line bg-paper p-8 text-left shadow-soft transition-shadow duration-200 hover:shadow-lifted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
+      className="group flex h-full w-full flex-col rounded-2xl bg-paper p-8 text-left shadow-soft transition-shadow duration-200 hover:shadow-lifted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
     >
       <span className="font-display text-5xl leading-none" style={{ color: numColor }}>
         {num}

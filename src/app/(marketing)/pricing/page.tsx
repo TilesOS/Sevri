@@ -59,7 +59,7 @@ export default function PricingPage() {
 
         <div className="mx-auto grid max-w-4xl gap-5 lg:grid-cols-2">
           <Reveal>
-            <div className="flex h-full flex-col rounded-3xl border border-line bg-paper p-8 shadow-soft">
+            <div className="flex h-full flex-col rounded-3xl bg-paper p-8 shadow-soft">
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Free</p>
               <div className="mt-4 flex items-end gap-1.5">
                 <span className="font-display text-5xl text-ink">$0</span>

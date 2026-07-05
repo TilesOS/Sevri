@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Container } from "@/components/shared/container";
+import { Reveal } from "@/components/ui/reveal";
 import { cn } from "@/lib/utils";
 
 type SectionTone = "default" | "contrast" | "blush" | "butter";
@@ -36,7 +37,7 @@ export function Section({
     <section className={cn("py-16 sm:py-20", toneClassName[tone], className)}>
       <Container className={cn("space-y-10", containerClassName)}>
         {eyebrow || title || description || actions ? (
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <Reveal className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl space-y-3">
               {eyebrow ? (
                 <p className={cn("editorial-kicker", tone === "contrast" && "text-cream/60")}>{eyebrow}</p>
@@ -63,7 +64,7 @@ export function Section({
               ) : null}
             </div>
             {actions ? <div className="shrink-0">{actions}</div> : null}
-          </div>
+          </Reveal>
         ) : null}
         {children}
       </Container>
