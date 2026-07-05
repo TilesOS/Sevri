@@ -2,47 +2,33 @@ import type { ReactNode } from "react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container } from "@/components/shared/container";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
       <MarketingNav />
       <main className="flex-1 py-10 sm:py-16">
-        <Container className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-center">
-          <Card tone="contrast" className="contrast-grid relative overflow-hidden" style={{ boxShadow: '6px 6px 0 var(--cyan)' }}>
-            <div className="absolute inset-x-8 top-8 h-px bg-paper/10" aria-hidden="true" />
-            <div className="relative space-y-8 p-8 sm:p-10">
-              <Badge tone="accent">Premium workspace</Badge>
-              <div className="space-y-4">
-                <h1 className="font-display text-4xl leading-none text-paper sm:text-5xl">
-                  Build a project story that feels earned.
-                </h1>
-                <p className="max-w-xl text-base leading-7 text-paper/72">
-                  Sevri gives ambitious students a cleaner path from first idea to finished software or research work
-                  that can stand up in applications, interviews, and portfolios.
+        <Container className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
+          <div className="relative hidden overflow-hidden rounded-3xl bg-navy p-10 text-cream lg:flex">
+            <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-45" />
+            <div
+              className="pointer-events-none absolute inset-0"
+              style={{ background: "radial-gradient(120% 90% at 50% 0%, transparent 40%, rgba(5,18,54,0.7) 100%)" }}
+            />
+            <div className="relative z-10 flex flex-col justify-between">
+              <span className="font-serif text-3xl italic text-cream/80">Sevri</span>
+              <div className="space-y-5">
+                <h2 className="font-display text-4xl leading-tight sm:text-5xl">
+                  A project story that feels earned.
+                </h2>
+                <p className="max-w-md text-lg leading-8 text-cream/70">
+                  From first idea to finished software or research — scoped to something you can actually finish.
                 </p>
               </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="rounded-xl border border-contrast-line bg-paper/6 p-4" style={{ borderTop: '3px solid var(--cyan)' }}>
-                  <p className="text-sm font-semibold text-paper">Software path</p>
-                  <p className="mt-2 text-sm leading-6 text-paper/72">
-                    Pick a target user, define the problem, and ship an experience with a believable scope.
-                  </p>
-                </div>
-                <div className="rounded-xl border border-contrast-line bg-paper/6 p-4" style={{ borderTop: '3px solid var(--yellow)' }}>
-                  <p className="text-sm font-semibold text-paper">Research path</p>
-                  <p className="mt-2 text-sm leading-6 text-paper/72">
-                    Translate curiosity into a research question, methodology, and evidence plan you can actually carry out.
-                  </p>
-                </div>
-              </div>
             </div>
-          </Card>
+          </div>
 
-          <div className="w-full">{children}</div>
+          <div className="w-full self-center">{children}</div>
         </Container>
       </main>
       <MarketingFooter />

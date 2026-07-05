@@ -6,12 +6,12 @@ type CardPadding = "none" | "sm" | "md" | "lg";
 type CardElevation = "none" | "soft" | "lifted";
 
 const toneClassName: Record<CardTone, string> = {
-  default: "border-2 border-ink bg-paper text-ink",
-  subtle: "border-2 border-line bg-surface/70 text-ink",
-  blush: "border-2 border-primary-line bg-primary-soft text-ink",
-  primary: "border-2 border-primary-line bg-primary-soft text-ink",
-  butter: "border-2 border-primary-line bg-primary-soft text-ink",
-  contrast: "contrast-grid border-2 border-contrast-line bg-contrast text-paper",
+  default: "border border-line bg-paper text-ink",
+  subtle: "border border-line bg-surface text-ink",
+  blush: "border border-primary-line bg-primary-soft text-ink",
+  primary: "border border-primary-line bg-primary-soft text-ink",
+  butter: "border border-line bg-surface-butter text-ink",
+  contrast: "border border-contrast-line bg-navy text-cream",
 };
 
 const paddingClassName: Record<CardPadding, string> = {
@@ -43,7 +43,7 @@ export function Card({
   return (
     <div
       className={cn(
-        "rounded-md",
+        "rounded-2xl",
         toneClassName[tone],
         paddingClassName[padding],
         elevationClassName[elevation],

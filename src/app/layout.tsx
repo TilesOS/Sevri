@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Archivo_Black, Caveat, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Archivo, Caveat, Instrument_Serif, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import { MotionProvider } from "@/components/theme/motion-provider";
 import "@/app/globals.css";
 
@@ -23,10 +23,16 @@ const sans = Plus_Jakarta_Sans({
   variable: "--font-sans",
 });
 
-const display = Archivo_Black({
+const display = Archivo({
   subsets: ["latin"],
   variable: "--font-display",
+});
+
+const serif = Instrument_Serif({
+  subsets: ["latin"],
+  variable: "--font-serif",
   weight: "400",
+  style: ["normal", "italic"],
 });
 
 const mono = JetBrains_Mono({
@@ -47,7 +53,7 @@ export default function RootLayout({
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${sans.variable} ${display.variable} ${mono.variable} ${hand.variable}`}>
+    <html lang="en" className={`${sans.variable} ${display.variable} ${serif.variable} ${mono.variable} ${hand.variable}`}>
       <body className="app-shell min-h-screen">
         <MotionProvider>
           {children}

@@ -6,7 +6,7 @@ type SectionTone = "default" | "contrast" | "blush" | "butter";
 
 const toneClassName: Record<SectionTone, string> = {
   default: "",
-  contrast: "bg-contrast text-paper",
+  contrast: "bg-navy text-cream",
   blush: "bg-surface-mint",
   butter: "bg-surface-butter",
 };
@@ -39,15 +39,25 @@ export function Section({
           <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl space-y-3">
               {eyebrow ? (
-                <p className={cn("editorial-kicker", tone === "contrast" && "text-paper/70")}>{eyebrow}</p>
+                <p className={cn("editorial-kicker", tone === "contrast" && "text-cream/60")}>{eyebrow}</p>
               ) : null}
               {title ? (
-                <h2 className={cn("font-display text-4xl leading-none sm:text-5xl", tone === "contrast" && "text-paper")}>
+                <h2
+                  className={cn(
+                    "font-display text-4xl leading-[1.02] tracking-tight sm:text-5xl",
+                    tone === "contrast" ? "text-cream" : "text-ink",
+                  )}
+                >
                   {title}
                 </h2>
               ) : null}
               {description ? (
-                <p className={cn("max-w-2xl text-base leading-7 text-ink-soft", tone === "contrast" && "text-paper/72")}>
+                <p
+                  className={cn(
+                    "max-w-2xl text-base leading-7",
+                    tone === "contrast" ? "text-cream/70" : "text-ink-soft",
+                  )}
+                >
                   {description}
                 </p>
               ) : null}
