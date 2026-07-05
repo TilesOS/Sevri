@@ -67,8 +67,8 @@ export function FadeIn({
       className={className}
       initial={{ opacity: 0, y }}
       whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.35 }}
-      transition={{ duration: 0.7, delay, ease: EASE }}
+      viewport={{ once: true, margin: "0px 0px -22% 0px" }}
+      transition={{ duration: 0.95, delay, ease: EASE }}
     >
       {children}
     </motion.div>

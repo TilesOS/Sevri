@@ -171,8 +171,8 @@ export default function HomePage() {
         </div>
       </Section>
 
-      {/* ── Scope discipline (dark moment, horizontal scroll marquee) ── */}
-      <section className="overflow-hidden bg-navy py-20 text-cream sm:py-28">
+      {/* ── Scope discipline (dark moment, infinite floating-card marquee) ── */}
+      <section className="overflow-hidden bg-navy-deep py-20 text-cream sm:py-28">
         <Container className="mb-12">
           <Reveal className="max-w-3xl space-y-3">
             <p className="editorial-kicker text-cream/60">Scope discipline</p>
