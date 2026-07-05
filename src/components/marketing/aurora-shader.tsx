@@ -12,10 +12,11 @@ import { MeshGradient } from "@paper-design/shaders-react";
 export default function AuroraShader() {
   return (
     <MeshGradient
+      className="absolute inset-0"
       colors={["#051236", "#0B1E4D", "#0B1E4D", "#5BD0D6", "#46D3C0", "#FF6B4C"]}
-      distortion={0.85}
-      swirl={0.12}
-      speed={0.28}
+      distortion={0.92}
+      swirl={0.16}
+      speed={0.42}
       grainOverlay={0.045}
       maxPixelCount={1_600_000}
       style={{ width: "100%", height: "100%" }}

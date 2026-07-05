@@ -1,5 +1,6 @@
 import { PLAN_LIMITS } from "@/lib/usage/limits";
 import { AuroraBackground } from "@/components/marketing/aurora-background";
+import { ExpandableCard } from "@/components/marketing/expandable-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
@@ -18,18 +19,21 @@ const steps = [
     num: "01",
     title: "Direction",
     body: "Tell Sevri what you're drawn to and how much time you have.",
+    more: "A short intake — no life story. Enough for Sevri to understand your interests, level, and constraints.",
     color: "var(--teal)",
   },
   {
     num: "02",
     title: "Comparison",
     body: "See three real options side by side, then choose with your eyes open.",
+    more: "Each option is ranked by effort and ambition, with the trade-offs made explicit before you commit.",
     color: "var(--coral)",
   },
   {
     num: "03",
     title: "Execution",
     body: "Turn your pick into a roadmap and move through it, milestone by milestone.",
+    more: "Milestones, deliverables, and pitfalls stay visible so scope creep never quietly kills the project.",
     color: "var(--pale-blue)",
   },
 ];
@@ -53,10 +57,10 @@ const faqs = [
 export default function HomePage() {
   return (
     <>
-      {/* ── Hero (dark "moment" + aurora shader) ── */}
-      <section className="relative isolate overflow-hidden bg-navy-deep text-cream">
+      {/* ── Hero (dark "moment" + aurora shader) — pulled up under the fixed nav ── */}
+      <section className="relative isolate -mt-20 overflow-hidden bg-navy-deep text-cream">
         <AuroraBackground />
-        <div className="relative z-10 mx-auto w-full max-w-editorial px-5 py-28 sm:px-8 sm:py-36 lg:py-44">
+        <div className="relative z-10 mx-auto w-full max-w-editorial px-5 pb-28 pt-36 sm:px-8 sm:pb-36 sm:pt-44 lg:pb-44 lg:pt-52">
           <Reveal className="mx-auto max-w-3xl text-center">
             <p className="font-serif text-xl italic text-cream/70">Project-to-portfolio coaching</p>
             <h1 className="mt-5 font-display text-5xl leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
@@ -93,14 +97,14 @@ export default function HomePage() {
       <Section eyebrow="How it works" title="Three steps. No detours.">
         <div className="grid gap-5 lg:grid-cols-3">
           {steps.map((step, index) => (
-            <Reveal key={step.title} delay={index * 0.08}>
-              <Card padding="lg" elevation="soft" className="h-full">
-                <span className="font-display text-5xl leading-none" style={{ color: step.color }}>
-                  {step.num}
-                </span>
-                <h3 className="mt-6 text-2xl font-semibold text-ink">{step.title}</h3>
-                <p className="mt-2 text-base leading-7 text-ink-soft">{step.body}</p>
-              </Card>
+            <Reveal key={step.title} delay={index * 0.08} className="h-full">
+              <ExpandableCard
+                num={step.num}
+                numColor={step.color}
+                title={step.title}
+                body={step.body}
+                more={step.more}
+              />
             </Reveal>
           ))}
         </div>
@@ -110,7 +114,7 @@ export default function HomePage() {
       <Section eyebrow="Two tracks" title="Build something, or study something.">
         <div className="grid gap-5 lg:grid-cols-2">
           <Reveal>
-            <Card padding="lg" elevation="soft" className="h-full">
+            <Card padding="lg" elevation="soft" className="h-full transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lifted">
               <span className="font-serif text-2xl italic text-teal-deep">Software</span>
               <h3 className="mt-3 text-3xl font-semibold leading-tight text-ink">
                 Something another person can actually use.
@@ -123,7 +127,7 @@ export default function HomePage() {
             </Card>
           </Reveal>
           <Reveal delay={0.1}>
-            <Card padding="lg" elevation="soft" className="h-full">
+            <Card padding="lg" elevation="soft" className="h-full transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lifted">
               <span className="font-serif text-2xl italic text-coral">Research</span>
               <h3 className="mt-3 text-3xl font-semibold leading-tight text-ink">
                 A question with a believable method.

@@ -44,7 +44,7 @@ const proFeatures = [
 export default function PricingPage() {
   return (
     <>
-      <Section className="pt-20">
+      <Section className="pt-10">
         <div className="mx-auto mb-12 max-w-2xl text-center">
           <p className="font-serif text-xl italic text-coral">Pricing</p>
           <h1 className="mt-3 font-display text-5xl leading-[0.95] tracking-tight text-ink sm:text-6xl">

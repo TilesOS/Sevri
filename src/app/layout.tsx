@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Archivo, Caveat, Instrument_Serif, JetBrains_Mono, Plus_Jakarta_Sans } from "next/font/google";
+import { Archivo, Caveat, Instrument_Serif, JetBrains_Mono, Schibsted_Grotesk } from "next/font/google";
 import { MotionProvider } from "@/components/theme/motion-provider";
 import "@/app/globals.css";
 
@@ -18,7 +18,7 @@ export const metadata: Metadata = {
   },
 };
 
-const sans = Plus_Jakarta_Sans({
+const sans = Schibsted_Grotesk({
   subsets: ["latin"],
   variable: "--font-sans",
 });
