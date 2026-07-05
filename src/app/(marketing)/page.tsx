@@ -1,6 +1,10 @@
 import { PLAN_LIMITS } from "@/lib/usage/limits";
 import { AuroraBackground } from "@/components/marketing/aurora-background";
 import { ExpandableCard } from "@/components/marketing/expandable-card";
+import { FaqAccordion } from "@/components/marketing/faq-accordion";
+import { ScopeMarquee } from "@/components/marketing/scope-marquee";
+import { HeroScrollFade } from "@/components/marketing/scroll-motion";
+import { Container } from "@/components/shared/container";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
@@ -38,6 +42,14 @@ const steps = [
   },
 ];
 
+const scopeCards = [
+  { k: "Compare", v: "Three directions, ranked by effort and ambition — so you choose deliberately." },
+  { k: "Coach", v: "Milestones and pitfalls stay visible, so you know what to protect and what to cut." },
+  { k: "Prove", v: "The finished work says something specific about your judgment, not just your effort." },
+  { k: "Trim", v: "Cut scope before it cuts you — every roadmap is sized to something you can finish." },
+  { k: "Ship", v: "A shipped first version beats a perfect plan. Sevri keeps momentum over polish." },
+];
+
 const faqs = [
   {
     question: "Is this just another idea generator?",
@@ -57,10 +69,10 @@ const faqs = [
 export default function HomePage() {
   return (
     <>
-      {/* ── Hero (dark "moment" + aurora shader) — pulled up under the fixed nav ── */}
-      <section className="relative isolate -mt-20 overflow-hidden bg-navy-deep text-cream">
+      {/* ── Hero (dark "moment" + aurora shader) — fills the viewport under the fixed nav ── */}
+      <section className="relative isolate -mt-20 flex min-h-[100svh] items-center overflow-hidden bg-navy-deep text-cream">
         <AuroraBackground />
-        <div className="relative z-10 mx-auto w-full max-w-editorial px-5 pb-28 pt-36 sm:px-8 sm:pb-36 sm:pt-44 lg:pb-44 lg:pt-52">
+        <HeroScrollFade className="relative z-10 mx-auto w-full max-w-editorial px-5 py-32 pt-40 sm:px-8">
           <Reveal className="mx-auto max-w-3xl text-center">
             <p className="font-serif text-xl italic text-cream/70">Project-to-portfolio coaching</p>
             <h1 className="mt-5 font-display text-5xl leading-[0.95] tracking-tight sm:text-6xl lg:text-7xl">
@@ -90,12 +102,12 @@ export default function HomePage() {
               ))}
             </div>
           </Reveal>
-        </div>
+        </HeroScrollFade>
       </section>
 
       {/* ── How it works ── */}
       <Section eyebrow="How it works" title="Three steps. No detours.">
-        <div className="grid gap-5 lg:grid-cols-3">
+        <div className="grid items-start gap-5 lg:grid-cols-3">
           {steps.map((step, index) => (
             <Reveal key={step.title} delay={index * 0.08} className="h-full">
               <ExpandableCard
@@ -142,37 +154,22 @@ export default function HomePage() {
         </div>
       </Section>
 
-      {/* ── Scope discipline (dark moment) ── */}
-      <Section tone="contrast" eyebrow="Scope discipline" title="The project that ships beats the one that stalls.">
-        <div className="grid gap-5 lg:grid-cols-3">
-          {[
-            { k: "Compare", v: "Three directions, ranked by effort and ambition — so you choose deliberately." },
-            { k: "Coach", v: "Milestones and pitfalls stay visible, so you know what to protect and what to cut." },
-            { k: "Prove", v: "The finished work says something specific about your judgment, not just your effort." },
-          ].map((item, index) => (
-            <Reveal key={item.k} delay={index * 0.08}>
-              <div className="h-full rounded-2xl border border-cream/12 bg-cream/[0.04] p-7">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cream/45">{item.k}</p>
-                <p className="mt-3 text-xl font-medium leading-8 text-cream">{item.v}</p>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-      </Section>
+      {/* ── Scope discipline (dark moment, horizontal scroll marquee) ── */}
+      <section className="overflow-hidden bg-navy py-20 text-cream sm:py-28">
+        <Container className="mb-12">
+          <Reveal className="max-w-3xl space-y-3">
+            <p className="editorial-kicker text-cream/60">Scope discipline</p>
+            <h2 className="font-display text-4xl leading-[1.02] tracking-tight sm:text-5xl">
+              The project that ships beats the one that stalls.
+            </h2>
+          </Reveal>
+        </Container>
+        <ScopeMarquee items={scopeCards} />
+      </section>
 
       {/* ── FAQ ── */}
       <Section eyebrow="FAQ" title="Before you start.">
-        <div className="mx-auto max-w-3xl divide-y divide-line">
-          {faqs.map((faq) => (
-            <details key={faq.question} className="group py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold text-ink">
-                {faq.question}
-                <span className="text-coral transition-transform duration-200 group-open:rotate-45">+</span>
-              </summary>
-              <p className="mt-3 text-base leading-7 text-ink-soft">{faq.answer}</p>
-            </details>
-          ))}
-        </div>
+        <FaqAccordion items={faqs} />
       </Section>
 
       {/* ── Final CTA ── */}

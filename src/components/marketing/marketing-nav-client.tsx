@@ -78,14 +78,35 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
         )}
       >
         <Container className="flex h-20 items-center justify-between">
+          <Link
+            href="/"
+            onClick={() => setOpen(false)}
+            className={cn(
+              "font-serif text-[2rem] leading-none tracking-tight transition-colors duration-300",
+              lightText ? "text-cream" : "text-ink",
+            )}
+          >
+            Sevri
+          </Link>
+
           <div className="flex items-center gap-5 sm:gap-7">
+            <Link
+              href={signInHref}
+              className={cn(
+                "text-sm font-medium tracking-tight transition-colors duration-300 hover:opacity-70",
+                lightText ? "text-cream" : "text-ink",
+              )}
+            >
+              {signInLabel}
+            </Link>
+
             <button
               type="button"
               onClick={() => setOpen((v) => !v)}
               aria-expanded={open}
               aria-label={open ? "Close menu" : "Open menu"}
               className={cn(
-                "group flex items-center gap-2.5 text-sm font-medium transition-colors duration-300",
+                "group -mr-1 flex h-10 w-8 items-center justify-center transition-colors duration-300",
                 lightText ? "text-cream" : "text-ink",
               )}
             >
@@ -103,30 +124,8 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
                   )}
                 />
               </span>
-              <span className="tracking-tight">{open ? "Close" : "Menu"}</span>
             </button>
-
-            <Link
-              href="/"
-              onClick={() => setOpen(false)}
-              className={cn(
-                "font-serif text-[2rem] leading-none tracking-tight transition-colors duration-300",
-                lightText ? "text-cream" : "text-ink",
-              )}
-            >
-              Sevri
-            </Link>
           </div>
-
-          <Link
-            href={signInHref}
-            className={cn(
-              "text-sm font-medium tracking-tight transition-colors duration-300 hover:opacity-70",
-              lightText ? "text-cream" : "text-ink",
-            )}
-          >
-            {signInLabel}
-          </Link>
         </Container>
       </header>
 
@@ -138,12 +137,12 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.4, ease: EASE }}
-            className="fixed inset-0 z-40 overflow-hidden bg-canvas"
+            className="fixed inset-0 z-40 overflow-hidden bg-canvas/70 backdrop-blur-2xl"
           >
-            <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-60" />
+            <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-40" />
             <div
               className="pointer-events-none absolute inset-0"
-              style={{ background: "radial-gradient(120% 100% at 50% 0%, rgba(251,246,233,0.4), transparent 60%)" }}
+              style={{ background: "radial-gradient(120% 100% at 50% 0%, rgba(251,246,233,0.25), transparent 62%)" }}
             />
 
             <div className="relative z-10 flex h-full flex-col justify-center">

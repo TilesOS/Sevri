@@ -1,4 +1,5 @@
 import { PLAN_LIMITS } from "@/lib/usage/limits";
+import { FaqAccordion } from "@/components/marketing/faq-accordion";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
 import { Section } from "@/components/ui/section";
@@ -130,17 +131,7 @@ export default function PricingPage() {
       </Section>
 
       <Section eyebrow="FAQ" title="Common questions.">
-        <div className="mx-auto max-w-3xl divide-y divide-line">
-          {faqItems.map((faq) => (
-            <details key={faq.question} className="group py-5">
-              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-lg font-semibold text-ink">
-                {faq.question}
-                <span className="text-coral transition-transform duration-200 group-open:rotate-45">+</span>
-              </summary>
-              <p className="mt-3 text-base leading-7 text-ink-soft">{faq.answer}</p>
-            </details>
-          ))}
-        </div>
+        <FaqAccordion items={faqItems} />
       </Section>
     </>
   );

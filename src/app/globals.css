@@ -91,28 +91,16 @@
   --app-sidebar-width: 18.000rem;
 }
 
-/* ── Custom scrollbars (blend with cream theme) ── */
+/* ── Hidden scrollbars (scroll still works) ── */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background-color: var(--line-strong);
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background-color: var(--ink-muted);
-}
-::-webkit-scrollbar-corner {
-  background: transparent;
+  width: 0;
+  height: 0;
+  display: none;
 }
 
 @layer base {

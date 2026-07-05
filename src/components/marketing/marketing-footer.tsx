@@ -11,7 +11,7 @@ export function MarketingFooter() {
   ];
 
   return (
-    <footer className="mt-24 bg-navy text-cream">
+    <footer className="mt-24 overflow-hidden bg-navy text-cream">
       <Container className="grid gap-12 py-16 lg:grid-cols-[1.5fr_1fr] lg:items-start">
         <div className="space-y-6">
           <span className="font-serif text-4xl leading-none">Sevri</span>
@@ -50,11 +50,14 @@ export function MarketingFooter() {
         </div>
       </Container>
 
-      <div className="border-t border-cream/10">
-        <Container className="flex items-center justify-between py-6 text-xs text-cream/45">
-          <span>© {new Date().getFullYear()} Sevri</span>
-          <span>Scope small. Finish real.</span>
-        </Container>
+      {/* Oversized wordmark, dissolving + cut off at the very bottom edge */}
+      <div aria-hidden className="relative select-none px-4 sm:px-8">
+        <span
+          className="block bg-gradient-to-b from-cream to-transparent bg-clip-text font-display leading-none tracking-tighter text-transparent"
+          style={{ fontSize: "clamp(5.5rem, 27vw, 22rem)", transform: "translateY(0.14em)" }}
+        >
+          Sevri
+        </span>
       </div>
     </footer>
   );
