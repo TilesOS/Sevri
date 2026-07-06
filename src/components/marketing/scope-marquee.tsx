@@ -35,7 +35,7 @@ export function ScopeMarquee({ items }: { items: ScopeCard[] }) {
         {loop.map((item, i) => (
           <article
             key={i}
-            className="relative mr-6 flex h-64 w-[78vw] shrink-0 flex-col justify-end overflow-hidden rounded-2xl p-7 shadow-[0_24px_60px_rgba(0,0,0,0.55)] ring-1 ring-inset ring-white/[0.07] sm:h-72 sm:w-[360px]"
+            className="relative mr-6 flex h-64 w-[78vw] shrink-0 flex-col justify-end overflow-hidden rounded-2xl p-7 ring-1 ring-inset ring-white/[0.08] sm:h-72 sm:w-[360px]"
             style={{ background: item.grad }}
           >
             <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/75 via-navy-deep/10 to-transparent" />

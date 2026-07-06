@@ -4,6 +4,7 @@ import { ExpandableCard } from "@/components/marketing/expandable-card";
 import { FaqAccordion } from "@/components/marketing/faq-accordion";
 import { ScopeMarquee } from "@/components/marketing/scope-marquee";
 import { HeroScrollFade } from "@/components/marketing/scroll-motion";
+import { WordReveal } from "@/components/marketing/word-reveal";
 import { Container } from "@/components/shared/container";
 import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
@@ -105,7 +106,16 @@ export default function HomePage() {
       </section>
 
       {/* ── How it works ── */}
-      <Section eyebrow="How it works" title="Three steps. No detours.">
+      <Section>
+        <div className="max-w-3xl">
+          <Reveal>
+            <p className="editorial-kicker mb-3">How it works</p>
+          </Reveal>
+          <WordReveal
+            text="Three steps. No detours."
+            className="font-display text-4xl leading-[1.1] tracking-tight text-ink sm:text-5xl"
+          />
+        </div>
         <div className="grid items-start gap-5 lg:grid-cols-3">
           {steps.map((step, index) => (
             <Reveal key={step.title} delay={index * 0.08} className="h-full">
@@ -122,7 +132,16 @@ export default function HomePage() {
       </Section>
 
       {/* ── Two tracks (tinted feature cards — distinct from the step cards) ── */}
-      <Section eyebrow="Two tracks" title="Build something, or study something.">
+      <Section>
+        <div className="max-w-3xl">
+          <Reveal>
+            <p className="editorial-kicker mb-3">Two tracks</p>
+          </Reveal>
+          <WordReveal
+            text="Build something, or study something."
+            className="font-display text-4xl leading-[1.1] tracking-tight text-ink sm:text-5xl"
+          />
+        </div>
         <div className="grid gap-5 lg:grid-cols-2">
           <Reveal>
             <div className="group flex h-full flex-col justify-between rounded-3xl bg-surface-mint p-8 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lifted sm:p-10">
