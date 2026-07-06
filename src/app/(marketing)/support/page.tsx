@@ -6,40 +6,33 @@ import { Section } from "@/components/ui/section";
 export default function SupportPage() {
   return (
     <PageTransition>
-      <Section className="pt-14 sm:pt-20">
-        <div style={{ marginBottom: 40 }}>
-          <div className="kicker" style={{ marginBottom: 10 }}>
-            <span className="star">✦</span>
-            <span>SUPPORT</span>
-          </div>
-          <h1 className="display" style={{ margin: 0 }}>
-            Need help with <span className="hl-yellow">Sevri</span>
-            <span style={{ color: 'var(--cyan)' }}>?</span>
+      <Section className="pt-10">
+        <div className="mx-auto mb-12 max-w-2xl text-center">
+          <p className="font-serif text-xl italic text-coral">Support</p>
+          <h1 className="mt-3 font-display text-5xl leading-[0.95] tracking-tight text-ink sm:text-6xl">
+            Need a hand?
           </h1>
-          <p style={{ fontSize: 16, color: 'var(--ink-soft)', marginTop: 16, maxWidth: 600, lineHeight: 1.6 }}>
-            This route is reserved for onboarding help, billing questions, recommendation troubleshooting, and workspace guidance.
+          <p className="mx-auto mt-5 max-w-lg text-lg leading-8 text-ink-soft">
+            Onboarding help, billing questions, and workspace guidance — reach us directly while this page grows.
           </p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Card style={{ borderTop: '4px solid var(--cyan)' }}>
-            <h2 className="text-2xl font-semibold text-ink">What this page will become</h2>
-            <p className="mt-4 text-sm leading-7 text-ink-soft">
-              A public support surface with contact paths, billing help, and fast answers for the most
-              common issues students hit while using the workspace.
-            </p>
-          </Card>
-          <Card style={{ borderTop: '4px solid var(--yellow)', borderColor: 'var(--ink)', backgroundColor: 'rgba(255,217,61,0.07)' }}>
-            <h2 className="text-2xl font-semibold text-ink">Current status</h2>
-            <p className="mt-4 text-sm leading-7 text-ink-soft">
-              This is minimal for now, but will soon have more structured support content. 
-              In the meantime, reach us directly at{" "}
-              <a className="font-medium text-ink underline" href="mailto:support@sevri.co">
-                support@sevri.co
-              </a>
-              .
+        <div className="mx-auto grid max-w-4xl gap-5 lg:grid-cols-2">
+          <Card padding="lg" elevation="soft">
+            <h2 className="text-2xl font-semibold text-ink">Get in touch</h2>
+            <p className="mt-3 text-base leading-7 text-ink-soft">
+              Email us and we&apos;ll get back to you.
             </p>
             <div className="mt-6">
-              <Button href="/" variant="outline" className="rounded-full">
+              <Button href="mailto:support@sevri.co">support@sevri.co</Button>
+            </div>
+          </Card>
+          <Card padding="lg" elevation="soft" tone="subtle">
+            <h2 className="text-2xl font-semibold text-ink">Coming soon</h2>
+            <p className="mt-3 text-base leading-7 text-ink-soft">
+              Structured help for the most common questions students hit in the workspace.
+            </p>
+            <div className="mt-6">
+              <Button href="/" variant="outline">
                 Return home
               </Button>
             </div>

@@ -1,129 +1,118 @@
 import { PLAN_LIMITS } from "@/lib/usage/limits";
+import { FaqAccordion } from "@/components/marketing/faq-accordion";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Reveal } from "@/components/ui/reveal";
 import { Section } from "@/components/ui/section";
 
 const freeGenerationLimit = PLAN_LIMITS.free.generation_limit;
 
 const comparisonRows = [
-  {
-    label: "Idea board generations",
-    free: `${freeGenerationLimit} total`,
-    pro: "Unlimited, subject to fair-use and rate limits",
-  },
-  {
-    label: "Exploration room",
-    free: "Enough to test both software and research paths",
-    pro: "Generate fresh boards whenever your thinking evolves",
-  },
-  {
-    label: "Roadmap experience",
-    free: "Roadmap, project pages, and step objectives",
-    pro: "Everything in Free plus detailed step coaching and evaluation",
-  },
-  {
-    label: "Portfolio packaging",
-    free: "Not included",
-    pro: "Included",
-  },
+  { label: "Idea board generations", free: `${freeGenerationLimit} total`, pro: "Unlimited (fair-use)" },
+  { label: "Onboarding + roadmap", free: "Included", pro: "Included" },
+  { label: "Step-by-step coaching", free: "—", pro: "Detailed guidance + evaluation" },
+  { label: "Portfolio packaging", free: "—", pro: "Included" },
 ];
 
 const faqItems = [
   {
-    question: "Should I start on the free plan?",
-    answer:
-      `Yes, if you want to validate the workflow first. The free tier is designed to help you run onboarding, explore up to ${freeGenerationLimit} project idea boards, and see whether Sevri fits how you work.`,
+    question: "Should I start free?",
+    answer: `Yes — the free tier runs onboarding and up to ${freeGenerationLimit} idea boards so you can see whether Sevri fits.`,
   },
   {
     question: "Who is Pro for?",
-    answer:
-      "Pro is for students who want unlimited idea board generations, subject to fair-use and rate limits, plus detailed per-step coaching and evaluation while they execute.",
+    answer: "Students who want unlimited generations plus detailed per-step coaching while they execute.",
   },
   {
     question: "Can I upgrade later?",
-    answer:
-      "Absolutely. The recommended path is often to start free, commit to a direction, and upgrade once you want more depth around roadmap and packaging support.",
+    answer: "Anytime. Most people start free, commit to a direction, then upgrade for depth.",
   },
+];
+
+const freeFeatures = [
+  `${freeGenerationLimit} idea board generations`,
+  "Both software and research tracks",
+  "4-step onboarding wizard",
+  "Roadmap + milestone tracking",
+];
+
+const proFeatures = [
+  "Unlimited idea boards (fair-use)",
+  "Detailed step guidance + evaluation",
+  "Portfolio packaging",
+  "Built for sustained execution",
 ];
 
 export default function PricingPage() {
   return (
     <>
-      <Section className="pt-14 sm:pt-20">
-        <div style={{ marginBottom: 40 }}>
-          <div className="kicker" style={{ marginBottom: 10 }}>
-            <span className="star">✦</span>
-            <span>PRICING</span>
-          </div>
-          <h1 className="display" style={{ margin: 0 }}>
-            Simple pricing for <span className="hl-yellow">serious</span> students
-            <span style={{ color: 'var(--cyan)' }}>.</span>
+      <Section className="pt-10">
+        <div className="mx-auto mb-12 max-w-2xl text-center">
+          <p className="font-serif text-xl italic text-coral">Pricing</p>
+          <h1 className="mt-3 font-display text-5xl leading-[0.95] tracking-tight text-ink sm:text-6xl">
+            Simple pricing for serious students.
           </h1>
-          <p style={{ fontSize: 16, color: 'var(--ink-soft)', marginTop: 16, maxWidth: 640, lineHeight: 1.6 }}>
-            {`Start free while you validate the workflow. Explore up to ${freeGenerationLimit} idea boards, then upgrade when you want unlimited generations subject to fair-use and rate limits, deeper coaching, and a stronger finishing environment.`}
+          <p className="mx-auto mt-5 max-w-lg text-lg leading-8 text-ink-soft">
+            Start free while you validate the workflow. Upgrade when you want unlimited generations and deeper
+            coaching.
           </p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-2">
+
+        <div className="mx-auto grid max-w-4xl gap-5 lg:grid-cols-2">
           <Reveal>
-            <Card className="flex h-full flex-col" style={{ borderTop: '4px solid var(--yellow)' }}>
-              <p className="editorial-kicker">Free</p>
-              <div className="mt-4 flex items-end gap-2">
-                <p className="text-5xl font-semibold text-ink">$0</p>
-                <p className="pb-1 text-sm text-ink-muted">/ month</p>
+            <div className="flex h-full flex-col rounded-3xl bg-paper p-8 shadow-soft">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Free</p>
+              <div className="mt-4 flex items-end gap-1.5">
+                <span className="font-display text-5xl text-ink">$0</span>
+                <span className="pb-1.5 text-sm text-ink-muted">/ month</span>
               </div>
-              <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Best for trying Sevri, running onboarding, and exploring up to {freeGenerationLimit} idea boards before you commit.
-              </p>
-              <ul className="mt-6 space-y-3 text-sm leading-6 text-ink-soft">
-                <li>Free plan includes {freeGenerationLimit} idea board generations</li>
-                <li>Enough to test both software and research paths</li>
-                <li>4-step onboarding wizard</li>
-                <li>Roadmap, project pages, and milestone tracking</li>
-                <li>Great for deciding whether the workflow fits your process</li>
+              <ul className="mt-8 space-y-3.5 text-base leading-7 text-ink-soft">
+                {freeFeatures.map((f) => (
+                  <FeatureRow key={f} tone="light">
+                    {f}
+                  </FeatureRow>
+                ))}
               </ul>
-              <div className="mt-auto pt-8">
-                <Button href="/sign-up" fullWidth className="rounded-full">
+              <div className="mt-auto pt-10">
+                <Button href="/sign-up" variant="outline" fullWidth size="lg">
                   Start free
                 </Button>
               </div>
-            </Card>
+            </div>
           </Reveal>
 
           <Reveal delay={0.08}>
-            <Card tone="contrast" className="flex h-full flex-col border-contrast-line" style={{ borderTop: '4px solid var(--cyan)', boxShadow: '6px 6px 0 var(--cyan)' }}>
-              <p className="editorial-kicker text-paper/55">Pro</p>
-              <div className="mt-4 flex items-end gap-2">
-                <p className="text-5xl font-semibold text-paper">$10</p>
-                <p className="pb-1 text-sm text-paper/72">/ month</p>
+            <div className="relative flex h-full flex-col overflow-hidden rounded-3xl border border-navy bg-navy p-8 text-cream shadow-lifted">
+              <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-25" />
+              <div className="relative z-10 flex h-full flex-col">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cream/50">Pro</p>
+                  <span className="rounded-full bg-coral px-3 py-1 text-xs font-semibold text-ink">Recommended</span>
+                </div>
+                <div className="mt-4 flex items-end gap-1.5">
+                  <span className="font-display text-5xl text-cream">$10</span>
+                  <span className="pb-1.5 text-sm text-cream/60">/ month</span>
+                </div>
+                <ul className="mt-8 space-y-3.5 text-base leading-7 text-cream/80">
+                  {proFeatures.map((f) => (
+                    <FeatureRow key={f} tone="dark">
+                      {f}
+                    </FeatureRow>
+                  ))}
+                </ul>
+                <div className="mt-auto pt-10">
+                  <Button href="/sign-up" variant="contrast" fullWidth size="lg">
+                    Create account
+                  </Button>
+                </div>
               </div>
-              <p className="mt-4 text-sm leading-6 text-paper/72">
-                Best for students who already know they want deeper planning support, more iteration room under
-                fair-use and rate limits, and detailed coaching while the project moves.
-              </p>
-              <ul className="mt-6 space-y-3 text-sm leading-6 text-paper/72">
-                <li>Unlimited idea board generations, subject to fair-use and rate limits</li>
-                <li>Detailed step guidance and work evaluation</li>
-                <li>Built for sustained use during execution</li>
-                <li>Better fit once you are committed to shipping</li>
-              </ul>
-              <div className="mt-auto pt-8">
-                <Button href="/sign-up" fullWidth className="rounded-full">
-                  Create account
-                </Button>
-              </div>
-            </Card>
+            </div>
           </Reveal>
         </div>
       </Section>
 
-      <Section
-        eyebrow="Comparison"
-        title="What changes when you upgrade."
-        description="The product contract stays the same: Sevri helps you choose, scope, and finish serious work. Pro mainly increases coaching depth and iteration room."
-      >
-        <div className="overflow-hidden rounded-lg bg-paper" style={{ border: '2px solid var(--ink)', boxShadow: '4px 4px 0 var(--ink)' }}>
-          <div className="grid grid-cols-[1.2fr_0.9fr_0.9fr] px-6 py-4 text-sm font-semibold text-ink" style={{ borderBottom: '2px solid var(--ink)', background: 'var(--surface)' }}>
+      <Section eyebrow="Comparison" title="What changes when you upgrade.">
+        <div className="mx-auto max-w-4xl overflow-hidden rounded-2xl border border-line bg-paper">
+          <div className="grid grid-cols-[1.4fr_0.8fr_1fr] border-b border-line bg-surface px-6 py-4 text-sm font-semibold text-ink">
             <span>Capability</span>
             <span>Free</span>
             <span>Pro</span>
@@ -131,8 +120,7 @@ export default function PricingPage() {
           {comparisonRows.map((row) => (
             <div
               key={row.label}
-              className="grid grid-cols-[1.2fr_0.9fr_0.9fr] gap-4 px-6 py-4 text-sm leading-6 text-ink-soft last:border-b-0"
-              style={{ borderBottom: '1px solid var(--line)' }}
+              className="grid grid-cols-[1.4fr_0.8fr_1fr] gap-4 border-b border-line px-6 py-4 text-sm leading-6 text-ink-soft last:border-b-0"
             >
               <span className="font-semibold text-ink">{row.label}</span>
               <span>{row.free}</span>
@@ -142,75 +130,18 @@ export default function PricingPage() {
         </div>
       </Section>
 
-      <Section
-        eyebrow="Who each plan is for"
-        title="Choose the plan that matches your stage."
-        description="There is no pressure to upgrade early. The better question is whether you are still deciding or already executing."
-      >
-        <div className="grid gap-4 lg:grid-cols-2">
-          <Reveal>
-            <Card className="h-full" style={{ borderTop: '4px solid var(--yellow)' }}>
-              <h2 className="text-3xl font-semibold text-ink">Free fits best when you are choosing.</h2>
-              <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Use it when you want enough structure to compare ideas, test the flow, and confirm which track deserves your time.
-              </p>
-            </Card>
-          </Reveal>
-          <Reveal delay={0.08}>
-            <Card className="h-full" style={{ borderTop: '4px solid var(--cyan)', borderColor: 'var(--ink)', backgroundColor: 'rgba(91,208,214,0.06)' }}>
-              <h2 className="text-3xl font-semibold text-ink">Pro fits best when you are committed.</h2>
-              <p className="mt-4 text-sm leading-6 text-ink-soft">
-                Upgrade when you want more iteration space under fair-use and rate limits, richer step coaching, and better finishing support while the project is actively moving.
-              </p>
-            </Card>
-          </Reveal>
-        </div>
-      </Section>
-
-      <Section
-        tone="contrast"
-        eyebrow="Upgrade rationale"
-        title="Upgrade for depth, not for novelty."
-        description="The value of Pro is not more chaos. It is better support while you refine the right direction and carry it through with more confidence."
-      >
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card tone="contrast" className="border-contrast-line bg-paper/5" style={{ borderTop: '3px solid var(--yellow)' }}>
-            <p className="editorial-kicker text-paper/55">More iteration</p>
-            <p className="mt-3 text-xl font-semibold text-paper">
-              Generate fresh idea boards whenever your thinking changes.
-            </p>
-          </Card>
-          <Card tone="contrast" className="border-contrast-line bg-paper/5" style={{ borderTop: '3px solid var(--cyan)' }}>
-            <p className="editorial-kicker text-paper/55">Better depth</p>
-            <p className="mt-3 text-xl font-semibold text-paper">
-              Unlock detailed step coaching and evaluation without losing the shape of the project.
-            </p>
-          </Card>
-          <Card tone="contrast" className="border-contrast-line bg-paper/5" style={{ borderTop: '3px solid var(--pink)' }}>
-            <p className="editorial-kicker text-paper/55">Stronger finish</p>
-            <p className="mt-3 text-xl font-semibold text-paper">
-              Carry software and research work to a more polished, more presentable place.
-            </p>
-          </Card>
-        </div>
-      </Section>
-
-      <Section
-        eyebrow="FAQ"
-        title="Common pricing questions."
-        description="A few fast answers before you decide."
-      >
-        <div className="grid gap-4 lg:grid-cols-3">
-          {faqItems.map((faq, index) => (
-            <Reveal key={faq.question} delay={index * 0.06}>
-              <Card className="h-full" style={{ borderLeft: `3px solid ${['var(--cyan)', 'var(--yellow)', 'var(--pink)'][index]}` }}>
-                <h2 className="text-xl font-semibold text-ink">{faq.question}</h2>
-                <p className="mt-3 text-sm leading-6 text-ink-soft">{faq.answer}</p>
-              </Card>
-            </Reveal>
-          ))}
-        </div>
+      <Section eyebrow="FAQ" title="Common questions.">
+        <FaqAccordion items={faqItems} />
       </Section>
     </>
+  );
+}
+
+function FeatureRow({ children, tone }: { children: React.ReactNode; tone: "light" | "dark" }) {
+  return (
+    <li className="flex items-start gap-3">
+      <span className={tone === "dark" ? "mt-1 text-coral" : "mt-1 text-teal-deep"}>✓</span>
+      <span>{children}</span>
+    </li>
   );
 }

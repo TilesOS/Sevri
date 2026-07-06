@@ -4,80 +4,118 @@
 
 :root {
   color-scheme: light;
-  --color-black: #151311;
-  --color-white: #fcf8f4;
+  --color-black: #0B1526;
+  --color-white: #FFFDE2;
 
-  /* Primary → hot pink */
-  --color-primary: #FF4DA6;
-  --color-primary-hover: #e63d91;
-  --color-primary-active: #cc3580;
-  --color-primary-soft: rgba(255, 77, 166, 0.10);
-  --color-primary-line: rgba(255, 77, 166, 0.32);
+  /* Primary → warm coral (from fromanother.love) */
+  --color-primary: #FF6B4C;
+  --color-primary-hover: #F2542D;
+  --color-primary-active: #DC431D;
+  --color-primary-soft: rgba(255, 107, 76, 0.10);
+  --color-primary-line: rgba(255, 107, 76, 0.28);
 
-  /* Warm cream surfaces */
-  --canvas: #F5EFE0;
-  --paper: #FBF6E9;
-  --surface: #ECE4D2;
-  --surface-strong: #cdc2af;
-  --surface-mint: #F5EFE0;
-  --surface-butter: #FBF6E9;
+  /* Warm cream surfaces (light base) — warmer canvas + dimmed cards so they mesh */
+  --canvas: #F4EBD1;
+  --paper: #FBF4E1;
+  --surface: #F0E7CF;
+  --surface-strong: #E7DDC7;
+  --surface-mint: #E9F2EA;   /* faint teal-tinted panel */
+  --surface-butter: #FCF6E4;
 
   /* Lines */
-  --line: #cdc2af;
-  --line-strong: #9e9080;
+  --line: #E7DDC7;
+  --line-strong: #D6C9AC;
 
-  /* Ink */
-  --ink: #161412;
-  --ink-soft: #2a2622;
-  --ink-muted: #6b635a;
+  /* Ink (navy-tinted, not pure black) */
+  --ink: #0B1526;
+  --ink-soft: #33405A;
+  --ink-muted: #6B7488;
 
-  /* Contrast / dark card */
-  --contrast: #161412;
-  --contrast-soft: #221f1c;
-  --contrast-line: rgba(255, 255, 255, 0.14);
-  --contrast-grid-line: rgba(255, 255, 255, 0.06);
+  /* Contrast / dark "moment" (deep navy) */
+  --contrast: #0B1E4D;
+  --contrast-soft: #10265C;
+  --contrast-line: rgba(255, 253, 226, 0.14);
+  --contrast-grid-line: rgba(255, 253, 226, 0.06);
+
+  /* Navy + cream (dark sections) */
+  --navy: #0B1E4D;
+  --navy-deep: #051236;
+  --cream: #FFFDE2;
 
   /* Accent palette */
-  --pink: #FF4DA6;
+  --coral: #FF6B4C;
+  --teal: #5BD0D6;
+  --teal-deep: #46D3C0;
+  --pale-blue: #D2E4F4;
+
+  /* Legacy accent names remapped onto the new palette so
+     not-yet-redesigned app screens re-skin instead of breaking */
+  --pink: #FF6B4C;
   --cyan: #5BD0D6;
-  --yellow: #FFD93D;
-  --green: #7BB661;
+  --yellow: #F4B740;
+  --green: #46D3C0;
+
+  /* RGB channel triples — let Tailwind apply <alpha-value> (e.g. text-cream/70).
+     The hex vars above stay for direct CSS/inline use. */
+  --canvas-rgb: 244 235 209;
+  --paper-rgb: 251 244 225;
+  --surface-rgb: 240 231 207;
+  --surface-strong-rgb: 231 221 199;
+  --line-rgb: 231 221 199;
+  --line-strong-rgb: 214 201 172;
+  --ink-rgb: 11 21 38;
+  --ink-soft-rgb: 51 64 90;
+  --ink-muted-rgb: 107 116 136;
+  --color-primary-rgb: 255 107 76;
+  --color-primary-hover-rgb: 242 84 45;
+  --coral-rgb: 255 107 76;
+  --teal-rgb: 91 208 214;
+  --teal-deep-rgb: 70 211 192;
+  --navy-rgb: 11 30 77;
+  --navy-deep-rgb: 5 18 54;
+  --cream-rgb: 255 253 226;
+  --pale-blue-rgb: 210 228 244;
+  --contrast-rgb: 11 30 77;
+  --contrast-soft-rgb: 16 38 92;
 
   /* Aliases for recipe classes */
-  --paper-card: #FBF6E9;
-  --paper-soft: #ECE4D2;
+  --paper-card: #FBF4E1;
+  --paper-soft: #F0E7CF;
 
-  /* Interaction */
-  --focus-ring: rgba(255, 77, 166, 0.35);
-  --shadow-soft: 3px 3px 0 var(--ink-muted);
-  --shadow-lifted: 6px 6px 0 var(--ink);
+  /* Interaction — soft diffuse shadows (premium, not brutalist offset) */
+  --focus-ring: rgba(255, 107, 76, 0.38);
+  --shadow-soft: 0 1px 2px rgba(11, 21, 38, 0.06), 0 10px 30px rgba(11, 21, 38, 0.08);
+  --shadow-lifted: 0 18px 50px rgba(11, 21, 38, 0.14);
 
   /* Sidebar */
   --app-sidebar-width: 18.000rem;
 }
 
-/* ── Custom scrollbars (blend with cream theme) ── */
+/* ── Hidden scrollbars (scroll still works) ── */
 * {
-  scrollbar-width: thin;
-  scrollbar-color: var(--line-strong) transparent;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 0;
+  height: 0;
+  display: none;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+
+/* ── Lenis smooth scroll ── */
+html.lenis,
+html.lenis body {
+  height: auto;
 }
-::-webkit-scrollbar-thumb {
-  background-color: var(--line-strong);
-  border-radius: 999px;
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
 }
-::-webkit-scrollbar-thumb:hover {
-  background-color: var(--ink-muted);
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
 }
-::-webkit-scrollbar-corner {
-  background: transparent;
+.lenis.lenis-stopped {
+  overflow: hidden;
 }
 
 @layer base {
@@ -106,7 +144,7 @@
   }
 
   ::selection {
-    background: rgba(255, 77, 166, 0.22);
+    background: rgba(255, 107, 76, 0.22);
     color: var(--ink);
   }
 
@@ -122,14 +160,24 @@
 
   .app-shell {
     background-color: var(--canvas);
-    background-image: radial-gradient(rgba(22, 20, 18, 0.13) 1px, transparent 1px);
-    background-size: 14px 14px;
-    background-attachment: fixed;
   }
 
   .font-display {
-    font-family: var(--font-display), "Arial Black", sans-serif;
-    letter-spacing: -0.03em;
+    font-family: var(--font-display), "Archivo", "Arial Black", sans-serif;
+    letter-spacing: -0.02em;
+  }
+
+  .font-serif {
+    font-family: var(--font-serif), "Instrument Serif", Georgia, serif;
+    letter-spacing: 0;
+  }
+
+  /* Soft aurora fallback — used when WebGL/reduced-motion is unavailable */
+  .aurora-fallback {
+    background:
+      radial-gradient(60% 55% at 30% 30%, rgba(70, 211, 192, 0.55), transparent 70%),
+      radial-gradient(55% 50% at 72% 60%, rgba(255, 107, 76, 0.45), transparent 72%),
+      radial-gradient(80% 80% at 50% 90%, rgba(91, 208, 214, 0.35), transparent 75%);
   }
 
   .editorial-kicker {
@@ -222,12 +270,8 @@
   /* ── Highlight ── */
 
   .hl-yellow {
-    background: var(--yellow);
-    border: 2px solid var(--ink);
-    border-radius: 4px;
-    padding: 0 6px;
-    box-shadow: 3px 3px 0 var(--ink);
-    display: inline-block;
+    background: linear-gradient(transparent 58%, rgba(255, 107, 76, 0.30) 0);
+    padding: 0 2px;
     line-height: inherit;
   }
 

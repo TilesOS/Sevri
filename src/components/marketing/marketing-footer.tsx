@@ -4,54 +4,42 @@ import { Button } from "@/components/ui/button";
 
 export function MarketingFooter() {
   const footerLinks = [
-    { href: "/privacy", label: "Privacy policy" },
+    { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
     { href: "/support", label: "Support" },
     { href: "/suggestions", label: "Suggestions" },
   ];
 
   return (
-    <footer className="mt-16 bg-contrast text-paper">
-      <Container className="grid gap-10 py-14 lg:grid-cols-[1.4fr_0.8fr] lg:items-start">
+    <footer className="mt-24 bg-navy text-cream">
+      <Container className="grid gap-12 py-16 lg:grid-cols-[1.5fr_1fr] lg:items-start">
         <div className="space-y-6">
-          <div className="space-y-3">
-            <p className="editorial-kicker text-paper/55">Project-to-portfolio coaching</p>
-            <h2 className="font-display text-4xl leading-none text-paper sm:text-5xl">
-              Finish something worth showing.
-            </h2>
-            <p className="max-w-2xl text-base leading-7 text-paper/72">
-              Sevri helps you pick the right project, scope it to something real, and follow through —
-              so you end up with work you can actually show.
-            </p>
-          </div>
-
+          <span className="font-serif text-4xl leading-none">Sevri</span>
+          <p className="max-w-md text-lg leading-8 text-cream/70">
+            Pick the right project, scope it small, and finish something worth showing.
+          </p>
           <div className="flex flex-wrap gap-3">
-            <Button href="/sign-up" className="rounded-full px-6">
+            <Button href="/sign-up" className="px-6">
               Start free
             </Button>
-            <Button
-              href="/pricing"
-              variant="outline"
-              className="rounded-full border-contrast-line bg-paper/6 text-paper hover:bg-paper/12"
-            >
-              View pricing
+            <Button href="/pricing" variant="contrast" className="px-6">
+              Pricing
             </Button>
           </div>
         </div>
 
-        <div className="grid gap-8 sm:grid-cols-2">
+        <div className="flex flex-wrap gap-x-16 gap-y-8">
           <div className="space-y-3">
-            <p className="text-sm font-semibold text-paper">Explore</p>
-            <div className="flex flex-col gap-2 text-sm text-paper/72">
-              <FooterLink href="/">Home</FooterLink>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cream/45">Product</p>
+            <div className="flex flex-col gap-2.5 text-sm text-cream/70">
+              <FooterLink href="/">Overview</FooterLink>
               <FooterLink href="/pricing">Pricing</FooterLink>
               <FooterLink href="/sign-in">Sign in</FooterLink>
-              <FooterLink href="/sign-up">Create account</FooterLink>
             </div>
           </div>
           <div className="space-y-3">
-            <p className="text-sm font-semibold text-paper">Company</p>
-            <div className="flex flex-col gap-2 text-sm text-paper/72">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cream/45">Company</p>
+            <div className="flex flex-col gap-2.5 text-sm text-cream/70">
               {footerLinks.map((link) => (
                 <FooterLink key={link.href} href={link.href}>
                   {link.label}
@@ -62,19 +50,17 @@ export function MarketingFooter() {
         </div>
       </Container>
 
-      <div className="border-t border-black/10 bg-primary text-ink">
-        <Container className="flex flex-col gap-6 py-10 sm:py-14">
-          <p className="text-xs font-semibold uppercase tracking-[0.28em] text-ink/72">Scope matters. Finishability matters.</p>
-          <p className="font-display text-[clamp(3.3rem,9vw,8rem)] leading-[0.88] text-ink">Build the thing you can finish.</p>
-        </Container>
-      </div>
     </footer>
   );
 }
 
 function FooterLink({ href, children }: { href: string; children: ReactNode }) {
   return (
-    <Button href={href} variant="ghost" className="h-auto justify-start px-0 py-0 text-paper/72 hover:bg-transparent hover:text-paper">
+    <Button
+      href={href}
+      variant="ghost"
+      className="h-auto justify-start px-0 py-0 text-cream/70 hover:bg-transparent hover:text-cream"
+    >
       {children}
     </Button>
   );

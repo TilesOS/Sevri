@@ -30,13 +30,13 @@ export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    "border-2 border-ink bg-primary text-ink shadow-soft hover:bg-primary-hover active:bg-primary-active active:shadow-none",
+    "border border-transparent bg-primary text-ink shadow-soft hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-lifted",
   secondary:
-    "border-2 border-ink bg-surface text-ink shadow-soft hover:bg-surface-strong active:shadow-none",
-  outline: "border-2 border-ink bg-paper text-ink shadow-soft hover:bg-surface active:shadow-none",
-  ghost: "border-2 border-transparent bg-transparent text-ink hover:bg-surface/65",
-  contrast: "border-2 border-contrast-line bg-contrast text-paper hover:border-white/20 hover:bg-contrast-soft",
-  danger: "border-2 border-red-700 bg-red-600 text-white shadow-soft hover:bg-red-700 active:shadow-none",
+    "border border-transparent bg-navy text-cream shadow-soft hover:-translate-y-0.5 hover:bg-navy-deep hover:shadow-lifted",
+  outline: "border border-line bg-transparent text-ink hover:border-line-strong hover:bg-surface",
+  ghost: "border border-transparent bg-transparent text-ink hover:bg-surface",
+  contrast: "border border-transparent bg-cream text-navy shadow-soft hover:-translate-y-0.5 hover:bg-white hover:shadow-lifted",
+  danger: "border border-transparent bg-red-600 text-white shadow-soft hover:-translate-y-0.5 hover:bg-red-700",
 };
 
 const sizeClass: Record<ButtonSize, string> = {
@@ -53,7 +53,7 @@ function getButtonClassName({
   fullWidth,
 }: Pick<CommonButtonProps, "variant" | "size" | "className" | "fullWidth">) {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-[box-shadow,background-color] duration-100 disabled:cursor-not-allowed disabled:opacity-60",
+    "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 ease-out will-change-transform active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100",
     "focus-visible:outline-none",
     variantClass[variant ?? "primary"],
     sizeClass[size ?? "md"],
