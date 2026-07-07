@@ -472,7 +472,7 @@ export function ProjectStepWorkspace({
 
   return (
     <div className="space-y-8 pb-52">
-      <Card tone="contrast" className="border-contrast-line" style={{ boxShadow: '6px 6px 0 var(--cyan)' }}>
+      <Card tone="contrast" className="aurora-fallback border-contrast-line" elevation="lifted">
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
@@ -494,15 +494,15 @@ export function ProjectStepWorkspace({
             </p>
           </div>
           <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--yellow)' }}>
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
               <p className="editorial-kicker text-paper/55">Deliverable</p>
               <p className="mt-3 text-lg font-semibold text-paper">{milestone.deliverable}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--pink)' }}>
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
               <p className="editorial-kicker text-paper/55">Time estimate</p>
               <p className="mt-3 text-lg font-semibold text-paper">{milestone.rough_time_estimate}</p>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--cyan)' }}>
+            <div className="rounded-2xl border border-white/10 bg-white/6 p-5">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="editorial-kicker text-paper/55">Due date</p>
                 {milestone.urgency ? (
@@ -634,7 +634,7 @@ export function ProjectStepWorkspace({
                 </div>
 
                 {activeTab === "checklist" ? (
-                  <Card className="space-y-4" style={{ backgroundColor: 'rgba(91,208,214,0.10)', borderColor: 'var(--ink)', borderTop: '3px solid var(--cyan)' }}>
+                  <Card className="space-y-4 bg-surface-mint" elevation="soft">
                     <p className="editorial-kicker">Checklist / Do</p>
                     <p className="text-sm leading-6 text-ink-soft">
                       {safeRenderText(guidanceSlot.guidance.what_to_do_now, GUIDANCE_WHAT_TO_DO_SPEC).text}
@@ -1292,11 +1292,11 @@ function EvaluationResult({
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
-        <Card padding="sm" style={{ borderColor: 'var(--ink)', borderTop: '3px solid var(--yellow)', backgroundColor: 'rgba(255,217,61,0.07)' }}>
+        <Card padding="sm" tone="butter" elevation="soft">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Strongest aspect</p>
           <p className="mt-1 text-sm leading-6 text-ink">{evaluation.strongest_aspect}</p>
         </Card>
-        <Card padding="sm" style={{ borderColor: 'var(--ink)', borderTop: '3px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.07)' }}>
+        <Card padding="sm" className="bg-surface-mint" elevation="soft">
           <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Clearest gap</p>
           <p className="mt-1 text-sm leading-6 text-ink">{evaluation.clearest_gap}</p>
         </Card>

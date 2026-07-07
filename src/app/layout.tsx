@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Archivo, Caveat, Instrument_Serif, JetBrains_Mono, Schibsted_Grotesk } from "next/font/google";
+import { Archivo, Instrument_Serif, JetBrains_Mono, Schibsted_Grotesk } from "next/font/google";
 import { MotionProvider } from "@/components/theme/motion-provider";
 import "@/app/globals.css";
 
@@ -41,19 +41,13 @@ const mono = JetBrains_Mono({
   weight: ["400", "500", "600", "700"],
 });
 
-const hand = Caveat({
-  subsets: ["latin"],
-  variable: "--font-hand",
-  weight: ["400", "700"],
-});
-
 export default function RootLayout({
   children,
 }: Readonly<{
   children: ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${sans.variable} ${display.variable} ${serif.variable} ${mono.variable} ${hand.variable}`}>
+    <html lang="en" className={`${sans.variable} ${display.variable} ${serif.variable} ${mono.variable}`}>
       <body className="app-shell min-h-screen">
         <MotionProvider>
           {children}

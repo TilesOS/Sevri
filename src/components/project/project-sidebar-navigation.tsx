@@ -46,7 +46,7 @@ export function ProjectSidebarNavigation({
         </Link>
       </div>
 
-      <div className="rounded-md border border-line bg-surface/60 p-3">
+      <div className="rounded-2xl bg-surface p-4 shadow-soft">
         <p className="mb-2 text-xs font-semibold text-ink">{progress.stageLabel}</p>
         <ProjectProgressTracker progress={progress} compact />
       </div>
@@ -68,7 +68,7 @@ export function ProjectSidebarNavigation({
       })}
 
       <div style={{ marginTop: 8, marginBottom: 4 }}>
-        <div className="hand-label" style={{ margin: '12px 0 4px', fontSize: 13 }}>~ steps ~ <span className="dashes" /></div>
+        <div className="sidebar-section-label" style={{ margin: '12px 0 4px' }}>steps <span className="dashes" /></div>
       </div>
 
       {milestones.map((milestone) => {

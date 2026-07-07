@@ -17,7 +17,7 @@ interface AlertProps extends HTMLAttributes<HTMLDivElement> {
 
 export function Alert({ tone = "info", heading, className, children, ...props }: AlertProps) {
   return (
-    <div className={cn("rounded-xl border px-4 py-3", toneClassName[tone], className)} {...props}>
+    <div className={cn("rounded-2xl border px-4 py-3 shadow-soft", toneClassName[tone], className)} {...props}>
       {heading ? <p className="text-sm font-semibold">{heading}</p> : null}
       {children ? <div className={cn(heading && "mt-1", "text-sm")}>{children}</div> : null}
     </div>

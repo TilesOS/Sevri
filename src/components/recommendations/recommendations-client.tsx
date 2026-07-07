@@ -187,7 +187,7 @@ export function RecommendationsClient({
           <span className="star">✦</span>
           <span>PROJECT IDEA BOARD</span>
         </div>
-        <h1 className="display big" style={{ margin: 0 }}>
+        <h1 className="font-display text-5xl leading-[0.98] tracking-tight text-ink sm:text-7xl">
           three <span className="hl-yellow">actually</span> different<br />
           directions<span style={{ color: 'var(--pink)' }}>.</span>
         </h1>
@@ -197,7 +197,7 @@ export function RecommendationsClient({
       </div>
 
       {/* Stats strip */}
-      <div className="coach" style={{ padding: '20px 28px', boxShadow: '6px 6px 0 var(--cyan)' }}>
+      <div className="coach px-7 py-5">
         <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
           <div>
             <div className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>Plan</div>
@@ -306,7 +306,7 @@ export function RecommendationsClient({
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.28, delay: index * 0.06, ease: "easeOut" }}
               >
-                <div className={`rec-card ${cardTone}`} style={{ height: '100%' }}>
+                <div className={`rec-card ${cardTone}`}>
                   {ribbon ? (
                     <div
                       className="ribbon"
@@ -341,7 +341,7 @@ export function RecommendationsClient({
                   {/* Detail sections */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     {details.map((detail) => (
-                      <div key={detail.label} style={{ padding: '10px 12px', background: 'rgba(22,20,18,0.06)', borderRadius: 4 }}>
+                      <div key={detail.label} className="rounded-xl bg-ink/[0.04] px-3 py-2.5">
                         <p className="editorial-kicker" style={{ marginBottom: 4 }}>{detail.label}</p>
                         <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-soft)' }}>{detail.value}</p>
                       </div>

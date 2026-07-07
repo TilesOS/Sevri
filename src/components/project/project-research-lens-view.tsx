@@ -1,8 +1,6 @@
 import { Card } from "@/components/ui/card";
 import type { ProjectWorkspaceView } from "@/lib/projects/workspace";
 
-const LENS_CARD_ACCENTS = ['var(--cyan)', 'var(--yellow)', 'var(--pink)', 'var(--green)', 'var(--cyan)', 'var(--yellow)'];
-
 export function ProjectResearchLensView({ workspace }: { workspace: ProjectWorkspaceView }) {
   return (
     <div className="space-y-8">
@@ -24,7 +22,7 @@ export function ProjectResearchLensView({ workspace }: { workspace: ProjectWorks
       </div>
 
       {workspace.projectBrief ? (
-        <Card className="space-y-3" style={{ borderColor: 'var(--ink)', borderTop: '4px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.06)' }}>
+        <Card className="space-y-3 bg-surface-mint" elevation="soft">
           <p className="editorial-kicker">Project brief</p>
           <p className="text-sm leading-6 text-ink-soft">{workspace.projectBrief}</p>
         </Card>
@@ -32,7 +30,7 @@ export function ProjectResearchLensView({ workspace }: { workspace: ProjectWorks
 
       <div className="grid gap-4 lg:grid-cols-3">
         {workspace.projectLens.map((item, index) => (
-          <Card key={item.label} className="space-y-3" style={{ borderColor: 'var(--ink)', borderTop: `4px solid ${LENS_CARD_ACCENTS[index % LENS_CARD_ACCENTS.length]}` }}>
+          <Card key={item.label} tone={index % 3 === 0 ? "blush" : index % 3 === 1 ? "subtle" : "butter"} className="space-y-3" elevation="soft">
             <p className="editorial-kicker">{item.label}</p>
             <p className="text-sm leading-6 text-ink-soft">{item.value}</p>
           </Card>

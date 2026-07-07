@@ -80,7 +80,7 @@ export function ProjectOverviewView({
           <span className="star">✦</span>
           <span style={{ color: 'var(--ink-muted)' }}>~ active project ~</span>
         </div>
-        <h1 className="display" style={{ margin: 0, maxWidth: 900, fontSize: 'clamp(40px, 5vw, 72px)' }}>
+        <h1 className="max-w-4xl font-display text-5xl leading-[0.98] tracking-tight text-ink sm:text-7xl">
           <span className="hl-yellow">{safeProjectTitle || workspace.project.title}</span>
         </h1>
         {safeOverview ? (
@@ -91,7 +91,7 @@ export function ProjectOverviewView({
       </div>
 
       {/* Hero coach card with progress */}
-      <div className="coach" style={{ marginTop: 16, boxShadow: '6px 6px 0 var(--pink)' }}>
+      <div className="coach mt-4">
         <div style={{ position: 'relative', zIndex: 1 }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 20 }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
@@ -112,17 +112,17 @@ export function ProjectOverviewView({
 
       {/* Stat cards */}
       <div className="grid gap-4 md:grid-cols-3">
-        <Card style={{ borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--yellow)', backgroundColor: 'rgba(255,217,61,0.08)' }}>
+        <Card tone="butter" elevation="soft">
           <p className="editorial-kicker">Roadmap structure</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{workspace.milestones.length}</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">Milestones designed to keep momentum visible.</p>
         </Card>
-        <Card style={{ borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--cyan)', backgroundColor: 'rgba(91,208,214,0.08)' }}>
+        <Card className="bg-surface-mint" elevation="soft">
           <p className="editorial-kicker">Completed</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{workspace.completedCount}</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">Every completed step protects the finishable version.</p>
         </Card>
-        <Card style={{ borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--pink)', backgroundColor: 'rgba(255,77,166,0.06)' }}>
+        <Card tone="blush" elevation="soft">
           <p className="editorial-kicker">Pacing</p>
           <p className="mt-3 text-lg font-semibold text-ink">{totalEstimatedRange(workspace.milestones)}</p>
           <p className="mt-2 text-sm leading-6 text-ink-soft">One concrete deliverable per step, not a vague phase.</p>
@@ -146,11 +146,11 @@ export function ProjectOverviewView({
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--ink)', borderTop: '4px solid var(--yellow)' }}>
+          <div className="space-y-3 rounded-2xl bg-surface-butter p-5">
             <p className="editorial-kicker">Overview</p>
             <p className="text-sm leading-6 text-ink-soft">{safeOverview}</p>
           </div>
-          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--ink)', borderTop: '4px solid var(--cyan)' }}>
+          <div className="space-y-3 rounded-2xl bg-surface-mint p-5">
             <p className="editorial-kicker">Next move</p>
             <p className="text-sm leading-6 text-ink-soft">
               {workspace.nextMilestone
@@ -158,7 +158,7 @@ export function ProjectOverviewView({
                 : "Your roadmap is complete. Revisit scope guardrails before expanding the project."}
             </p>
           </div>
-          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--ink)', borderTop: '4px solid var(--pink)' }}>
+          <div className="space-y-3 rounded-2xl bg-primary-soft p-5">
             <p className="editorial-kicker">Protected deliverables</p>
             <ul className="space-y-2 text-sm leading-6 text-ink-soft">
               {workspace.keyDeliverables.map((deliverable) => (
@@ -166,7 +166,7 @@ export function ProjectOverviewView({
               ))}
             </ul>
           </div>
-          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--ink)', borderTop: '4px solid var(--green)' }}>
+          <div className="space-y-3 rounded-2xl bg-surface p-5">
             <p className="editorial-kicker">Project lens</p>
             <p className="text-sm leading-6 text-ink-soft">
               {workspace.projectLens.map((item) => item.label).join(" · ")}

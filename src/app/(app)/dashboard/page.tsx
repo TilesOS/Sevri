@@ -54,12 +54,12 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Page heading */}
-      <div style={{ marginBottom: 8 }}>
+      <div className="space-y-3">
         <div className="kicker" style={{ marginBottom: 10 }}>
           <span className="star">✦</span>
           <span>WORKSPACE</span>
         </div>
-        <h1 className="display big" style={{ margin: 0 }}>
+        <h1 className="font-display text-5xl leading-[0.96] tracking-tight text-ink sm:text-7xl">
           welcome{" "}
           <span className="hl-yellow">back</span>
           <span style={{ color: 'var(--pink)' }}>.</span>
@@ -67,7 +67,7 @@ export default async function DashboardPage() {
       </div>
 
       {/* Hero coach card */}
-      <div className="coach" style={{ boxShadow: '6px 6px 0 var(--cyan)' }}>
+      <div className="coach">
         <div style={{ position: 'relative', zIndex: 1 }}>
           <span className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
             <span style={{ color: 'var(--cyan)' }}>✦</span>
@@ -208,7 +208,6 @@ function TrackSection({
   const nextActionLabel = hasIntake ? `Open ${track} ideas` : "Complete onboarding";
   const trackTheme = trackThemes[track];
 
-  const accentColor = track === "software" ? "var(--yellow)" : "var(--cyan)";
   const trackState =
     projects.length > 0
       ? "Project underway"
@@ -219,7 +218,7 @@ function TrackSection({
           : "Needs direction";
 
   return (
-    <Card className="space-y-6" style={{ borderTop: `4px solid ${accentColor}` }}>
+    <Card className="space-y-6" elevation="soft">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="space-y-3">
           <div className="flex flex-wrap items-center gap-3">
@@ -246,7 +245,7 @@ function TrackSection({
         </div>
       </div>
 
-      <div className="grid gap-6 rounded-md bg-canvas px-5 py-4 sm:grid-cols-3" style={{ border: '2px solid var(--ink)' }}>
+      <div className="grid gap-6 rounded-2xl bg-surface px-5 py-4 sm:grid-cols-3">
         <div style={{ borderLeft: '3px solid var(--yellow)', paddingLeft: 12 }}>
           <p className="editorial-kicker">Saved projects</p>
           <p className="mt-3 text-3xl font-semibold text-ink">{projects.length}</p>
@@ -264,7 +263,7 @@ function TrackSection({
       {projects.length ? (
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
           {projects.map((project, index) => (
-            <Card key={project.id} tone="subtle" className="flex h-full flex-col" style={{ borderTop: `3px solid ${index % 2 === 0 ? accentColor : 'var(--pink)'}` }}>
+            <Card key={project.id} tone={index % 2 === 0 ? "subtle" : "blush"} className="flex h-full flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-lifted" elevation="soft">
               <div className="flex items-start justify-between gap-3">
                 <Badge tone={trackTheme.badgeTone}>{track === "software" ? "Software" : "Research"}</Badge>
                 <Badge tone={project.status === "completed" ? "success" : "neutral"}>{project.progress.stageLabel}</Badge>

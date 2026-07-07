@@ -59,7 +59,7 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
       <button
         ref={mobileTriggerRef}
         type="button"
-        className="fixed left-4 top-4 z-[70] inline-flex h-11 w-11 items-center justify-center rounded-md border-2 border-ink bg-paper text-ink shadow-soft lg:hidden"
+        className="fixed left-4 top-4 z-[70] inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-paper text-ink shadow-soft transition hover:bg-surface lg:hidden"
         aria-label={isMobileDrawerOpen ? "Close navigation" : "Open navigation"}
         aria-expanded={isMobileDrawerOpen}
         onClick={() => setIsMobileDrawerOpen((v) => !v)}
@@ -151,29 +151,22 @@ function SidebarContent({
   return (
     <div className="flex h-full min-h-0 flex-col p-4" style={{ gap: 0 }}>
       {/* User tab */}
-      <div className="user-tab" style={{ marginBottom: 4 }}>
-        <div style={{
-          width: 36, height: 36, borderRadius: 999,
-          border: '2px solid var(--ink)',
-          background: 'var(--paper)',
-          display: 'grid', placeItems: 'center',
-          fontFamily: 'var(--font-display)',
-          fontSize: 15, fontWeight: 900, flexShrink: 0,
-        }}>
+      <div className="user-tab mb-1">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy font-display text-sm font-semibold text-cream">
           {initials}
         </div>
-        <div style={{ lineHeight: 1.2, minWidth: 0, flex: 1 }}>
-          <div style={{ fontWeight: 800, fontSize: 14, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate text-sm font-semibold">
             {displayName}
           </div>
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 600, letterSpacing: '.1em', color: 'var(--ink-soft)', marginTop: 2, textTransform: 'uppercase' }}>
+          <div className="mt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
             Workspace
           </div>
         </div>
         {showCloseButton ? (
           <button
             type="button"
-            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--ink)', flexShrink: 0 }}
+            className="shrink-0 rounded-full p-1 text-ink transition hover:bg-canvas"
             aria-label="Close navigation"
             onClick={onClose}
           >
@@ -190,7 +183,7 @@ function SidebarContent({
         onToggle={() => onToggleSection("pages")}
       />
       {openSections.pages ? (
-        <div id="sidebar-section-pages" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+        <div id="sidebar-section-pages" className="flex flex-col gap-1">
           {workspaceLinks.map((link) => (
             <Link
               key={link.href}
@@ -198,7 +191,7 @@ function SidebarContent({
               className={cn("tab", link.match(pathname) && "is-active")}
               onClick={onNavigate}
             >
-              <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>
+              <span className="w-[18px] shrink-0 text-center font-mono text-xs">
                 {link.ico}
               </span>
               <span>{link.label}</span>
@@ -243,7 +236,7 @@ function SidebarContent({
           style={{ marginTop: 0 }}
         />
         {openSections.account ? (
-          <div id="sidebar-section-account" style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <div id="sidebar-section-account" className="flex flex-col gap-1">
             <Link
               href="/settings"
               className="tab flat"
@@ -282,7 +275,7 @@ function CollapsibleHeader({
   return (
     <button
       type="button"
-      className="hand-label"
+      className="sidebar-section-label group"
       onClick={onToggle}
       aria-expanded={open}
       aria-controls={sectionId}
@@ -297,7 +290,7 @@ function CollapsibleHeader({
         ...style,
       }}
     >
-      <span>~ {label} ~</span>
+      <span>{label}</span>
       <span className="dashes" />
       <CaretIcon open={open} />
     </button>
@@ -311,12 +304,7 @@ function CaretIcon({ open }: { open: boolean }) {
       width="12"
       height="12"
       aria-hidden="true"
-      style={{
-        flexShrink: 0,
-        transition: 'transform 0.15s ease',
-        transform: open ? 'rotate(0deg)' : 'rotate(-90deg)',
-        color: 'var(--ink-muted)',
-      }}
+      className={cn("shrink-0 text-ink-muted transition-transform duration-150", open ? "rotate-0" : "-rotate-90")}
     >
       <path
         d="M3 4.5 6 8 9 4.5"

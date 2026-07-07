@@ -2,8 +2,6 @@ import { Card } from "@/components/ui/card";
 import { ReadmeDiffSection } from "@/components/project/readme-diff-section";
 import type { ProjectWorkspaceView } from "@/lib/projects/workspace";
 
-const TALKING_POINT_ACCENTS = ['var(--yellow)', 'var(--cyan)', 'var(--pink)', 'var(--green)'];
-
 export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspaceView }) {
   const readmeDraft =
     typeof workspace.roadmap?.readme_draft === "string" ? workspace.roadmap.readme_draft : "";
@@ -36,7 +34,7 @@ export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspace
       ) : null}
 
       {workspace.elevatorPitch ? (
-        <Card className="space-y-3" style={{ borderColor: 'var(--ink)', borderTop: '4px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.06)' }}>
+        <Card className="space-y-3 bg-surface-mint" elevation="soft">
           <p className="editorial-kicker">Elevator pitch</p>
           <p className="text-sm leading-6 text-ink-soft">{workspace.elevatorPitch}</p>
         </Card>
@@ -46,8 +44,8 @@ export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspace
         <p className="editorial-kicker">Resume bullets</p>
         {workspace.resumeBullets.length ? (
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
-            {workspace.resumeBullets.map((bullet, index) => (
-              <li key={bullet} className="rounded-md bg-canvas px-4 py-3" style={{ borderLeft: `3px solid ${TALKING_POINT_ACCENTS[index % TALKING_POINT_ACCENTS.length]}` }}>
+            {workspace.resumeBullets.map((bullet) => (
+              <li key={bullet} className="rounded-xl bg-surface px-4 py-3">
                 {bullet}
               </li>
             ))}
@@ -61,8 +59,8 @@ export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspace
         <p className="editorial-kicker">Talking points</p>
         {workspace.parsedTalkingPoints.length === workspace.talkingPoints.length && workspace.parsedTalkingPoints.length ? (
           <div className="grid gap-4 lg:grid-cols-2">
-            {workspace.parsedTalkingPoints.map((point, index) => (
-              <div key={point.raw} className="rounded-md bg-canvas p-4" style={{ borderTop: `3px solid ${TALKING_POINT_ACCENTS[index % TALKING_POINT_ACCENTS.length]}` }}>
+            {workspace.parsedTalkingPoints.map((point) => (
+              <div key={point.raw} className="rounded-xl bg-surface p-4">
                 <p className="editorial-kicker">{point.label}</p>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">{point.body}</p>
               </div>
@@ -70,8 +68,8 @@ export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspace
           </div>
         ) : workspace.talkingPoints.length ? (
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
-            {workspace.talkingPoints.map((point, index) => (
-              <li key={point} className="rounded-md bg-canvas px-4 py-3" style={{ borderLeft: `3px solid ${TALKING_POINT_ACCENTS[index % TALKING_POINT_ACCENTS.length]}` }}>
+            {workspace.talkingPoints.map((point) => (
+              <li key={point} className="rounded-xl bg-surface px-4 py-3">
                 {point}
               </li>
             ))}

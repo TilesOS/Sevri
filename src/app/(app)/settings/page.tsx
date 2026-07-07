@@ -58,7 +58,7 @@ export default async function SettingsPage() {
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
         <SettingsForm email={user.email ?? ""} initialValues={settingsValues} />
-        <Card className="space-y-4" style={{ borderColor: 'var(--ink)', borderTop: '4px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.06)' }}>
+        <Card className="space-y-4 bg-surface-mint" elevation="soft">
           <p className="editorial-kicker">What these defaults affect</p>
           <h2 className="text-3xl font-semibold text-ink">A better starting point every time you return.</h2>
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
@@ -70,7 +70,7 @@ export default async function SettingsPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Card className="space-y-3" style={{ borderTop: '3px solid var(--pink)' }}>
+        <Card className="space-y-3" tone="blush" elevation="soft">
           <p className="editorial-kicker">Billing</p>
           <p className="text-sm leading-6 text-ink-soft">
             Review your current plan, upgrade to Sevri Pro, or open the billing portal.
@@ -83,7 +83,7 @@ export default async function SettingsPage() {
           </Link>
         </Card>
 
-        <Card className="space-y-3" style={{ borderTop: '3px solid var(--yellow)' }}>
+        <Card className="space-y-3" tone="butter" elevation="soft">
           <p className="editorial-kicker">Integrations</p>
           <p className="text-sm leading-6 text-ink-soft">
             Connect GitHub to sync commits and READMEs with your projects.

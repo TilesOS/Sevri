@@ -55,7 +55,7 @@ export default async function BillingSettingsPage({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        <Card className="space-y-5" style={{ borderTop: '3px solid var(--pink)' }}>
+        <Card className="space-y-5" tone="blush" elevation="soft">
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone={effectivePlan === "pro_monthly" ? "accent" : "neutral"}>{getPlanLabel(effectivePlan)}</Badge>
             <Badge tone={status === "active" ? "success" : "warning"}>{status}</Badge>
@@ -82,7 +82,7 @@ export default async function BillingSettingsPage({
           <BillingActions canManageBilling={Boolean(subscription?.stripe_customer_id)} />
         </Card>
 
-        <Card className="space-y-4" style={{ borderColor: 'var(--ink)', borderTop: '4px solid var(--yellow)', backgroundColor: 'rgba(255,217,61,0.07)' }}>
+        <Card className="space-y-4" tone="butter" elevation="soft">
           <p className="editorial-kicker">Why upgrade</p>
           <h2 className="text-3xl font-semibold text-ink">Upgrade for better coaching, not more noise.</h2>
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">

@@ -19,7 +19,7 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
         </p>
       </div>
 
-      <Card className="space-y-4" style={{ borderColor: 'var(--ink)', borderTop: '4px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.06)' }}>
+      <Card className="space-y-4 bg-surface-mint" elevation="soft">
         <p className="editorial-kicker">Core scope</p>
         <h2 className="text-3xl font-semibold text-ink">Protect the MVP before you chase the stretch version.</h2>
         <p className="text-sm leading-6 text-ink-soft">{workspace.roadmap?.mvp_scope}</p>
@@ -29,7 +29,7 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
         <p className="editorial-kicker">Deliverables to protect</p>
         <ul className="space-y-3 text-sm leading-6 text-ink-soft">
           {workspace.keyDeliverables.map((deliverable) => (
-            <li key={deliverable} className="rounded-md bg-canvas px-4 py-3" style={{ borderLeft: '3px solid var(--yellow)' }}>
+            <li key={deliverable} className="rounded-xl bg-surface-butter px-4 py-3">
               {deliverable}
             </li>
           ))}
@@ -41,7 +41,7 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
         {workspace.stretchGoals.length ? (
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
             {workspace.stretchGoals.map((goal) => (
-              <li key={goal} className="rounded-md bg-canvas px-4 py-3" style={{ borderLeft: '3px solid var(--pink)' }}>
+              <li key={goal} className="rounded-xl bg-primary-soft px-4 py-3">
                 {goal}
               </li>
             ))}

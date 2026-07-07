@@ -869,7 +869,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_22rem]">
           <div className="min-w-0 space-y-6">
             <div className="grid gap-4 md:grid-cols-3">
-              <Card style={{ borderTop: '4px solid var(--yellow)' }}>
+              <Card tone="butter" elevation="soft">
                 <p className="editorial-kicker">Month in focus</p>
                 <p className="mt-3 text-2xl font-semibold text-ink">{formatMonthLabel(currentMonth)}</p>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">Keep the roadmap legible at the project level before you worry about work blocks.</p>
@@ -883,7 +883,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                     : `${dueSoonCount} items are due soon across visible projects.`}
                 </p>
               </Card>
-              <Card style={{ borderTop: '4px solid var(--cyan)' }}>
+              <Card className="bg-surface-mint" elevation="soft">
                 <p className="editorial-kicker">Source of truth</p>
                 <p className="mt-3 text-lg font-semibold text-ink">Due dates update everywhere.</p>
                 <p className="mt-2 text-sm leading-6 text-ink-soft">Dragging or moving a date here updates the step due date shown in guidance across Sevri.</p>
