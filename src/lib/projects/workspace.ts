@@ -41,6 +41,7 @@ export interface ProjectMilestoneView {
   isFuture: boolean;
   guidanceLocked: boolean;
   previousStepNumber: number | null;
+  scopeGuardrail: string;
 }
 
 export interface ProjectLensItem {
@@ -120,14 +121,19 @@ function parseTalkingPoint(point: string) {
 function normalizeMilestones(
   milestones: RawProjectWorkspace["milestones"],
   scheduleTimezone: string,
+  roadmapPayload: Record<string, unknown>,
 ): ProjectMilestoneView[] {
   const today = getTodayDateString(scheduleTimezone);
+  const roadmapSteps = Array.isArray(roadmapPayload.steps)
+    ? (roadmapPayload.steps as Array<Record<string, unknown>>)
+    : [];
 
   return milestones.map((milestone) => {
     const stepNumber = milestone.order_index + 1;
     const guidanceGate = getStepGuidanceGate(milestones, milestone.order_index);
     const progress = deriveMilestoneProgressMeta(milestones, milestone.order_index);
     const status: ProjectStepStatus = progress.status;
+    const roadmapStep = roadmapSteps.find((step) => step.order_index === milestone.order_index);
 
     return {
       ...milestone,
@@ -158,6 +164,10 @@ function normalizeMilestones(
       isFuture: progress.isFuture,
       guidanceLocked: guidanceGate.guidanceLocked,
       previousStepNumber: guidanceGate.previousStepNumber,
+      scopeGuardrail: getPayloadString(
+        roadmapStep?.scope_guardrail,
+        "Stay focused on this step's deliverable — do not expand scope.",
+      ),
     };
   });
 }
@@ -182,7 +192,11 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     typeof workspace.roadmap?.schedule_timezone === "string" && workspace.roadmap.schedule_timezone.trim().length > 0
       ? workspace.roadmap.schedule_timezone
       : "UTC";
-  const milestones = normalizeMilestones(workspace.milestones ?? [], scheduleTimezone);
+  const roadmapPayload =
+    workspace.roadmap?.track_payload_json && typeof workspace.roadmap.track_payload_json === "object"
+      ? (workspace.roadmap.track_payload_json as Record<string, unknown>)
+      : {};
+  const milestones = normalizeMilestones(workspace.milestones ?? [], scheduleTimezone, roadmapPayload);
   const completedCount = milestones.filter((milestone) => milestone.completed).length;
   const completionPercent = milestones.length === 0 ? 0 : Math.round((completedCount / milestones.length) * 100);
   const progress = getProjectProgressSummary({
@@ -201,10 +215,6 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
   const stretchGoals = (Array.isArray(workspace.roadmap?.stretch_goals) ? workspace.roadmap?.stretch_goals : []).filter(
     (goal: unknown): goal is string => typeof goal === "string" && goal.trim().length > 0,
   );
-  const roadmapPayload =
-    workspace.roadmap?.track_payload_json && typeof workspace.roadmap.track_payload_json === "object"
-      ? (workspace.roadmap.track_payload_json as Record<string, unknown>)
-      : {};
   const optionSeed =
     roadmapPayload.selected_option_seed && typeof roadmapPayload.selected_option_seed === "object"
       ? (roadmapPayload.selected_option_seed as Record<string, unknown>)

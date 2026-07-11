@@ -19,6 +19,7 @@ const bodySchema = z.object({
   location: z.string().trim().max(120).optional(),
   durationMinutes: z.coerce.number().int().min(5).max(480),
   timezone: z.string().min(1).max(120).optional(),
+  completedNow: z.boolean().optional(),
 });
 
 function isTimeString(value: string) {
@@ -68,6 +69,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       work_description: body.workDescription,
       location: body.location?.trim() || null,
       duration_minutes: body.durationMinutes,
+      completed_at: body.completedNow ? new Date().toISOString() : null,
     });
 
     if (error) {

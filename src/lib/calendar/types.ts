@@ -84,6 +84,7 @@ export interface CalendarDisplayItem {
   triggerContext?: string;
   workDescription?: string;
   location?: string | null;
+  completedAt?: string | null;
   isUserScheduledOverride: boolean;
   href: string;
   description: string;

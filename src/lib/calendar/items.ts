@@ -204,6 +204,7 @@ export function buildProjectCalendarItems(input: {
       triggerContext: session.triggerContext,
       workDescription: session.workDescription,
       location: session.location,
+      completedAt: session.completedAt,
       isUserScheduledOverride: false,
       href: session.stepNumber
         ? `/project/${input.project.projectId}/steps/${session.stepNumber}`

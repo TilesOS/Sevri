@@ -461,11 +461,15 @@ function DayCell({
             className={cn(
               "w-full rounded-xl border px-2.5 py-2 text-left text-[11px] font-medium leading-4 transition",
               getStatusSurfaceClassName(item.status),
+              item.itemType === "work_session" && item.completedAt && "opacity-60",
             )}
             style={getStatusSurfaceStyle(item.status)}
             title={`${item.projectTitle} - ${item.title}`}
           >
-            <p className="truncate">{getItemChipLabel(item)}</p>
+            <p className="truncate">
+              {item.itemType === "work_session" && item.completedAt ? "✓ " : ""}
+              {getItemChipLabel(item)}
+            </p>
             <p className={cn("mt-1 truncate text-[10px]", getStatusTextClassName(item.status))}>
               {item.itemType === "work_session" && item.durationMinutes
                 ? `${item.durationMinutes} min - ${item.workDescription ?? item.title}`
@@ -1177,11 +1181,22 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               {dayItems.length > 0 ? (
                 <div className="space-y-3">
                   {dayItems.map((item) => (
-                    <div key={item.id} className={cn("rounded-[1.4rem] border px-4 py-4", getStatusSurfaceClassName(item.status))} style={getStatusSurfaceStyle(item.status)}>
+                    <div
+                      key={item.id}
+                      className={cn(
+                        "rounded-[1.4rem] border px-4 py-4",
+                        getStatusSurfaceClassName(item.status),
+                        item.itemType === "work_session" && item.completedAt && "opacity-65",
+                      )}
+                      style={getStatusSurfaceStyle(item.status)}
+                    >
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={trackThemes[item.projectTrack].badgeTone}>{trackThemes[item.projectTrack].label}</Badge>
                         <Badge tone={getUrgencyTone(item.urgency)}>{getUrgencyLabel(item.urgency)}</Badge>
                         {item.isUserScheduledOverride ? <Badge tone="neutral">Manual move</Badge> : null}
+                        {item.itemType === "work_session" && item.completedAt ? (
+                          <Badge tone="neutral">✓ Completed</Badge>
+                        ) : null}
                       </div>
                       <div className="mt-3 space-y-2">
                         <p className="text-sm font-semibold text-ink">{item.projectTitle}</p>
@@ -1200,6 +1215,15 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                         <p className={cn("text-sm leading-6", getStatusTextClassName(item.status))}>{item.description}</p>
                       </div>
                       <div className="mt-4 flex flex-wrap gap-3">
+                        {item.itemType === "work_session" && !item.completedAt ? (
+                          <Button
+                            href={`/projects/${item.projectId}/focus?session=${encodeURIComponent(item.id)}`}
+                            size="sm"
+                            className="rounded-full"
+                          >
+                            Start
+                          </Button>
+                        ) : null}
                         <Button href={item.href} variant="outline" size="sm" className="rounded-full">
                           Open in workspace
                         </Button>

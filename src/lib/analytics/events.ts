@@ -22,6 +22,8 @@ export const APP_EVENT_TYPES = [
   "portfolio_published",
   "portfolio_unpublished",
   "portfolio_public_page_viewed",
+  "focus_block_started",
+  "focus_block_completed",
 ] as const;
 
 export const appEventSchema = z.enum(APP_EVENT_TYPES);
