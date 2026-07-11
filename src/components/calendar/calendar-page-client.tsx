@@ -407,7 +407,7 @@ function DayCell({
       tabIndex={0}
       className={cn(
         "flex min-h-[8.5rem] flex-col gap-2 border-r border-t border-line px-3 py-3 text-left transition focus-visible:outline-none",
-        isCurrentMonth ? "bg-paper/92" : "bg-canvas/48 text-ink-muted",
+        isCurrentMonth ? "bg-paper/92" : "bg-surface/60 text-ink-muted",
         dropActive && "bg-surface-butter shadow-[inset_0_0_0_1px_rgba(81,126,95,0.3)]",
       )}
       style={selected ? { backgroundColor: 'rgba(91,208,214,0.14)', boxShadow: 'inset 0 0 0 2px rgba(91,208,214,0.5)' } : undefined}

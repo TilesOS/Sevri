@@ -15,16 +15,16 @@
   --color-primary-line: rgba(255, 107, 76, 0.28);
 
   /* Warm cream surfaces (light base) — warmer canvas + dimmed cards so they mesh */
-  --canvas: #F4EBD1;
-  --paper: #FBF4E1;
-  --surface: #F0E7CF;
-  --surface-strong: #E7DDC7;
+  --canvas: #F8F8F7;
+  --paper: #FFFFFF;
+  --surface: #F2F2F0;
+  --surface-strong: #E9E9E6;
   --surface-mint: #E9F2EA;   /* faint teal-tinted panel */
-  --surface-butter: #FCF6E4;
+  --surface-butter: #F6F6F4;
 
   /* Lines */
-  --line: #E7DDC7;
-  --line-strong: #D6C9AC;
+  --line: #EAEAE7;
+  --line-strong: #DCDCD8;
 
   /* Ink (navy-tinted, not pure black) */
   --ink: #0B1526;
@@ -57,12 +57,12 @@
 
   /* RGB channel triples — let Tailwind apply <alpha-value> (e.g. text-cream/70).
      The hex vars above stay for direct CSS/inline use. */
-  --canvas-rgb: 244 235 209;
-  --paper-rgb: 251 244 225;
-  --surface-rgb: 240 231 207;
-  --surface-strong-rgb: 231 221 199;
-  --line-rgb: 231 221 199;
-  --line-strong-rgb: 214 201 172;
+  --canvas-rgb: 248 248 247;
+  --paper-rgb: 255 255 255;
+  --surface-rgb: 242 242 240;
+  --surface-strong-rgb: 233 233 230;
+  --line-rgb: 234 234 231;
+  --line-strong-rgb: 220 220 216;
   --ink-rgb: 11 21 38;
   --ink-soft-rgb: 51 64 90;
   --ink-muted-rgb: 107 116 136;
@@ -79,8 +79,8 @@
   --contrast-soft-rgb: 16 38 92;
 
   /* Aliases for recipe classes */
-  --paper-card: #FBF4E1;
-  --paper-soft: #F0E7CF;
+  --paper-card: #FFFFFF;
+  --paper-soft: #F2F2F0;
 
   /* Interaction — soft diffuse shadows (premium, not brutalist offset) */
   --focus-ring: rgba(255, 107, 76, 0.38);
