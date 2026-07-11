@@ -150,8 +150,13 @@ export const StepGuidanceSchema = z.object({
 
 const CriterionVerdictSchema = z.object({
   criterion: z.string().min(5).max(240),
-  verdict: z.enum(["pass", "partial", "not_yet"]),
+  verdict: z.enum(["met", "pass", "partial", "not_yet"]),
   note: z.string().min(10).max(300),
+});
+
+const ScopeAssessmentSchema = z.object({
+  drifted: z.boolean(),
+  out_of_scope_note: z.string().min(10).max(300).nullable(),
 });
 
 export const WorkEvaluationSchema = z.object({
@@ -162,6 +167,7 @@ export const WorkEvaluationSchema = z.object({
   next_best_action: z.string().min(10).max(300),
   ready_to_mark_complete: z.boolean(),
   confidence: z.enum(["high", "medium", "low"]).optional(),
+  scope_assessment: ScopeAssessmentSchema.optional().nullable(),
 });
 
 export const WorkPortfolioCurationSchema = z.object({

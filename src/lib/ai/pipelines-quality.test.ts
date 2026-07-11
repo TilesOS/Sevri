@@ -14,6 +14,7 @@ import {
   STEP_GUIDANCE_QUALITY_SPEC,
   WORK_EVALUATION_QUALITY_SPEC,
 } from "./content-quality-specs.ts";
+import { WorkEvaluationSchema } from "./schemas.ts";
 
 function validatorFeedback(parsed: unknown, spec: Parameters<typeof checkStructured>[1]): string[] {
   const report = checkStructured(parsed, spec);
@@ -114,6 +115,38 @@ test("work evaluation validator surfaces feedback for too-short note", () => {
   };
   const feedback = validatorFeedback(bad, WORK_EVALUATION_QUALITY_SPEC);
   assert.ok(feedback.some((line) => line.includes("criterion_verdicts[0].note")));
+});
+
+test("work evaluation schema keeps legacy evaluations compatible while accepting scope assessment", () => {
+  const legacyEvaluation = {
+    criterion_verdicts: [{
+      criterion: "The required validation check is satisfied.",
+      verdict: "pass",
+      note: "The submission includes direct evidence for this criterion.",
+    }],
+    overall_assessment: "The submission satisfies the required criterion with clear supporting evidence.",
+    strongest_aspect: "The evidence is concrete and easy to verify.",
+    clearest_gap: "No required criterion is currently missing.",
+    next_best_action: "Mark the step complete and continue to the next step.",
+    ready_to_mark_complete: true,
+  };
+
+  assert.equal(WorkEvaluationSchema.parse(legacyEvaluation).scope_assessment, undefined);
+  assert.equal(
+    WorkEvaluationSchema.parse({
+      ...legacyEvaluation,
+      criterion_verdicts: [{ ...legacyEvaluation.criterion_verdicts[0], verdict: "met" }],
+      scope_assessment: {
+        drifted: true,
+        out_of_scope_note: "Park the added export feature because it is outside this step.",
+      },
+    }).scope_assessment?.drifted,
+    true,
+  );
+  assert.equal(
+    WorkEvaluationSchema.parse({ ...legacyEvaluation, scope_assessment: null }).scope_assessment,
+    null,
+  );
 });
 
 test("validator feedback lines reference quality issue kinds for repair context", () => {

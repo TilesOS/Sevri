@@ -72,7 +72,7 @@ export interface StepGuidance {
 
 export interface CriterionVerdict {
   criterion: string;
-  verdict: "pass" | "partial" | "not_yet";
+  verdict: "met" | "pass" | "partial" | "not_yet";
   note: string;
 }
 
@@ -84,6 +84,10 @@ export interface WorkEvaluation {
   next_best_action: string;
   ready_to_mark_complete: boolean;
   confidence?: "high" | "medium" | "low";
+  scope_assessment?: {
+    drifted: boolean;
+    out_of_scope_note: string | null;
+  } | null;
 }
 
 export type EvaluationLifecycleStatus = "pending" | "completed" | "failed";
@@ -91,6 +95,7 @@ export type EvaluationLifecycleStatus = "pending" | "completed" | "failed";
 export interface StoredMilestoneSubmission {
   id: string;
   submission_kind: "pasted_text" | "file_upload";
+  submission_text: string;
   submission_filename: string | null;
   created_at: string;
   updated_at: string;

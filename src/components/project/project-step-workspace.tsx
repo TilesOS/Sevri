@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { GithubStepCommits } from "@/components/project/github-step-commits";
+import { Input } from "@/components/ui/input";
 import { ReviewerFeedbackPanel } from "@/components/reviewer/reviewer-feedback-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
@@ -78,25 +79,44 @@ type SubmissionSlot =
 
 const ACCEPTED_FILE_EXTENSIONS = ".py,.js,.ts,.jsx,.tsx,.html,.css,.md,.txt,.json,.csv,.sql";
 const MAX_SUBMISSION_CHARS = 20_000;
+const MAX_REBUTTAL_CHARS = 500;
 const NOTES_SEPARATOR = "\n\n--- Notes ---\n\n";
-
-const VERDICT_TONE: Record<string, "success" | "warning" | "danger"> = {
-  pass: "success",
-  partial: "warning",
-  not_yet: "danger",
-};
-
-const VERDICT_LABEL: Record<string, string> = {
-  pass: "Pass",
-  partial: "Partial",
-  not_yet: "Not yet",
-};
 
 const CONFIDENCE_LABEL: Record<string, string> = {
   high: "High confidence",
   medium: "Medium confidence",
   low: "Low confidence",
 };
+
+type EvaluationHeadline = "Done" | "Drifted" | "Gap";
+
+function getEvaluationHeadline(evaluation: WorkEvaluation): EvaluationHeadline {
+  if (evaluation.ready_to_mark_complete) {
+    return "Done";
+  }
+
+  if (evaluation.scope_assessment?.drifted) {
+    return "Drifted";
+  }
+
+  return "Gap";
+}
+
+function getEvaluationFocus(evaluation: WorkEvaluation) {
+  if (getEvaluationHeadline(evaluation) === "Drifted") {
+    return evaluation.scope_assessment?.out_of_scope_note ?? evaluation.next_best_action;
+  }
+
+  return evaluation.next_best_action;
+}
+
+function buildRebuttalSubmission(submission: StoredMilestoneSubmission, rebuttal: string) {
+  return [
+    `Student rebuttal to the prior evaluation: ${rebuttal.trim()}`,
+    "Original submission:",
+    submission.submission_text,
+  ].join("\n\n");
+}
 
 function buildSubmissionSlot(body: MilestoneEvaluationResponse | null | undefined): SubmissionSlot {
   if (!body?.current_submission) {
@@ -233,6 +253,7 @@ export function ProjectStepWorkspace({
   const [isEvaluationPending, setIsEvaluationPending] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isResubmitMode, setIsResubmitMode] = useState(false);
+  const [currentFocus, setCurrentFocus] = useState<string | null>(null);
   const [isCompletionPending, setIsCompletionPending] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const fetchGuidanceRef = useRef(fetchGuidance);
@@ -253,6 +274,7 @@ export function ProjectStepWorkspace({
     setEvaluationError(null);
     setIsComposerOpen(false);
     setIsResubmitMode(false);
+    setCurrentFocus(null);
     setActiveTab("checklist");
     setCheckedItems({});
 
@@ -472,6 +494,15 @@ export function ProjectStepWorkspace({
 
   return (
     <div className="space-y-8 pb-52">
+      {currentFocus ? (
+        <div className="sticky top-3 z-30 rounded-2xl border border-primary/35 bg-paper/95 px-4 py-3 shadow-soft backdrop-blur">
+          <p className="text-sm text-ink">
+            <span className="mr-2 font-semibold">Current focus:</span>
+            {currentFocus}
+          </p>
+        </div>
+      ) : null}
+
       <Card tone="contrast" className="aurora-fallback border-contrast-line" elevation="lifted">
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
@@ -711,25 +742,53 @@ export function ProjectStepWorkspace({
               slot={submissionSlot}
               evaluationError={evaluationError}
               isEvaluationPending={isEvaluationPending}
+              isCompletionPending={isCompletionPending}
+              isMilestoneComplete={milestone.completed}
               actionsDisabled={isGuidanceLocked}
               onOpenComposer={() => {
                 setIsComposerOpen(true);
                 setIsResubmitMode(true);
               }}
+              onPinFocus={setCurrentFocus}
+              onMarkDone={() => {
+                if (!milestone.completed) {
+                  void toggleMilestone();
+                }
+              }}
+              onRebuttal={(submission, rebuttal) =>
+                void submitWork(
+                  buildRebuttalSubmission(submission, rebuttal),
+                  submission.submission_kind,
+                  submission.submission_filename ?? undefined,
+                )
+              }
             />
 
             {fallbackEvaluation ? (
               <EvaluationResult
-                title="Last completed evaluation"
                 note={
                   submissionSlot.status === "pending"
-                    ? "Your newest submission is still pending, so Sevri is keeping the last completed evaluation visible."
-                    : "Your newest submission failed to evaluate, so Sevri is keeping the last completed evaluation visible."
+                    ? "Previous verdict shown while the newest submission is evaluated."
+                    : "Previous verdict shown because the newest evaluation failed."
                 }
                 submission={fallbackEvaluation.submission}
-                evaluationId={fallbackEvaluation.evaluation_id}
                 evaluation={fallbackEvaluation.evaluation}
                 actionsDisabled={isGuidanceLocked}
+                isActionPending={isEvaluationPending || isCompletionPending}
+                isMilestoneComplete={milestone.completed}
+                onPinFocus={setCurrentFocus}
+                onMarkDone={() => {
+                  if (!milestone.completed) {
+                    void toggleMilestone();
+                  }
+                }}
+                onRebuttal={(submission, rebuttal) =>
+                  void submitWork(
+                    buildRebuttalSubmission(submission, rebuttal),
+                    submission.submission_kind,
+                    submission.submission_filename ?? undefined,
+                  )
+                }
               />
             ) : null}
 
@@ -814,14 +873,24 @@ function SubmissionSummary({
   slot,
   evaluationError,
   isEvaluationPending,
+  isCompletionPending,
+  isMilestoneComplete,
   actionsDisabled,
   onOpenComposer,
+  onPinFocus,
+  onMarkDone,
+  onRebuttal,
 }: {
   slot: SubmissionSlot;
   evaluationError: string | null;
   isEvaluationPending: boolean;
+  isCompletionPending: boolean;
+  isMilestoneComplete: boolean;
   actionsDisabled: boolean;
   onOpenComposer: () => void;
+  onPinFocus: (focus: string) => void;
+  onMarkDone: () => void;
+  onRebuttal: (submission: StoredMilestoneSubmission, rebuttal: string) => void;
 }) {
   if (slot.status === "unloaded" || slot.status === "loading" || slot.status === "empty") {
     return (
@@ -839,10 +908,13 @@ function SubmissionSummary({
     return (
       <EvaluationResult
         submission={slot.submission}
-        evaluationId={slot.evaluationId}
         evaluation={slot.evaluation}
         actionsDisabled={actionsDisabled}
-        onResubmit={onOpenComposer}
+        isActionPending={isEvaluationPending || isCompletionPending}
+        isMilestoneComplete={isMilestoneComplete}
+        onPinFocus={onPinFocus}
+        onMarkDone={onMarkDone}
+        onRebuttal={onRebuttal}
       />
     );
   }
@@ -961,11 +1033,15 @@ function getSubmissionDockSummary(
   }
 
   if (slot.status === "completed") {
+    const headline = getEvaluationHeadline(slot.evaluation);
     return {
-      title: "Latest evaluation saved",
-      description: slot.evaluation.ready_to_mark_complete
-        ? "This step looks ready to mark complete."
-        : "You have feedback ready for another revision.",
+      title: `${headline} verdict`,
+      description:
+        headline === "Done"
+          ? "Every done-when criterion is met."
+          : headline === "Drifted"
+            ? slot.evaluation.scope_assessment?.out_of_scope_note ?? "Cut or park the out-of-scope work."
+            : slot.evaluation.clearest_gap,
     };
   }
 
@@ -1220,26 +1296,55 @@ function CurrentSubmissionStatusCard({
 
 function EvaluationResult({
   submission,
-  evaluationId,
   evaluation,
-  onResubmit,
   actionsDisabled = false,
-  title = "Latest evaluation",
+  isActionPending,
+  isMilestoneComplete,
+  onPinFocus,
+  onMarkDone,
+  onRebuttal,
   note,
 }: {
   submission: StoredMilestoneSubmission;
-  evaluationId?: string;
   evaluation: WorkEvaluation;
-  onResubmit?: () => void;
   actionsDisabled?: boolean;
-  title?: string;
+  isActionPending: boolean;
+  isMilestoneComplete: boolean;
+  onPinFocus: (focus: string) => void;
+  onMarkDone: () => void;
+  onRebuttal: (submission: StoredMilestoneSubmission, rebuttal: string) => void;
   note?: string;
 }) {
+  const [isRebuttalOpen, setIsRebuttalOpen] = useState(false);
+  const [rebuttal, setRebuttal] = useState("");
+  const headline = getEvaluationHeadline(evaluation);
+  const focus = getEvaluationFocus(evaluation);
+  const detail =
+    headline === "Done"
+      ? "Every done-when criterion is met."
+      : headline === "Drifted"
+        ? evaluation.scope_assessment?.out_of_scope_note ?? "Cut or park the out-of-scope work before continuing."
+        : evaluation.clearest_gap;
+  const tone = headline === "Done" ? "success" : headline === "Drifted" ? "warning" : "danger";
+  const controlsDisabled = actionsDisabled || isActionPending;
+
+  function submitRebuttal(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = rebuttal.trim();
+    if (!trimmed || controlsDisabled) {
+      return;
+    }
+
+    setIsRebuttalOpen(false);
+    setRebuttal("");
+    onRebuttal(submission, trimmed);
+  }
+
   return (
     <Card tone="subtle" className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="editorial-kicker">{title}</p>
+          <p className="editorial-kicker">Work verdict</p>
           <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
             <span>{formatSubmissionKind(submission.submission_kind, submission.submission_filename)}</span>
             <span>&middot;</span>
@@ -1255,72 +1360,78 @@ function EvaluationResult({
           </div>
           {note ? <p className="text-xs text-ink-muted">{note}</p> : null}
         </div>
-        {onResubmit ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onResubmit}
-            className="rounded-full"
-            disabled={actionsDisabled}
-          >
-            Submit new version
-          </Button>
-        ) : null}
+        <Badge tone={tone}>{headline}</Badge>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Criterion verdicts</p>
-        <ul className="space-y-2">
+      <Alert tone={tone} heading={headline}>
+        {detail}
+      </Alert>
+
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Done-when checklist</p>
+        <ul className="space-y-3">
           {evaluation.criterion_verdicts.map((verdict, index) => (
             <li key={`${verdict.criterion}-${index}`} className="flex items-start gap-2 text-sm">
-              <Badge tone={VERDICT_TONE[verdict.verdict]} className="mt-0.5 shrink-0 text-[10px]">
-                {VERDICT_LABEL[verdict.verdict]}
-              </Badge>
-              <div>
-                <span className="font-medium text-ink">{verdict.criterion}</span>
-                <span className="text-ink-soft"> - {verdict.note}</span>
+              {verdict.verdict === "met" || verdict.verdict === "pass" ? (
+                <span
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700"
+                  aria-label="Met"
+                >
+                  &#10003;
+                </span>
+              ) : (
+                <span
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-dashed border-ink-muted/60"
+                  aria-label="Not yet"
+                />
+              )}
+              <div className="space-y-0.5">
+                <p className="font-medium text-ink">{verdict.criterion}</p>
+                <p className="text-ink-soft">{verdict.note}</p>
               </div>
             </li>
           ))}
         </ul>
       </div>
 
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Overall assessment</p>
-        <p className="mt-1 text-sm leading-6 text-ink-soft">{evaluation.overall_assessment}</p>
+      <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+        <Button type="button" onClick={() => onPinFocus(focus)} disabled={controlsDisabled}>
+          Make this my next block
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onMarkDone}
+          disabled={controlsDisabled || isMilestoneComplete}
+        >
+          Mark done anyway
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setIsRebuttalOpen(true)}
+          disabled={controlsDisabled || isRebuttalOpen}
+        >
+          I disagree
+        </Button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Card padding="sm" tone="butter" elevation="soft">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Strongest aspect</p>
-          <p className="mt-1 text-sm leading-6 text-ink">{evaluation.strongest_aspect}</p>
-        </Card>
-        <Card padding="sm" className="bg-surface-mint" elevation="soft">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Clearest gap</p>
-          <p className="mt-1 text-sm leading-6 text-ink">{evaluation.clearest_gap}</p>
-        </Card>
-      </div>
-
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Next best action</p>
-        <p className="mt-1 text-sm leading-6 text-ink-soft">{evaluation.next_best_action}</p>
-      </div>
-
-      {evaluation.ready_to_mark_complete ? (
-        <Alert tone="success">This step looks done. You can mark it complete above.</Alert>
-      ) : (
-        <p className="text-xs text-ink-muted">Address the gap above before you mark this step complete.</p>
-      )}
-
-      {evaluationId ? (
-        <GenerationFeedbackForm
-          variant="compact"
-          stage="work_evaluation"
-          submissionEvaluationId={evaluationId}
-          title="How did this evaluation feel?"
-          description="Optional. This does not change the verdict. It only sharpens future review quality."
-        />
+      {isRebuttalOpen ? (
+        <form className="flex flex-col gap-2 sm:flex-row" onSubmit={submitRebuttal}>
+          <Input
+            type="text"
+            value={rebuttal}
+            onChange={(event) => setRebuttal(event.target.value)}
+            placeholder="Briefly say what the evaluation missed"
+            maxLength={MAX_REBUTTAL_CHARS}
+            aria-label="Evaluation rebuttal"
+            autoFocus
+            disabled={controlsDisabled}
+          />
+          <Button type="submit" size="sm" disabled={controlsDisabled || !rebuttal.trim()}>
+            Submit
+          </Button>
+        </form>
       ) : null}
     </Card>
   );
