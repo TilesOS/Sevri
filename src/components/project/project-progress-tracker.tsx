@@ -4,7 +4,7 @@ import type { ProjectProgressSummary } from "@/lib/projects/progress";
 
 const stateClassName = {
   complete: "border-teal/60 bg-teal/25 text-navy",
-  current: "border-navy bg-navy text-paper",
+  current: "border-coral bg-coral text-white",
   locked: "border-line-strong bg-surface text-ink-muted",
 } as const;
 
@@ -37,7 +37,7 @@ export function ProjectProgressTracker({
             className={cn(
               "min-w-0 rounded-md border px-3 py-2",
               contrast ? "border-white/10 bg-white/6" : "bg-canvas",
-              item.state === "current" && (contrast ? "border-teal bg-teal/20" : "border-navy/25 bg-navy/[0.05]"),
+              item.state === "current" && (contrast ? "border-coral bg-coral/15" : "border-coral/30 bg-coral/[0.06]"),
             )}
           >
             <div className="flex items-center gap-2">

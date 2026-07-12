@@ -162,7 +162,7 @@ function SidebarContent({
   return (
     <div className="flex h-full min-h-0 flex-col px-3 py-3">
       <Link href="/dashboard" className="mb-5 flex h-9 items-center gap-2 rounded-lg px-2 text-ink" onClick={onNavigate}>
-        <span className="grid h-6 w-6 place-items-center rounded-md bg-navy text-xs font-bold text-white">S</span>
+        <span className="grid h-6 w-6 place-items-center rounded-md bg-coral text-xs font-bold text-white">S</span>
         <span className="text-sm font-semibold tracking-tight">Sevri</span>
       </Link>
 

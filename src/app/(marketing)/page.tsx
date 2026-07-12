@@ -166,7 +166,7 @@ export default function HomePage() {
             </div>
           </Reveal>
           <Reveal delay={0.1}>
-            <div className="group flex h-full flex-col justify-between rounded-3xl bg-navy/[0.05] p-8 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lifted sm:p-10">
+            <div className="group flex h-full flex-col justify-between rounded-3xl bg-primary-soft p-8 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lifted sm:p-10">
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-coral/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-coral">
                   <span className="h-1.5 w-1.5 rounded-full bg-coral" />

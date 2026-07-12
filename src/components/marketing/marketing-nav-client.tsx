@@ -158,10 +158,10 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
                         onClick={() => setOpen(false)}
                         className="group flex items-baseline gap-5 py-1"
                       >
-                        <span className="font-mono text-xs font-semibold text-ink-muted transition-colors group-hover:text-teal-deep">
+                        <span className="font-mono text-xs font-semibold text-ink-muted transition-colors group-hover:text-coral">
                           0{i + 1}
                         </span>
-                        <span className="font-display text-6xl leading-[1.04] tracking-tight text-ink transition-colors duration-200 group-hover:text-navy sm:text-7xl lg:text-8xl">
+                        <span className="font-display text-6xl leading-[1.04] tracking-tight text-ink transition-colors duration-200 group-hover:text-coral sm:text-7xl lg:text-8xl">
                           {link.label}
                         </span>
                       </Link>

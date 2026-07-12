@@ -8,11 +8,11 @@
   --color-white: #FFFDE2;
 
   /* Product accent → teal. Coral is reserved for high-attention moments. */
-  --color-primary: #157F89;
-  --color-primary-hover: #0F6F78;
-  --color-primary-active: #0A5C64;
-  --color-primary-soft: rgba(68, 194, 199, 0.12);
-  --color-primary-line: rgba(21, 127, 137, 0.32);
+  --color-primary: #FF6B4C;
+  --color-primary-hover: #F2542D;
+  --color-primary-active: #DC431D;
+  --color-primary-soft: rgba(255, 107, 76, 0.10);
+  --color-primary-line: rgba(255, 107, 76, 0.28);
 
   /* Warm cream surfaces (light base) — warmer canvas + dimmed cards so they mesh */
   --canvas: #F7F7F5;
@@ -44,16 +44,16 @@
 
   /* Accent palette */
   --coral: #FF6B4C;
-  --teal: #44C2C7;
-  --teal-deep: #157F89;
+  --teal: #5BD0D6;
+  --teal-deep: #46D3C0;
   --pale-blue: #D2E4F4;
 
   /* Legacy accent names remapped onto the new palette so
      not-yet-redesigned app screens re-skin instead of breaking */
   --pink: #FF6B4C;
-  --cyan: #44C2C7;
+  --cyan: #5BD0D6;
   --yellow: #F4B740;
-  --green: #44C2C7;
+  --green: #46D3C0;
 
   /* RGB channel triples — let Tailwind apply <alpha-value> (e.g. text-cream/70).
      The hex vars above stay for direct CSS/inline use. */
@@ -66,11 +66,11 @@
   --ink-rgb: 24 24 27;
   --ink-soft-rgb: 82 82 91;
   --ink-muted-rgb: 122 122 132;
-  --color-primary-rgb: 21 127 137;
-  --color-primary-hover-rgb: 15 111 120;
+  --color-primary-rgb: 255 107 76;
+  --color-primary-hover-rgb: 242 84 45;
   --coral-rgb: 255 107 76;
-  --teal-rgb: 68 194 199;
-  --teal-deep-rgb: 21 127 137;
+  --teal-rgb: 91 208 214;
+  --teal-deep-rgb: 70 211 192;
   --navy-rgb: 11 30 77;
   --navy-deep-rgb: 5 18 54;
   --cream-rgb: 255 253 226;
@@ -83,12 +83,30 @@
   --paper-soft: #F2F2F0;
 
   /* Interaction — soft diffuse shadows (premium, not brutalist offset) */
-  --focus-ring: rgba(68, 194, 199, 0.42);
+  --focus-ring: rgba(255, 107, 76, 0.38);
   --shadow-soft: 0 1px 2px rgba(24, 24, 27, 0.06), 0 4px 12px rgba(24, 24, 27, 0.04);
   --shadow-lifted: 0 16px 40px rgba(24, 24, 27, 0.14);
 
   /* Sidebar */
   --app-sidebar-width: 15.5rem;
+}
+
+/* Keep the product workspace blue-led without changing the public brand palette. */
+.product-ui {
+  --color-primary: #157F89;
+  --color-primary-hover: #0F6F78;
+  --color-primary-active: #0A5C64;
+  --color-primary-soft: rgba(68, 194, 199, 0.12);
+  --color-primary-line: rgba(21, 127, 137, 0.32);
+  --color-primary-rgb: 21 127 137;
+  --color-primary-hover-rgb: 15 111 120;
+  --teal: #44C2C7;
+  --teal-deep: #157F89;
+  --teal-rgb: 68 194 199;
+  --teal-deep-rgb: 21 127 137;
+  --cyan: #44C2C7;
+  --green: #44C2C7;
+  --focus-ring: rgba(68, 194, 199, 0.42);
 }
 
 /* ── Product scrollbars ── */
@@ -138,8 +156,12 @@ html.lenis body {
   }
 
   ::selection {
-    background: rgba(68, 194, 199, 0.24);
+    background: rgba(255, 107, 76, 0.22);
     color: var(--ink);
+  }
+
+  .product-ui ::selection {
+    background: rgba(68, 194, 199, 0.24);
   }
 
   :focus-visible {
@@ -292,7 +314,7 @@ html.lenis body {
   .tab.is-active {
     background: var(--paper);
     color: var(--ink);
-    box-shadow: inset 2px 0 0 var(--teal-deep);
+    box-shadow: inset 2px 0 0 var(--coral);
   }
   .tab.is-active:hover {
     background: var(--color-primary-soft);
@@ -459,7 +481,7 @@ html.lenis body {
     transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
   }
   .step-row:hover { border-color: var(--line-strong); }
-  .step-row.active { background: var(--paper); border-color: var(--color-primary-line); box-shadow: inset 2px 0 0 var(--teal-deep); }
+  .step-row.active { background: var(--paper); border-color: var(--color-primary-line); box-shadow: inset 2px 0 0 var(--coral); }
   .step-row.done   { background: var(--surface); }
   .step-row.locked { opacity: 0.55; box-shadow: none; cursor: default; }
   .step-row.locked:hover { transform: none; box-shadow: none; }
@@ -559,6 +581,6 @@ html.lenis body {
   }
 
   .product-ui .star {
-    color: var(--teal-deep);
+    color: var(--coral);
   }
 }
