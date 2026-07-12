@@ -374,7 +374,7 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
   const subjectPreview = favoriteSubjects ? toList(favoriteSubjects).slice(0, 3).join(", ") : "Not set yet";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr] lg:items-start">
+    <div className="mx-auto max-w-3xl space-y-6">
       <Card className="space-y-6">
         <div aria-live="polite" className="sr-only">
           {error ?? (isSubmitting ? "Saving onboarding." : "")}
@@ -389,7 +389,7 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
           </div>
 
           <div className="space-y-2">
-            <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">
+            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink">
               Choose the direction you can actually carry.
             </h1>
             <p className="max-w-3xl text-sm leading-7 text-ink-soft">
@@ -412,16 +412,14 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
               return (
                 <div
                   key={stepItem.key}
-                  className="rounded-2xl border px-4 py-3 transition"
-                  style={
-                    isActive
-                      ? { backgroundColor: 'var(--surface-mint)', borderColor: 'var(--teal-deep)' }
-                      : isComplete
-                        ? { backgroundColor: 'rgba(255,217,61,0.18)', borderColor: 'var(--ink)' }
-                        : { backgroundColor: 'var(--surface)', opacity: 0.7, borderColor: 'var(--line)' }
-                  }
+                  className={cn(
+                    "rounded-lg border px-3 py-2.5 transition-colors",
+                    isActive && "border-primary-line bg-primary-soft",
+                    isComplete && "border-line-strong bg-paper",
+                    !isActive && !isComplete && "border-line bg-surface text-ink-muted",
+                  )}
                 >
-                  <p className="editorial-kicker">{isComplete ? "Complete" : `Step ${index + 1}`}</p>
+                  <p className="text-xs text-ink-muted">{isComplete ? "Complete" : `Step ${index + 1}`}</p>
                   <p className="mt-2 text-sm font-semibold text-ink">{stepItem.title}</p>
                 </div>
               );
@@ -432,10 +430,10 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={currentStep.key}
-            initial={{ opacity: 0, x: 18 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -18 }}
-            transition={{ duration: 0.28, ease: "easeOut" }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.16, ease: "easeOut" }}
             className="space-y-6"
           >
             <div className="space-y-2">
@@ -449,7 +447,7 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
                   <div className="space-y-3">
                     <p className="text-sm font-semibold text-ink">
                       Choose your primary track
-                      <span className="ml-1" style={{ color: "var(--cyan)" }}>
+                      <span className="ml-1 text-coral">
                         *
                       </span>
                     </p>
@@ -671,17 +669,16 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
                   variant="outline"
                   onClick={() => setStep((current) => Math.max(current - 1, 0))}
                   disabled={step === 0 || isSubmitting}
-                  className="rounded-full"
                 >
                   Back
                 </Button>
 
                 {step < steps.length - 1 ? (
-                  <Button type="button" onClick={nextStep} disabled={isSubmitting} className="rounded-full px-6">
+                  <Button type="button" onClick={nextStep} disabled={isSubmitting}>
                     Continue
                   </Button>
                 ) : (
-                  <Button type="button" onClick={submitFinalStep} disabled={isSubmitting} className="rounded-full px-6">
+                  <Button type="button" onClick={submitFinalStep} disabled={isSubmitting}>
                     {isSubmitting ? "Saving..." : "Finish onboarding"}
                   </Button>
                 )}
@@ -691,21 +688,21 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
         </AnimatePresence>
       </Card>
 
-      <div className="space-y-4 lg:sticky lg:top-28">
-        <Card tone="contrast" className="border-contrast-line">
+      <div className="space-y-4">
+        <Card>
           <div className="space-y-4">
             <div className="flex flex-wrap items-center gap-3">
               <Badge tone={projectTrack === "software" ? "accent" : "research"}>
                 {projectTrack === "software" ? "Software track" : "Research track"}
               </Badge>
-              <Badge tone="contrast">{targetOutcomeLabels[targetOutcome]}</Badge>
+              <Badge tone="neutral">{targetOutcomeLabels[targetOutcome]}</Badge>
             </div>
             <div className="space-y-2">
-              <p className="editorial-kicker text-paper/55">Live summary</p>
-              <h2 className="text-3xl font-semibold text-paper">
+              <p className="text-xs font-medium text-ink-muted">Live summary</p>
+              <h2 className="text-lg font-semibold text-ink">
                 {projectTrack === "software" ? "Build setup snapshot" : "Research setup snapshot"}
               </h2>
-              <p className="text-sm leading-6 text-paper/72">
+              <p className="text-sm leading-6 text-ink-soft">
                 Sevri will use this summary to bias recommendations toward projects that feel ambitious
                 enough to matter and scoped enough to finish.
               </p>
@@ -783,9 +780,9 @@ function TrackRadioCard({
 
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl border border-contrast-line bg-paper/6 p-4">
-      <p className="editorial-kicker text-paper/55">{label}</p>
-      <p className="mt-2 text-sm leading-6 text-paper">{value}</p>
+    <div className="rounded-lg bg-surface p-3">
+      <p className="text-xs font-medium text-ink-muted">{label}</p>
+      <p className="mt-1 text-sm leading-6 text-ink">{value}</p>
     </div>
   );
 }

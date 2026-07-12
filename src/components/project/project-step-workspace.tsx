@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { roadmapStatusClassName } from "@/components/project/project-status";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { GithubStepCommits } from "@/components/project/github-step-commits";
 import { Input } from "@/components/ui/input";
@@ -491,7 +492,7 @@ export function ProjectStepWorkspace({
   return (
     <div className="space-y-8 pb-52">
       {currentFocus ? (
-        <div className="sticky top-3 z-30 rounded-2xl border border-primary/35 bg-paper/95 px-4 py-3 shadow-soft backdrop-blur">
+        <div className="sticky top-14 z-30 rounded-lg border border-primary/35 bg-paper/95 px-4 py-3 shadow-soft backdrop-blur">
           <p className="text-sm text-ink">
             <span className="mr-2 font-semibold">Current focus:</span>
             {currentFocus}
@@ -499,31 +500,21 @@ export function ProjectStepWorkspace({
         </div>
       ) : null}
 
-      <div className="flex justify-end">
-        <Button
-          href={`/projects/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}
-          size="lg"
-          className="px-7"
-        >
-          Start focus block
-        </Button>
-      </div>
-
-      <Card tone="contrast" className="aurora-fallback border-contrast-line" elevation="lifted">
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
+      <PageHeader
+        eyebrow={`Step ${milestone.stepNumber}`}
+        title={safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
+        metadata={
+          <>
             <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
             <Badge tone={milestone.completed ? "success" : "warning"}>
               {milestone.completed ? "Complete" : milestone.status === "in_progress" ? "In progress" : "Not started"}
             </Badge>
-          </div>
-          <div>
-            <h1 className="font-display text-4xl leading-none text-paper sm:text-5xl">
-              {safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
-            </h1>
-          </div>
-        </div>
-      </Card>
+          </>
+        }
+        actions={
+          <Button href={`/projects/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}>Start focus block</Button>
+        }
+      />
 
       <StepTimeline milestones={workspace.milestones} projectId={workspace.project.id} activeStepNumber={milestone.stepNumber} />
 
@@ -534,7 +525,7 @@ export function ProjectStepWorkspace({
       ) : null}
 
       <Card className="space-y-4">
-        <p className="editorial-kicker">Step objective</p>
+        <p className="text-xs font-medium text-ink-muted">Step objective</p>
         <p className="text-sm leading-6 text-ink-soft">
           {safeRenderText(milestone.objective, STEP_OBJECTIVE_SPEC).text}
         </p>
@@ -543,7 +534,6 @@ export function ProjectStepWorkspace({
           variant={milestone.completed ? "outline" : "primary"}
           onClick={() => void toggleMilestone()}
           disabled={isCompletionPending}
-          className="rounded-full"
         >
           {isCompletionPending
             ? "Saving..."
@@ -555,13 +545,13 @@ export function ProjectStepWorkspace({
 
       {!hasDetailAccess ? (
         <Card className="space-y-4">
-          <p className="editorial-kicker">Premium step coaching</p>
+          <p className="text-xs font-medium text-ink-muted">Premium step coaching</p>
           <h2 className="text-2xl font-semibold text-ink">Upgrade to unlock detailed step guidance and work evaluation.</h2>
           <p className="text-sm leading-6 text-ink-soft">
             Free keeps the roadmap, project pages, and each step objective visible so you can try one software project and one research project. Pro adds the full coaching experience for each step, including detailed guidance, done-when review, and AI evaluation of your work.
           </p>
           <div>
-            <Button href="/settings/billing" className="rounded-full px-6">
+            <Button href="/settings/billing">
               Upgrade to Pro
             </Button>
           </div>
@@ -570,9 +560,10 @@ export function ProjectStepWorkspace({
         <>
           {!isGuidanceLocked && guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
 
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
           <Card className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="editorial-kicker">Step guidance</p>
+              <p className="text-sm font-medium text-ink">Step guidance</p>
               {isGuidanceLocked ? (
                 <Badge tone="warning">Locked</Badge>
               ) : (
@@ -581,7 +572,6 @@ export function ProjectStepWorkspace({
                   variant="outline"
                   onClick={() => void fetchGuidance(true)}
                   disabled={isGuidancePending}
-                  className="rounded-full"
                 >
                   {isGuidancePending ? "Refreshing..." : "Refresh guidance"}
                 </Button>
@@ -594,9 +584,9 @@ export function ProjectStepWorkspace({
               </Alert>
             ) : guidanceSlot ? (
               <>
-                <Card className="space-y-4 bg-surface-mint" elevation="soft">
+                <Card className="space-y-4 bg-surface" elevation="soft">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="editorial-kicker">Checklist</p>
+                    <p className="text-sm font-medium text-ink">Checklist</p>
                     <Button
                       href={`/projects/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}
                       size="sm"
@@ -614,7 +604,7 @@ export function ProjectStepWorkspace({
                         <li
                           key={`${item}-${index}`}
                           className={cn(
-                            "rounded-2xl border bg-paper/70 px-4 py-3",
+                            "rounded-lg border bg-paper px-4 py-3",
                             isCurrentTask ? "border-primary/60 shadow-soft" : "border-transparent",
                           )}
                         >
@@ -626,8 +616,7 @@ export function ProjectStepWorkspace({
                           <label className="flex items-start gap-3">
                             <input
                               type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-line"
-                              style={{ accentColor: "var(--yellow)" }}
+                              className="mt-1 h-4 w-4 rounded border-line accent-primary"
                               checked={checkedItems[index] ?? false}
                               onChange={() =>
                                 setCheckedItems((current) => {
@@ -647,24 +636,24 @@ export function ProjectStepWorkspace({
                   </ol>
                 </Card>
 
-                <details className="group rounded-2xl border border-line bg-paper px-4 py-3">
+                <details className="group rounded-lg border border-line bg-paper px-4 py-3">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
                     Show step detail
                     <span className="text-xs text-ink-muted transition group-open:rotate-180">▾</span>
                   </summary>
                   <div className="mt-5 space-y-5 border-t border-line pt-5">
                     <div>
-                      <p className="editorial-kicker">Coaching note</p>
+                      <p className="text-xs font-medium text-ink-muted">Coaching note</p>
                       <p className="mt-2 text-sm leading-6 text-ink-soft">
                         {safeRenderText(guidanceSlot.guidance.encouragement, GUIDANCE_ENCOURAGEMENT_SPEC).text}
                       </p>
                     </div>
                     <div className="space-y-3">
-                      <p className="editorial-kicker">Watch out</p>
+                      <p className="text-xs font-medium text-ink-muted">Watch out</p>
                       <GuidanceList items={guidanceSlot.guidance.pitfalls} />
                     </div>
                     <div className="space-y-3">
-                      <p className="editorial-kicker">Tools / resources</p>
+                      <p className="text-xs font-medium text-ink-muted">Tools / resources</p>
                       <GuidanceList items={guidanceSlot.guidance.tools_resources} />
                     </div>
                     <GenerationFeedbackForm
@@ -684,10 +673,10 @@ export function ProjectStepWorkspace({
             )}
           </Card>
 
-          <div className="space-y-4" id="submission-area">
+          <div className="space-y-4 xl:sticky xl:top-16" id="submission-area">
             {guidanceSlot ? (
               <Card padding="sm" className="space-y-3">
-                <p className="editorial-kicker">Done when</p>
+                <p className="text-sm font-medium text-ink">Done when</p>
                 <GuidanceList items={guidanceSlot.guidance.done_when} />
               </Card>
             ) : null}
@@ -754,6 +743,7 @@ export function ProjectStepWorkspace({
 
             <ReviewerFeedbackPanel reviews={reviews} />
           </div>
+          </div>
 
           <SubmissionDock
             slot={submissionSlot}
@@ -809,9 +799,9 @@ function StepTimeline({
             <Link
               key={item.id}
               href={`/project/${projectId}/steps/${item.stepNumber}`}
-              style={isActive ? { borderTop: '3px solid var(--yellow)' } : undefined}
               className={cn(
-                "min-w-[11rem] rounded-2xl border px-4 py-3 transition",
+                "min-w-[11rem] rounded-lg border px-4 py-3 transition-colors",
+                isActive && "border-primary-line shadow-[inset_0_2px_0_var(--coral)]",
                 isActive ? "muted-toggle-surface-active" : "muted-toggle-surface",
                 item.isFuture && !isActive && "opacity-70",
               )}
@@ -860,7 +850,7 @@ function SubmissionSummary({
   if (slot.status === "unloaded" || slot.status === "loading" || slot.status === "empty") {
     return (
       <Card className="space-y-3">
-        <p className="editorial-kicker">Submission</p>
+        <p className="text-sm font-medium text-ink">Submission</p>
         <p className="text-sm leading-6 text-ink-soft">
           Submit work from the bottom action bar when you are ready for a review.
         </p>
@@ -931,7 +921,7 @@ function SubmissionDock({
   const summary = getSubmissionDockSummary(slot, isPending, actionsDisabled, lockedMessage);
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(42rem,calc(100vw-19rem))] lg:right-8">
+    <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(42rem,calc(100vw-17rem))] lg:right-8">
       {isOpen && !actionsDisabled ? (
         <Card className="mb-3 space-y-4 border-line-strong bg-paper/98 backdrop-blur">
           <div className="flex items-start justify-between gap-3">
@@ -977,7 +967,7 @@ function SubmissionDock({
                 Resubmit
               </Button>
             ) : null}
-            <Button type="button" size="sm" className="rounded-full" onClick={onToggle} disabled={actionsDisabled}>
+            <Button type="button" size="sm" onClick={onToggle} disabled={actionsDisabled}>
               {isOpen ? "Hide form" : slot.status === "completed" ? "Submit new version" : "Submit work"}
             </Button>
           </div>

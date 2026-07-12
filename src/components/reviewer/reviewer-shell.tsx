@@ -30,7 +30,7 @@ export function ReviewerShell({ children, displayName, email }: ReviewerShellPro
               ) : null}
             </div>
             <form action="/auth/sign-out" method="post">
-              <Button type="submit" variant="outline" size="sm" className="rounded-full">
+              <Button type="submit" variant="outline" size="sm">
                 Sign out
               </Button>
             </form>

@@ -129,30 +129,6 @@ function isProjectScheduleReady(project: {
   );
 }
 
-function resolveInitialSelectedDate(input: CalendarPageView) {
-  const visibleProjectIds = new Set(input.visibleProjectIds);
-  const visibleItems = input.projects
-    .filter((project) => visibleProjectIds.has(project.projectId))
-    .flatMap((project) => project.items);
-  const defaultMonthKey = input.defaultMonth.slice(0, 7);
-
-  if (input.today.startsWith(defaultMonthKey) && visibleItems.some((item) => item.date === input.today)) {
-    return input.today;
-  }
-
-  const itemsInDefaultMonth = visibleItems
-    .map((item) => item.date)
-    .filter((date) => date.startsWith(defaultMonthKey))
-    .sort((left, right) => left.localeCompare(right));
-
-  if (itemsInDefaultMonth.length > 0) {
-    return itemsInDefaultMonth[0];
-  }
-
-  const sortedDates = visibleItems.map((item) => item.date).sort((left, right) => left.localeCompare(right));
-  return sortedDates[0] ?? startOfMonthDateString(input.defaultMonth);
-}
-
 function getStatusSurfaceClassName(status: CalendarCompletionState) {
   switch (status) {
     case "complete":
@@ -813,12 +789,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
 
   return (
     <div className="space-y-8 pb-10">
-      <Card tone="contrast" className="border-contrast-line">
+      <Card>
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
-            <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
-            <Badge tone="contrast">{visibleProjects.length} projects visible</Badge>
-            <Badge tone="contrast">{monthItemCount} items this month</Badge>
+            <Badge tone="neutral">{getPlanLabel(plan)}</Badge>
+            <Badge tone="neutral">{visibleProjects.length} projects visible</Badge>
+            <Badge tone="neutral">{monthItemCount} items this month</Badge>
           </div>
           <PageHeader
             eyebrow="Project calendar"
@@ -826,13 +802,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
             description="The calendar sits on top of your roadmap so due dates stay visible without changing the AI estimate behind each step."
             actions={
               <div className="flex flex-wrap gap-3">
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => moveMonth(-1)}>
+                <Button type="button" variant="outline" onClick={() => moveMonth(-1)}>
                   Previous month
                 </Button>
                 <Button
                   type="button"
                   variant="outline"
-                  className="rounded-full"
                   onClick={() => {
                     const todayMonth = startOfMonthDateString(initialData.today);
                     setCurrentMonth(todayMonth);
@@ -841,12 +816,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                 >
                   Today
                 </Button>
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => moveMonth(32)}>
+                <Button type="button" variant="outline" onClick={() => moveMonth(32)}>
                   Next month
                 </Button>
               </div>
             }
-            className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
+            className="border-b-0 pb-0"
           />
         </div>
       </Card>
@@ -861,10 +836,10 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
             Calendar dates appear as soon as a roadmap is created. Once a project has milestones, Sevri lays them out here automatically.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button href="/dashboard" className="rounded-full">
+            <Button href="/dashboard">
               Open dashboard
             </Button>
-            <Button href="/recommendations" variant="outline" className="rounded-full">
+            <Button href="/recommendations" variant="outline">
               Browse ideas
             </Button>
           </div>
@@ -1159,7 +1134,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
 
                 {workSessionError ? <Alert tone="danger">{workSessionError}</Alert> : null}
 
-                <Button type="submit" className="w-full rounded-full" disabled={isSavingWorkSession || !workSessionProject}>
+                <Button type="submit" fullWidth disabled={isSavingWorkSession || !workSessionProject}>
                   {isSavingWorkSession ? "Saving..." : "Plan work block"}
                 </Button>
               </form>
@@ -1224,7 +1199,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                             Start
                           </Button>
                         ) : null}
-                        <Button href={item.href} variant="outline" size="sm" className="rounded-full">
+                        <Button href={item.href} variant="outline" size="sm">
                           Open in workspace
                         </Button>
                         {item.itemType === "work_session" ? (
@@ -1277,12 +1252,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   <span className="h-3 w-3 rounded-full bg-paper shadow-[inset_0_0_0_1px_rgba(163,173,168,0.9)]" />
                   <span className="text-sm text-ink-soft">Not started</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3" style={{ backgroundColor: 'rgba(255,217,61,0.12)' }}>
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: 'var(--yellow)', border: '1px solid rgba(22,20,18,0.3)' }} />
+                <div className="flex items-center gap-3 rounded-lg border border-line bg-amber-50 px-4 py-3">
+                  <span className="h-3 w-3 rounded-full border border-amber-700/30 bg-amber-400" />
                   <span className="text-sm text-ink">In progress</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3" style={{ backgroundColor: 'rgba(91,208,214,0.12)' }}>
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: 'var(--cyan)', border: '1px solid rgba(22,20,18,0.3)' }} />
+                <div className="flex items-center gap-3 rounded-lg border border-line bg-cyan-50 px-4 py-3">
+                  <span className="h-3 w-3 rounded-full border border-cyan-700/30 bg-cyan-400" />
                   <span className="text-sm text-ink">Completed</span>
                 </div>
               </div>
@@ -1390,7 +1365,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   <p className="text-sm leading-6 text-ink-soft">
                     Calendar exports stay behind Pro. Free users can still plan and reschedule everything inside Sevri.
                   </p>
-                  <Button href="/settings/billing" variant="outline" className="rounded-full">
+                  <Button href="/settings/billing" variant="outline">
                     Upgrade to Pro
                   </Button>
                 </div>

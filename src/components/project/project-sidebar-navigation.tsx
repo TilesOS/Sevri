@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ArrowLeft, Presentation, Search, ShieldCheck, SquareChartGantt } from "lucide-react";
 import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
 import { roadmapStatusClassName } from "@/components/project/project-status";
 import { cn } from "@/lib/utils";
@@ -17,10 +18,10 @@ interface ProjectSidebarNavigationProps {
 }
 
 const baseSectionLinks = [
-  { href: "", label: "Overview" },
-  { href: "/scope", label: "Scope & Guardrails" },
-  { href: "/research-lens", label: "Research Lens" },
-  { href: "/pitch-kit", label: "Presentation" },
+  { href: "", label: "Overview", icon: SquareChartGantt },
+  { href: "/scope", label: "Scope & Guardrails", icon: ShieldCheck },
+  { href: "/research-lens", label: "Research Lens", icon: Search },
+  { href: "/pitch-kit", label: "Presentation", icon: Presentation },
 ] as const;
 
 export function ProjectSidebarNavigation({
@@ -34,20 +35,20 @@ export function ProjectSidebarNavigation({
   const projectBasePath = `/project/${projectId}`;
 
   return (
-    <div className="space-y-2">
-      <div style={{ marginBottom: 8 }}>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '.18em', textTransform: 'uppercase', color: 'var(--ink-muted)', marginBottom: 2 }}>{projectTitle}</p>
+    <div className="space-y-1">
+      <div className="mb-3 px-2">
+        <p className="truncate text-sm font-medium text-ink" title={projectTitle}>{projectTitle}</p>
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm font-medium text-ink-soft transition hover:text-ink"
+          className="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-muted transition-colors hover:text-ink"
         >
-          <span aria-hidden="true">&larr;</span>
-          <span>Back to Dashboard</span>
+          <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>All projects</span>
         </Link>
       </div>
 
-      <div className="rounded-2xl bg-surface p-4 shadow-soft">
-        <p className="mb-2 text-xs font-semibold text-ink">{progress.stageLabel}</p>
+      <div className="mb-3 rounded-lg border border-line bg-paper p-3">
+        <p className="mb-2 text-xs font-medium text-ink">{progress.stageLabel}</p>
         <ProjectProgressTracker progress={progress} compact />
       </div>
 
@@ -63,13 +64,12 @@ export function ProjectSidebarNavigation({
             label={link.label}
             isActive={isActive}
             isDisabled={isDisabled}
+            icon={link.icon}
           />
         );
       })}
 
-      <div style={{ marginTop: 8, marginBottom: 4 }}>
-        <div className="sidebar-section-label" style={{ margin: '12px 0 4px' }}>steps <span className="dashes" /></div>
-      </div>
+      <p className="px-2 pb-1 pt-4 text-[11px] font-medium text-ink-muted">Steps</p>
 
       {milestones.map((milestone) => {
         const href = `${projectBasePath}/steps/${milestone.stepNumber}`;
@@ -100,6 +100,7 @@ function ProjectNavLink({
   isDisabled,
   status,
   isFuture = false,
+  icon: Icon,
 }: {
   href: string;
   label: string;
@@ -108,9 +109,10 @@ function ProjectNavLink({
   isDisabled: boolean;
   status?: "complete" | "in_progress" | "not_started";
   isFuture?: boolean;
+  icon?: typeof SquareChartGantt;
 }) {
   const className = cn(
-    "tab flex items-start justify-between gap-3 text-sm",
+    "tab flex items-center justify-between gap-3",
     isActive && "is-active",
     isDisabled && "cursor-not-allowed opacity-50",
     isFuture && !isActive && "opacity-70",
@@ -118,9 +120,12 @@ function ProjectNavLink({
 
   const content = (
     <>
-      <div className="min-w-0">
+      <div className="flex min-w-0 items-center gap-2">
+        {Icon ? <Icon className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+        <div className="min-w-0">
         <p className="font-medium text-current">{label}</p>
         {description ? <p className="mt-1 truncate text-xs text-ink-muted">{description}</p> : null}
+        </div>
       </div>
       {status ? <StatusDot status={status} /> : null}
     </>

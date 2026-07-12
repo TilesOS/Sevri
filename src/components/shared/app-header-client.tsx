@@ -1,21 +1,39 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ComponentType, ReactNode, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import {
+  BriefcaseBusiness,
+  CalendarDays,
+  ChevronDown,
+  LayoutDashboard,
+  Lightbulb,
+  LogOut,
+  Menu,
+  Settings,
+  X,
+} from "lucide-react";
 import { ProjectSidebarSlot } from "@/components/project/project-sidebar-slot";
 import { Container } from "@/components/shared/container";
+import { IconButton } from "@/components/ui/icon-button";
 import { PageTransition } from "@/components/ui/page-transition";
 import { cn } from "@/lib/utils";
 
-const workspaceLinks = [
-  { href: "/dashboard",       label: "dashboard",   ico: "☐", match: (p: string) => p === "/dashboard" },
-  { href: "/calendar",        label: "calendar",    ico: "◻", match: (p: string) => p.startsWith("/calendar") },
-  { href: "/portfolio",       label: "portfolio",   ico: "◐", match: (p: string) => p.startsWith("/portfolio") },
-  { href: "/recommendations", label: "ideas",       ico: "✦", match: (p: string) => p.startsWith("/recommendations") },
-  { href: "/onboarding",      label: "onboarding",  ico: "↗", match: (p: string) => p.startsWith("/onboarding") },
-] as const;
+type NavIcon = ComponentType<SVGProps<SVGSVGElement>>;
+
+const workspaceLinks: Array<{
+  href: string;
+  label: string;
+  icon: NavIcon;
+  match: (pathname: string) => boolean;
+}> = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: (p) => p === "/dashboard" },
+  { href: "/recommendations", label: "Ideas", icon: Lightbulb, match: (p) => p.startsWith("/recommendations") },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays, match: (p) => p.startsWith("/calendar") },
+  { href: "/portfolio", label: "Portfolio", icon: BriefcaseBusiness, match: (p) => p.startsWith("/portfolio") },
+];
 
 interface AppShellClientProps {
   children: ReactNode;
@@ -23,98 +41,100 @@ interface AppShellClientProps {
   email?: string | null;
 }
 
-type SectionKey = "pages" | "project" | "account";
-
 export function AppShellClient({ children, displayName, email }: AppShellClientProps) {
   const pathname = usePathname();
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
+  const mobileDrawerRef = useRef<HTMLElement>(null);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
-  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>({
-    pages: true,
-    project: true,
-    account: true,
-  });
-  const toggleSection = (key: SectionKey) =>
-    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
   const initials = getInitials(displayName);
 
-  useEffect(() => {
-    setIsMobileDrawerOpen(false);
-  }, [pathname]);
+  useEffect(() => setIsMobileDrawerOpen(false), [pathname]);
 
   useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape" && isMobileDrawerOpen) {
+    if (!isMobileDrawerOpen) return;
+    const drawer = mobileDrawerRef.current;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
         setIsMobileDrawerOpen(false);
         mobileTriggerRef.current?.focus();
+        return;
       }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+      if (event.key !== "Tab" || !drawer) return;
+      const focusable = drawer.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), summary, [tabindex]:not([tabindex="-1"])',
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    document.body.style.overflow = "hidden";
+    requestAnimationFrame(() => drawer?.querySelector<HTMLElement>("a, button, summary")?.focus());
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = "";
+    };
   }, [isMobileDrawerOpen]);
 
-  return (
-    <div className="relative min-h-screen">
-      {/* Mobile trigger */}
-      <button
-        ref={mobileTriggerRef}
-        type="button"
-        className="fixed left-4 top-4 z-[70] inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-paper text-ink shadow-soft transition hover:bg-surface lg:hidden"
-        aria-label={isMobileDrawerOpen ? "Close navigation" : "Open navigation"}
-        aria-expanded={isMobileDrawerOpen}
-        onClick={() => setIsMobileDrawerOpen((v) => !v)}
-      >
-        <MenuIcon />
-      </button>
+  const closeMobileDrawer = () => setIsMobileDrawerOpen(false);
 
-      {/* Mobile backdrop */}
+  return (
+    <div className="product-ui relative min-h-screen bg-canvas">
       {isMobileDrawerOpen ? (
         <button
           type="button"
-          className="fixed inset-0 z-50 bg-ink/22 backdrop-blur-[1px] lg:hidden"
+          className="fixed inset-0 z-50 bg-ink/25 backdrop-blur-[1px] lg:hidden"
           aria-label="Dismiss navigation"
-          onClick={() => setIsMobileDrawerOpen(false)}
+          onClick={closeMobileDrawer}
         />
       ) : null}
 
-      {/* Desktop sidebar — always visible */}
-      <aside className="app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[var(--app-sidebar-width)] flex-col overflow-y-hidden lg:flex">
+      <aside className="app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[var(--app-sidebar-width)] flex-col overflow-hidden lg:flex">
         <SidebarContent
           displayName={displayName}
           email={email}
           initials={initials}
           pathname={pathname}
-          onNavigate={() => {}}
-          showCloseButton={false}
-          onClose={() => {}}
-          openSections={openSections}
-          onToggleSection={toggleSection}
+          onNavigate={() => undefined}
         />
       </aside>
 
-      {/* Mobile drawer */}
       <aside
+        ref={mobileDrawerRef}
+        aria-label="Main navigation"
         className={cn(
-          "app-sidebar-shell fixed inset-y-0 left-0 z-[60] flex w-[var(--app-sidebar-width)] max-w-[calc(100vw-1rem)] flex-col overflow-y-hidden text-ink transition-transform duration-200 ease-out lg:hidden",
+          "app-sidebar-shell fixed inset-y-0 left-0 z-[60] flex w-[var(--app-sidebar-width)] max-w-[calc(100vw-1rem)] flex-col overflow-hidden transition-transform duration-150 ease-out lg:hidden",
           isMobileDrawerOpen ? "translate-x-0" : "-translate-x-[105%]",
         )}
       >
+        <div className="absolute right-3 top-3 z-10">
+          <IconButton label="Close navigation" onClick={closeMobileDrawer}><X className="h-4 w-4" /></IconButton>
+        </div>
         <SidebarContent
           displayName={displayName}
           email={email}
           initials={initials}
           pathname={pathname}
-          onNavigate={() => setIsMobileDrawerOpen(false)}
-          onClose={() => setIsMobileDrawerOpen(false)}
-          showCloseButton
-          openSections={openSections}
-          onToggleSection={toggleSection}
+          onNavigate={closeMobileDrawer}
         />
       </aside>
 
-      {/* Main content — always offset on desktop */}
       <div className="relative min-h-screen lg:ml-[var(--app-sidebar-width)]">
-        <main className="min-h-screen pb-14 pt-20 sm:pb-20 lg:pt-10">
+        <header className="sticky top-0 z-40 flex h-12 items-center border-b border-line bg-canvas/90 px-4 backdrop-blur sm:px-8">
+          <button
+            ref={mobileTriggerRef}
+            type="button"
+            className="mr-3 inline-flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted hover:bg-surface hover:text-ink lg:hidden"
+            aria-label="Open navigation"
+            aria-expanded={isMobileDrawerOpen}
+            onClick={() => setIsMobileDrawerOpen(true)}
+          >
+            <Menu className="h-4 w-4" />
+          </button>
+          <div className="min-w-0 text-sm font-medium text-ink-soft">{getPageLabel(pathname)}</div>
+        </header>
+        <main className="min-h-[calc(100vh-3rem)] py-6 sm:py-8">
           <Container>
             <PageTransition transitionKey={pathname}>{children}</PageTransition>
           </Container>
@@ -124,226 +144,94 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   );
 }
 
-interface SidebarContentProps {
+function SidebarContent({
+  displayName,
+  email,
+  initials,
+  pathname,
+  onNavigate,
+}: {
   displayName: string;
   email?: string | null;
   initials: string;
   pathname: string;
   onNavigate: () => void;
-  onClose: () => void;
-  showCloseButton: boolean;
-  openSections: Record<SectionKey, boolean>;
-  onToggleSection: (key: SectionKey) => void;
-}
-
-function SidebarContent({
-  displayName,
-  initials,
-  pathname,
-  onNavigate,
-  onClose,
-  showCloseButton,
-  openSections,
-  onToggleSection,
-}: SidebarContentProps) {
+}) {
   const isProjectRoute = pathname.startsWith("/project/");
 
   return (
-    <div className="flex h-full min-h-0 flex-col p-4" style={{ gap: 0 }}>
-      {/* User tab */}
-      <div className="user-tab mb-1">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-navy font-display text-sm font-semibold text-cream">
-          {initials}
-        </div>
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate text-sm font-semibold">
-            {displayName}
-          </div>
-          <div className="mt-1 font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-ink-muted">
-            Workspace
-          </div>
-        </div>
-        {showCloseButton ? (
-          <button
-            type="button"
-            className="shrink-0 rounded-full p-1 text-ink transition hover:bg-canvas"
-            aria-label="Close navigation"
-            onClick={onClose}
-          >
-            <CloseIcon />
-          </button>
-        ) : null}
-      </div>
+    <div className="flex h-full min-h-0 flex-col px-3 py-3">
+      <Link href="/dashboard" className="mb-5 flex h-9 items-center gap-2 rounded-lg px-2 text-ink" onClick={onNavigate}>
+        <span className="grid h-6 w-6 place-items-center rounded-md bg-primary text-xs font-bold text-ink">S</span>
+        <span className="text-sm font-semibold tracking-tight">Sevri</span>
+      </Link>
 
-      {/* Pages section */}
-      <CollapsibleHeader
-        label="pages"
-        sectionId="sidebar-section-pages"
-        open={openSections.pages}
-        onToggle={() => onToggleSection("pages")}
-      />
-      {openSections.pages ? (
-        <div id="sidebar-section-pages" className="flex flex-col gap-1">
-          {workspaceLinks.map((link) => (
+      <p className="mb-1 px-2 text-[11px] font-medium text-ink-muted">Workspace</p>
+      <nav className="space-y-0.5" aria-label="Workspace">
+        {workspaceLinks.map((link) => {
+          const Icon = link.icon;
+          return (
             <Link
               key={link.href}
               href={link.href}
               className={cn("tab", link.match(pathname) && "is-active")}
               onClick={onNavigate}
+              aria-current={link.match(pathname) ? "page" : undefined}
             >
-              <span className="w-[18px] shrink-0 text-center font-mono text-xs">
-                {link.ico}
-              </span>
+              <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
               <span>{link.label}</span>
             </Link>
-          ))}
-        </div>
-      ) : null}
+          );
+        })}
+      </nav>
 
-      {/* Project header (only on project routes) */}
       {isProjectRoute ? (
-        <CollapsibleHeader
-          label="project"
-          sectionId="sidebar-section-project"
-          open={openSections.project}
-          onToggle={() => onToggleSection("project")}
-        />
-      ) : null}
-
-      {/* Spacer / scrollable project content — keeps account pinned to bottom */}
-      <div
-        id={isProjectRoute ? "sidebar-section-project" : undefined}
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: isProjectRoute && openSections.project ? 'auto' : 'hidden',
-          marginRight: -12,
-          paddingRight: 8,
-        }}
-      >
-        {isProjectRoute && openSections.project ? (
-          <ProjectSidebarSlot pathname={pathname} />
-        ) : null}
-      </div>
-
-      {/* Account section pinned to bottom */}
-      <div style={{ paddingTop: 16 }}>
-        <CollapsibleHeader
-          label="account"
-          sectionId="sidebar-section-account"
-          open={openSections.account}
-          onToggle={() => onToggleSection("account")}
-          style={{ marginTop: 0 }}
-        />
-        {openSections.account ? (
-          <div id="sidebar-section-account" className="flex flex-col gap-1">
-            <Link
-              href="/settings"
-              className="tab flat"
-              onClick={onNavigate}
-              style={{ fontSize: 13 }}
-            >
-              <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>⚙</span>
-              <span>settings</span>
-            </Link>
-            <form action="/auth/sign-out" method="post" style={{ width: '100%' }}>
-              <button type="submit" className="tab flat" style={{ fontSize: 13 }}>
-                <span style={{ width: 18, textAlign: 'center', fontFamily: 'var(--font-mono)', flexShrink: 0 }}>→</span>
-                <span>sign out</span>
-              </button>
-            </form>
+        <div className="mt-6 flex min-h-0 flex-1 flex-col border-t border-line pt-4">
+          <p className="mb-2 px-2 text-[11px] font-medium text-ink-muted">Current project</p>
+          <div className="min-h-0 flex-1 overflow-y-auto pr-1">
+            <ProjectSidebarSlot pathname={pathname} />
           </div>
-        ) : null}
-      </div>
+        </div>
+      ) : <div className="flex-1" />}
+
+      <details className="group relative mt-3 border-t border-line pt-3">
+        <summary className="user-tab cursor-pointer list-none hover:bg-surface-strong marker:hidden">
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink text-xs font-semibold text-white">{initials}</div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-ink">{displayName}</p>
+            {email ? <p className="truncate text-xs text-ink-muted">{email}</p> : null}
+          </div>
+          <ChevronDown className="h-4 w-4 text-ink-muted transition-transform group-open:rotate-180" aria-hidden="true" />
+        </summary>
+        <div className="absolute bottom-12 left-0 right-0 rounded-xl border border-line bg-paper p-1 shadow-lifted">
+          <Link href="/settings" className="tab" onClick={onNavigate}>
+            <Settings className="h-4 w-4" aria-hidden="true" />
+            <span>Settings</span>
+          </Link>
+          <form action="/auth/sign-out" method="post">
+            <button type="submit" className="tab">
+              <LogOut className="h-4 w-4" aria-hidden="true" />
+              <span>Sign out</span>
+            </button>
+          </form>
+        </div>
+      </details>
     </div>
   );
 }
 
-function CollapsibleHeader({
-  label,
-  sectionId,
-  open,
-  onToggle,
-  style,
-}: {
-  label: string;
-  sectionId: string;
-  open: boolean;
-  onToggle: () => void;
-  style?: React.CSSProperties;
-}) {
-  return (
-    <button
-      type="button"
-      className="sidebar-section-label group"
-      onClick={onToggle}
-      aria-expanded={open}
-      aria-controls={sectionId}
-      style={{
-        background: 'none',
-        border: 'none',
-        padding: 0,
-        cursor: 'pointer',
-        color: 'var(--ink-muted)',
-        textAlign: 'left',
-        width: '100%',
-        ...style,
-      }}
-    >
-      <span>{label}</span>
-      <span className="dashes" />
-      <CaretIcon open={open} />
-    </button>
-  );
-}
-
-function CaretIcon({ open }: { open: boolean }) {
-  return (
-    <svg
-      viewBox="0 0 12 12"
-      width="12"
-      height="12"
-      aria-hidden="true"
-      className={cn("shrink-0 text-ink-muted transition-transform duration-150", open ? "rotate-0" : "-rotate-90")}
-    >
-      <path
-        d="M3 4.5 6 8 9 4.5"
-        stroke="currentColor"
-        strokeWidth="1.6"
-        fill="none"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function getInitials(displayName: string) {
-  const parts = displayName
-    .split(" ")
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .slice(0, 2);
-
-  if (!parts.length) return "SS";
+  const parts = displayName.split(" ").map((part) => part.trim()).filter(Boolean).slice(0, 2);
+  if (!parts.length) return "S";
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
 }
 
-function MenuIcon() {
-  return (
-    <svg viewBox="0 0 20 20" className="h-4 w-4" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.9">
-      <path d="M4.5 5.75h11" strokeLinecap="round" />
-      <path d="M4.5 10h11" strokeLinecap="round" />
-      <path d="M4.5 14.25h11" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-function CloseIcon() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.8">
-      <path d="M6 6 18 18" strokeLinecap="round" />
-      <path d="M18 6 6 18" strokeLinecap="round" />
-    </svg>
-  );
+function getPageLabel(pathname: string) {
+  if (pathname.startsWith("/project/")) return "Project workspace";
+  if (pathname.startsWith("/recommendations")) return "Ideas";
+  if (pathname.startsWith("/calendar")) return "Calendar";
+  if (pathname.startsWith("/portfolio")) return "Portfolio";
+  if (pathname.startsWith("/settings")) return "Settings";
+  if (pathname.startsWith("/onboarding")) return "Onboarding";
+  return "Dashboard";
 }

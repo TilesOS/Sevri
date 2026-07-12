@@ -5,11 +5,11 @@ type BadgeTone = "neutral" | "accent" | "software" | "research" | "success" | "w
 
 const toneClassName: Record<BadgeTone, string> = {
   neutral: "bg-surface text-ink-soft",
-  accent: "bg-primary text-paper",
-  software: "bg-primary-soft text-primary",
+  accent: "bg-primary-soft text-primary",
+  software: "bg-surface text-ink-soft",
   research: "bg-surface text-ink-soft",
-  success: "bg-primary-soft text-ink",
-  warning: "bg-surface-butter text-ink-soft",
+  success: "bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200",
+  warning: "bg-amber-50 text-amber-800 ring-1 ring-inset ring-amber-200",
   danger: "bg-red-100 text-red-700",
   contrast: "bg-white/10 text-white",
 };
@@ -22,7 +22,7 @@ export function Badge({ className, tone = "neutral", ...props }: BadgeProps) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em]",
+        "inline-flex items-center rounded-md px-2 py-0.5 text-xs font-medium",
         toneClassName[tone],
         className,
       )}

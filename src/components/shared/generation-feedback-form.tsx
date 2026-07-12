@@ -186,7 +186,7 @@ export function GenerationFeedbackForm({
             ) : null}
 
             <div className="flex justify-end">
-              <Button type="button" size="sm" onClick={submitFeedback} disabled={isPending} className="rounded-full px-4">
+              <Button type="button" size="sm" onClick={submitFeedback} disabled={isPending}>
                 {isPending ? "Saving..." : "Send feedback"}
               </Button>
             </div>
@@ -254,7 +254,7 @@ export function GenerationFeedbackForm({
           </FormField>
 
           <div className="flex justify-end">
-            <Button type="button" onClick={submitFeedback} disabled={isPending} className="rounded-full px-6">
+            <Button type="button" onClick={submitFeedback} disabled={isPending}>
               {isPending ? "Saving..." : "Send feedback"}
             </Button>
           </div>

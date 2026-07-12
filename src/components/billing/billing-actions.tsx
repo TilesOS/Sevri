@@ -75,7 +75,7 @@ export function BillingActions({ canManageBilling }: BillingActionsProps) {
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button onClick={canManageBilling ? openPortal : startCheckout} disabled={loading !== null} className="rounded-full px-6">
+        <Button onClick={canManageBilling ? openPortal : startCheckout} disabled={loading !== null}>
           {canManageBilling
             ? loading === "portal"
               ? "Opening portal..."
@@ -85,7 +85,7 @@ export function BillingActions({ canManageBilling }: BillingActionsProps) {
               : "Upgrade to Pro"}
         </Button>
 
-        <Button variant="outline" onClick={syncBilling} disabled={loading !== null} className="rounded-full">
+        <Button variant="outline" onClick={syncBilling} disabled={loading !== null}>
           {loading === "sync" ? "Syncing..." : "Sync billing now"}
         </Button>
       </div>

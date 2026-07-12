@@ -178,7 +178,7 @@ export function ReviewersCard({ projectId, plan, reviewers, invitations }: Revie
           size="sm"
           onClick={() => setModalOpen(true)}
           disabled={!canInvite}
-          className="rounded-full px-4"
+          className="px-4"
         >
           Invite reviewer
         </Button>

@@ -15,21 +15,21 @@
   --color-primary-line: rgba(255, 107, 76, 0.28);
 
   /* Warm cream surfaces (light base) — warmer canvas + dimmed cards so they mesh */
-  --canvas: #F8F8F7;
+  --canvas: #F7F7F5;
   --paper: #FFFFFF;
-  --surface: #F2F2F0;
-  --surface-strong: #E9E9E6;
-  --surface-mint: #E9F2EA;   /* faint teal-tinted panel */
-  --surface-butter: #F6F6F4;
+  --surface: #F1F1EE;
+  --surface-strong: #E8E8E4;
+  --surface-mint: #EDF4F2;
+  --surface-butter: #F5F3EE;
 
   /* Lines */
-  --line: #EAEAE7;
-  --line-strong: #DCDCD8;
+  --line: #E5E5E1;
+  --line-strong: #D4D4CE;
 
   /* Ink (navy-tinted, not pure black) */
-  --ink: #0B1526;
-  --ink-soft: #33405A;
-  --ink-muted: #6B7488;
+  --ink: #18181B;
+  --ink-soft: #52525B;
+  --ink-muted: #7A7A84;
 
   /* Contrast / dark "moment" (deep navy) */
   --contrast: #0B1E4D;
@@ -57,15 +57,15 @@
 
   /* RGB channel triples — let Tailwind apply <alpha-value> (e.g. text-cream/70).
      The hex vars above stay for direct CSS/inline use. */
-  --canvas-rgb: 248 248 247;
+  --canvas-rgb: 247 247 245;
   --paper-rgb: 255 255 255;
-  --surface-rgb: 242 242 240;
-  --surface-strong-rgb: 233 233 230;
-  --line-rgb: 234 234 231;
-  --line-strong-rgb: 220 220 216;
-  --ink-rgb: 11 21 38;
-  --ink-soft-rgb: 51 64 90;
-  --ink-muted-rgb: 107 116 136;
+  --surface-rgb: 241 241 238;
+  --surface-strong-rgb: 232 232 228;
+  --line-rgb: 229 229 225;
+  --line-strong-rgb: 212 212 206;
+  --ink-rgb: 24 24 27;
+  --ink-soft-rgb: 82 82 91;
+  --ink-muted-rgb: 122 122 132;
   --color-primary-rgb: 255 107 76;
   --color-primary-hover-rgb: 242 84 45;
   --coral-rgb: 255 107 76;
@@ -84,24 +84,18 @@
 
   /* Interaction — soft diffuse shadows (premium, not brutalist offset) */
   --focus-ring: rgba(255, 107, 76, 0.38);
-  --shadow-soft: 0 1px 2px rgba(11, 21, 38, 0.06), 0 10px 30px rgba(11, 21, 38, 0.08);
-  --shadow-lifted: 0 18px 50px rgba(11, 21, 38, 0.14);
+  --shadow-soft: 0 1px 2px rgba(24, 24, 27, 0.06), 0 4px 12px rgba(24, 24, 27, 0.04);
+  --shadow-lifted: 0 16px 40px rgba(24, 24, 27, 0.14);
 
   /* Sidebar */
-  --app-sidebar-width: 18.000rem;
+  --app-sidebar-width: 15.5rem;
 }
 
-/* ── Hidden scrollbars (scroll still works) ── */
-* {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
+/* ── Product scrollbars ── */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border: 2px solid transparent; border-radius: 999px; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
 
 /* ── Lenis smooth scroll ── */
 html.lenis,
@@ -215,9 +209,9 @@ html.lenis body {
   }
 
   .app-sidebar-shell {
-    background-color: var(--canvas);
+    background-color: var(--surface);
     border-right: 1px solid var(--line);
-    box-shadow: 18px 0 45px rgba(11, 21, 38, 0.04);
+    box-shadow: none;
   }
 }
 
@@ -225,10 +219,11 @@ html.lenis body {
   /* ── Typography ── */
 
   .display {
-    font-family: var(--font-display), 'Arial Black', sans-serif;
-    font-size: clamp(36px, 4vw, 56px);
-    line-height: 0.96;
-    letter-spacing: -0.03em;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: clamp(28px, 3vw, 32px);
+    font-weight: 650;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
   }
   .display.big { font-size: clamp(56px, 6vw, 96px); }
   .display.lg  { font-size: clamp(44px, 4.5vw, 72px); }
@@ -245,11 +240,11 @@ html.lenis body {
   }
 
   .sidebar-section-label {
-    font-family: var(--font-mono), 'JetBrains Mono', monospace;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-transform: none;
     color: var(--ink-muted);
     display: flex;
     align-items: center;
@@ -277,26 +272,27 @@ html.lenis body {
     align-items: center;
     gap: 10px;
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 12px;
+    border-radius: 8px;
     box-shadow: none;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--ink);
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--ink-soft);
     cursor: pointer;
     text-decoration: none;
-    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+    transition: background-color 140ms ease, color 140ms ease;
   }
   .tab:hover {
-    background: var(--surface);
-    transform: translateX(2px);
+    background: var(--surface-strong);
+    color: var(--ink);
     box-shadow: none;
   }
   .tab.is-active {
-    background: var(--color-primary-soft);
-    color: var(--coral);
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: inset 2px 0 0 var(--coral);
   }
   .tab.is-active:hover {
     background: var(--color-primary-soft);
@@ -316,11 +312,11 @@ html.lenis body {
   /* ── User tab (sidebar header) ── */
 
   .user-tab {
-    background: var(--surface);
-    border: 1px solid rgba(var(--line-rgb), 0.75);
-    border-radius: 16px;
-    box-shadow: var(--shadow-soft);
-    padding: 12px 14px;
+    background: transparent;
+    border: 0;
+    border-radius: 8px;
+    box-shadow: none;
+    padding: 8px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -335,8 +331,8 @@ html.lenis body {
     padding: 10px 12px;
     background: var(--paper);
     border: 1px solid transparent;
-    border-radius: 12px;
-    box-shadow: var(--shadow-soft);
+    border-radius: 8px;
+    box-shadow: none;
   }
   .course-tile.locked {
     opacity: 0.55;
@@ -375,19 +371,19 @@ html.lenis body {
 
   .rec-card {
     position: relative;
-    border: 0;
-    border-radius: 24px;
-    box-shadow: var(--shadow-soft);
-    padding: 24px;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: none;
+    padding: 20px;
     background: var(--paper);
     display: flex;
     flex-direction: column;
     gap: 16px;
     height: 100%;
   }
-  .rec-card.featured { background: var(--color-primary-soft); }
-  .rec-card.cyan     { background: var(--surface-mint); }
-  .rec-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lifted); }
+  .rec-card.featured,
+  .rec-card.cyan { background: var(--paper); }
+  .rec-card:hover { border-color: var(--line-strong); }
 
   .rec-card .ribbon {
     position: absolute;
@@ -430,29 +426,21 @@ html.lenis body {
   /* ── Coach card (dark contrast with grid overlay) ── */
 
   .coach {
-    background: var(--navy);
-    color: var(--cream);
-    border-radius: 24px;
-    box-shadow: var(--shadow-lifted);
-    padding: 28px 32px;
+    background: var(--paper);
+    color: var(--ink);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: none;
+    padding: 24px;
     position: relative;
     overflow: hidden;
   }
-  .coach::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background:
-      radial-gradient(circle at 18% 20%, rgba(70, 211, 192, 0.22), transparent 34%),
-      radial-gradient(circle at 82% 12%, rgba(255, 107, 76, 0.19), transparent 32%),
-      radial-gradient(circle at 60% 90%, rgba(210, 228, 244, 0.14), transparent 35%);
-    pointer-events: none;
-  }
-  .coach .kicker { color: rgba(251, 246, 233, 0.6); }
+  .coach::before { display: none; }
+  .coach .kicker { color: var(--ink-muted); }
   .coach h1,
   .coach h2,
-  .coach h3 { color: var(--cream); font-weight: 800; margin: 12px 0 8px; }
-  .coach p   { color: rgba(251, 246, 233, 0.78); font-size: 14px; line-height: 1.6; }
+  .coach h3 { color: var(--ink); font-weight: 650; margin: 12px 0 8px; }
+  .coach p   { color: var(--ink-soft); font-size: 14px; line-height: 1.6; }
 
   /* ── Step rows (project roadmap) ── */
 
@@ -462,16 +450,16 @@ html.lenis body {
     gap: 14px;
     padding: 14px 16px;
     border: 1px solid transparent;
-    border-radius: 14px;
-    box-shadow: var(--shadow-soft);
+    border-radius: 10px;
+    box-shadow: none;
     background: var(--paper);
     width: 100%;
     text-align: left;
     cursor: pointer;
     transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
   }
-  .step-row:hover { transform: translateY(-2px); box-shadow: var(--shadow-lifted); }
-  .step-row.active { background: var(--surface-mint); border-color: rgba(var(--teal-deep-rgb), 0.22); }
+  .step-row:hover { border-color: var(--line-strong); }
+  .step-row.active { background: var(--paper); border-color: var(--color-primary-line); box-shadow: inset 2px 0 0 var(--coral); }
   .step-row.done   { background: var(--surface); }
   .step-row.locked { opacity: 0.55; box-shadow: none; cursor: default; }
   .step-row.locked:hover { transform: none; box-shadow: none; }
@@ -540,4 +528,33 @@ html.lenis body {
   /* ── Star / accent decorations ── */
 
   .star { color: var(--coral); }
+}
+
+@layer components {
+  .product-ui .font-display,
+  .product-ui .display {
+    font-family: var(--font-sans), system-ui, sans-serif;
+  }
+
+  .product-ui h1.font-display {
+    font-size: clamp(1.75rem, 3vw, 2rem) !important;
+    font-weight: 650;
+    line-height: 1.15 !important;
+    letter-spacing: -0.025em !important;
+  }
+
+  .product-ui .editorial-kicker,
+  .product-ui .kicker {
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: 0.75rem;
+    font-weight: 550;
+    letter-spacing: 0;
+    text-transform: none;
+    color: var(--ink-muted);
+  }
+
+  .product-ui .hl-yellow {
+    background: none;
+    padding: 0;
+  }
 }
