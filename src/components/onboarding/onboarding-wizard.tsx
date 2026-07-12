@@ -456,14 +456,14 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
                         label="Software Project"
                         description="Build and ship a product experience with a believable scope."
                         checked={projectTrack === "software"}
-                        checkedColor="yellow"
+                        checkedColor="navy"
                         onClick={() => selectProjectTrack("software")}
                       />
                       <TrackRadioCard
                         label="Research Project"
                         description="Develop a credible question, method, and evidence plan."
                         checked={projectTrack === "research"}
-                        checkedColor="cyan"
+                        checkedColor="teal"
                         onClick={() => selectProjectTrack("research")}
                       />
                     </div>
@@ -739,17 +739,17 @@ function TrackRadioCard({
   label,
   description,
   checked,
-  checkedColor = "pink",
+  checkedColor = "navy",
   onClick,
 }: {
   label: string;
   description: string;
   checked: boolean;
-  checkedColor?: "yellow" | "cyan" | "pink";
+  checkedColor?: "navy" | "teal";
   onClick: () => void;
 }) {
-  const accentVar = checkedColor === "yellow" ? 'var(--yellow)' : checkedColor === "cyan" ? 'var(--cyan)' : 'var(--pink)';
-  const accentBg = checkedColor === "yellow" ? 'rgba(255,217,61,0.16)' : checkedColor === "cyan" ? 'rgba(91,208,214,0.14)' : undefined;
+  const accentVar = checkedColor === "teal" ? "var(--teal-deep)" : "var(--navy)";
+  const accentBg = checkedColor === "teal" ? "rgba(68, 194, 199, 0.12)" : "rgba(11, 30, 77, 0.07)";
 
   return (
     <button

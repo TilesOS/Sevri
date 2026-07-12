@@ -7,7 +7,7 @@ export default function SignUpPage() {
   return (
     <Card className="mx-auto w-full max-w-xl space-y-6 shadow-soft" padding="lg">
       <div className="space-y-2">
-        <p className="font-serif text-lg italic text-coral">Free to start</p>
+        <p className="font-serif text-lg italic text-teal-deep">Free to start</p>
         <h1 className="font-display text-4xl leading-none text-ink">Create your Sevri account.</h1>
       </div>
       <Suspense fallback={<p className="text-sm text-ink-soft">Loading sign-up form...</p>}>
@@ -15,7 +15,7 @@ export default function SignUpPage() {
       </Suspense>
       <p className="text-sm text-ink-soft">
         Already have an account?{" "}
-        <Link href="/sign-in" className="font-semibold text-coral hover:opacity-80">
+        <Link href="/sign-in" className="font-semibold text-navy transition-colors hover:text-teal-deep">
           Sign in
         </Link>
       </p>

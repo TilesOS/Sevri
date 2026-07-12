@@ -30,7 +30,7 @@ export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    "border border-transparent bg-primary text-ink hover:bg-primary-hover",
+    "border border-transparent bg-navy text-white hover:bg-navy-deep",
   secondary:
     "border border-ink bg-ink text-white hover:bg-ink-soft",
   outline: "border border-line bg-transparent text-ink hover:border-line-strong hover:bg-surface",

@@ -47,7 +47,7 @@ export default function PricingPage() {
     <>
       <Section className="pt-10">
         <div className="mx-auto mb-12 max-w-2xl text-center">
-          <p className="font-serif text-xl italic text-coral">Pricing</p>
+          <p className="font-serif text-xl italic text-teal-deep">Pricing</p>
           <h1 className="mt-3 font-display text-5xl leading-[0.95] tracking-tight text-ink sm:text-6xl">
             Simple pricing for serious students.
           </h1>

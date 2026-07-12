@@ -23,8 +23,8 @@ export const trackThemes: Record<
   },
   research: {
     badgeTone: "research",
-    accentSurfaceClassName: "bg-paper",
-    borderClassName: "border-line",
+    accentSurfaceClassName: "bg-navy/5",
+    borderClassName: "border-navy/20",
     label: "Research",
   },
 };

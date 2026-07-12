@@ -801,7 +801,7 @@ function StepTimeline({
               href={`/project/${projectId}/steps/${item.stepNumber}`}
               className={cn(
                 "min-w-[11rem] rounded-lg border px-4 py-3 transition-colors",
-                isActive && "border-primary-line shadow-[inset_0_2px_0_var(--coral)]",
+                isActive && "border-primary-line shadow-[inset_0_2px_0_var(--teal-deep)]",
                 isActive ? "muted-toggle-surface-active" : "muted-toggle-surface",
                 item.isFuture && !isActive && "opacity-70",
               )}

@@ -30,7 +30,7 @@ export function FaqAccordion({ items }: { items: FaqItem[] }) {
                 aria-hidden
                 animate={{ rotate: open ? 45 : 0 }}
                 transition={{ duration: 0.25, ease: EASE }}
-                className="shrink-0 text-xl leading-none text-coral"
+                className="shrink-0 text-xl leading-none text-teal-deep"
               >
                 +
               </motion.span>

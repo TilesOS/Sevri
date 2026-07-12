@@ -1252,12 +1252,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   <span className="h-3 w-3 rounded-full bg-paper shadow-[inset_0_0_0_1px_rgba(163,173,168,0.9)]" />
                   <span className="text-sm text-ink-soft">Not started</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-lg border border-line bg-amber-50 px-4 py-3">
-                  <span className="h-3 w-3 rounded-full border border-amber-700/30 bg-amber-400" />
+                <div className="flex items-center gap-3 rounded-lg border border-navy/15 bg-navy/[0.05] px-4 py-3">
+                  <span className="h-3 w-3 rounded-full border border-navy/30 bg-navy" />
                   <span className="text-sm text-ink">In progress</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-lg border border-line bg-cyan-50 px-4 py-3">
-                  <span className="h-3 w-3 rounded-full border border-cyan-700/30 bg-cyan-400" />
+                <div className="flex items-center gap-3 rounded-lg border border-teal-deep/20 bg-teal/10 px-4 py-3">
+                  <span className="h-3 w-3 rounded-full border border-teal-deep/30 bg-teal-deep" />
                   <span className="text-sm text-ink">Completed</span>
                 </div>
               </div>
