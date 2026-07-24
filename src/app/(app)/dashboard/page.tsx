@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowRight, Code2, FileText, Lightbulb, Plus, Sparkles } from "lucide-react";
+import { ArrowRight, Code2, FileText, Lightbulb, Sparkles } from "lucide-react";
 import { getRequiredUser } from "@/lib/auth/guard";
 import { resolveDisplayName } from "@/lib/auth/names";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -46,7 +46,12 @@ export default async function DashboardPage() {
     ? Math.round(projects.reduce((total, project) => total + project.progress.percent, 0) / projects.length)
     : 0;
   const nextAction = activeProject
-    ? { href: `/project/${activeProject.id}`, label: activeProject.hasRoadmap ? "Continue project" : "Generate roadmap" }
+    ? {
+        href: activeProject.hasRoadmap && activeProject.currentStepNumber
+          ? `/project/${activeProject.id}/steps/${activeProject.currentStepNumber}`
+          : `/project/${activeProject.id}`,
+        label: activeProject.hasRoadmap ? "Continue project" : "Generate roadmap",
+      }
     : trackAvailability.software.hasIntake || trackAvailability.research.hasIntake
       ? { href: `/recommendations?track=${trackAvailability.software.hasIntake ? "software" : "research"}`, label: "Explore ideas" }
       : { href: "/onboarding", label: "Start onboarding" };
@@ -67,7 +72,11 @@ export default async function DashboardPage() {
             <span>{projects.length ? `${projects.length} saved ${projects.length === 1 ? "project" : "projects"}` : "Your workspace is ready"}</span>
           </>
         }
-        actions={<Button href="/recommendations" leadingIcon={<Plus className="h-4 w-4" />}>Explore a project</Button>}
+        actions={
+          <Button href={nextAction.href} trailingIcon={<ArrowRight className="h-4 w-4" />}>
+            {activeProject?.hasRoadmap ? "Go to current step" : nextAction.label}
+          </Button>
+        }
       />
 
       <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.65fr)]">

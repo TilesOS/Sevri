@@ -50,6 +50,7 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   const initials = getInitials(displayName);
 
   useEffect(() => setIsMobileDrawerOpen(false), [pathname]);
+  const headerBreadcrumbs = getHeaderBreadcrumbs(pathname);
 
   useEffect(() => {
     if (!isMobileDrawerOpen) return;
@@ -133,12 +134,28 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
           >
             <Menu className="h-4 w-4" />
           </button>
-          <div className="flex min-w-0 items-center gap-2 text-sm">
+          <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-            <span className="truncate font-medium text-ink">{getPageLabel(pathname)}</span>
-            <span className="hidden text-ink-muted sm:inline">/</span>
-            <span className="hidden truncate text-ink-muted sm:inline">Sevri workspace</span>
-          </div>
+            {headerBreadcrumbs.map((item, index) => (
+              <div
+                key={`${item.href}-${item.label}`}
+                className={cn("min-w-0 items-center gap-2", index === 0 ? "flex" : "hidden sm:flex")}
+              >
+                {index > 0 ? <span className="text-ink-muted">/</span> : null}
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "truncate transition-colors hover:text-ink",
+                    index === headerBreadcrumbs.length - 1
+                      ? "font-medium text-ink"
+                      : "text-ink-muted",
+                  )}
+                >
+                  {item.label}
+                </Link>
+              </div>
+            ))}
+          </nav>
         </header>
         <main className="min-h-[calc(100vh-3.5rem)] py-7 sm:py-10">
           <Container>
@@ -163,19 +180,31 @@ function SidebarContent({
   pathname: string;
   onNavigate: () => void;
 }) {
+  const profileMenuRef = useRef<HTMLDetailsElement>(null);
   const isFocusRoute = /^\/projects\/[^/]+\/focus(?:\/|$)/.test(pathname);
   const isProjectRoute =
     (pathname.startsWith("/project/") || pathname.startsWith("/projects/")) && !isFocusRoute;
 
+  useEffect(() => {
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      const menu = profileMenuRef.current;
+      if (menu?.open && !menu.contains(event.target as Node)) {
+        menu.open = false;
+      }
+    };
+
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, []);
+
   return (
     <div className="flex h-full min-h-0 flex-col px-3 py-3">
-      <Link href="/dashboard" className="mb-3 flex min-h-10 items-center gap-2 rounded-xl px-2 text-ink" onClick={onNavigate}>
-        <span className="grid h-7 w-7 place-items-center rounded-lg bg-navy text-xs font-bold text-cream shadow-[0_1px_2px_rgba(5,18,54,0.18)]">S</span>
+      <Link href="/dashboard" className="mb-3 flex min-h-10 items-center rounded-xl px-2 text-ink" onClick={onNavigate}>
         <span className="font-serif text-[1.35rem] leading-none">Sevri</span>
       </Link>
 
       <Link
-        href="/recommendations"
+        href="/onboarding"
         className="mb-5 flex h-9 items-center justify-center gap-2 rounded-[10px] bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(24,35,58,0.12)] transition-[background-color,box-shadow,transform] duration-150 hover:bg-primary-hover hover:shadow-[0_6px_18px_rgba(24,35,58,0.18)] active:translate-y-px"
         onClick={onNavigate}
       >
@@ -211,7 +240,13 @@ function SidebarContent({
         </div>
       ) : <div className="flex-1" />}
 
-      <details className="group relative mt-3 border-t border-line pt-3">
+      <details
+        ref={profileMenuRef}
+        className="group relative mt-3 border-t border-line pt-3"
+        onMouseLeave={() => {
+          if (profileMenuRef.current) profileMenuRef.current.open = false;
+        }}
+      >
         <summary className="user-tab cursor-pointer list-none hover:bg-surface-strong marker:hidden">
           <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-navy text-xs font-semibold text-cream">{initials}</div>
           <div className="min-w-0 flex-1">
@@ -220,7 +255,12 @@ function SidebarContent({
           </div>
           <ChevronDown className="h-4 w-4 text-ink-muted transition-transform group-open:rotate-180" aria-hidden="true" />
         </summary>
-        <div className="absolute bottom-12 left-0 right-0 rounded-xl border border-line bg-paper p-1 shadow-lifted">
+        <div
+          className="absolute bottom-12 left-0 right-0 rounded-xl border border-line bg-paper p-1 shadow-lifted"
+          onMouseLeave={() => {
+            if (profileMenuRef.current) profileMenuRef.current.open = false;
+          }}
+        >
           <Link href="/settings" className="tab" onClick={onNavigate}>
             <Settings className="h-4 w-4" aria-hidden="true" />
             <span>Settings</span>
@@ -251,4 +291,41 @@ function getPageLabel(pathname: string) {
   if (pathname.startsWith("/settings")) return "Settings";
   if (pathname.startsWith("/onboarding")) return "Onboarding";
   return "Dashboard";
+}
+
+function getHeaderBreadcrumbs(pathname: string) {
+  const projectMatch = pathname.match(/^\/projects?\/([^/]+)(?:\/(.*))?$/);
+  if (projectMatch) {
+    const [, projectId, remainder = ""] = projectMatch;
+    const breadcrumbs = [
+      { href: "/dashboard", label: "Dashboard" },
+      { href: `/project/${projectId}`, label: "Project workspace" },
+    ];
+    const stepMatch = remainder.match(/^steps\/(\d+)/);
+
+    if (stepMatch) {
+      breadcrumbs.push({
+        href: `/project/${projectId}/steps/${stepMatch[1]}`,
+        label: `Step ${stepMatch[1]}`,
+      });
+    } else if (remainder === "scope") {
+      breadcrumbs.push({ href: `/project/${projectId}/scope`, label: "Scope" });
+    } else if (remainder === "research-lens") {
+      breadcrumbs.push({ href: `/project/${projectId}/research-lens`, label: "Research lens" });
+    } else if (remainder === "pitch-kit") {
+      breadcrumbs.push({ href: `/project/${projectId}/pitch-kit`, label: "Pitch kit" });
+    } else if (remainder === "focus") {
+      breadcrumbs.push({ href: `/projects/${projectId}/focus`, label: "Focus" });
+    }
+
+    return breadcrumbs;
+  }
+
+  const pageLabel = getPageLabel(pathname);
+  if (pathname === "/dashboard") return [{ href: "/dashboard", label: pageLabel }];
+
+  return [
+    { href: "/dashboard", label: "Dashboard" },
+    { href: pathname, label: pageLabel },
+  ];
 }

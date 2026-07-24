@@ -5,7 +5,6 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   CheckCircle2,
-  ChevronRight,
   Crosshair,
   Lock,
   RefreshCw,
@@ -520,15 +519,6 @@ export function ProjectStepWorkspace({
       <PageHeader
         eyebrow={`Step ${milestone.stepNumber}`}
         title={safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
-        breadcrumbs={
-          <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-muted">
-            <Link href={`/project/${workspace.project.id}`} className="transition-colors hover:text-ink">
-              {workspace.project.title}
-            </Link>
-            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>Roadmap</span>
-          </div>
-        }
         metadata={
           <>
             <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
