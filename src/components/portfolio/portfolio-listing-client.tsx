@@ -72,17 +72,17 @@ export function PortfolioListingClient({ entries }: { entries: PortfolioListingE
 
   return (
     <div className="space-y-8">
-      <Card tone="contrast" className="border-contrast-line">
+      <Card>
         <PageHeader
           eyebrow="Private Portfolio"
           title="Your project record, organized by what happened."
           description="Completed, active, paused, and cut projects stay visible here without needing public sharing."
           actions={
-            <Button href="/recommendations" className="rounded-full px-6">
+            <Button href="/recommendations">
               Add project
             </Button>
           }
-          className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
+          className="border-b-0 pb-0"
         />
       </Card>
 
@@ -184,7 +184,7 @@ function PortfolioEntryCard({ entry }: { entry: PortfolioListingEntryView }) {
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-2">
         <span className="text-xs text-ink-muted">Selected {formatDate(entry.selectedAt)}</span>
-        <Button href={`/portfolio/${entry.project.id}`} variant="outline" className="rounded-full">
+        <Button href={`/portfolio/${entry.project.id}`} variant="outline">
           Open entry
         </Button>
       </div>
@@ -209,7 +209,7 @@ function PortfolioEmptyState({
           Save a project from the idea board, build the roadmap, and Portfolio will start keeping the record.
         </p>
         <div>
-          <Button href="/recommendations" className="rounded-full">
+          <Button href="/recommendations">
             Open ideas
           </Button>
         </div>

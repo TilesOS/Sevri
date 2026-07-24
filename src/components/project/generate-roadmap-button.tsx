@@ -46,7 +46,7 @@ export function GenerateRoadmapButton({ projectId, projectTrack = "software" }: 
       <div aria-live="polite" className="sr-only">
         {error ?? (isLoading ? "Generating roadmap overview." : "")}
       </div>
-      <Button onClick={generate} disabled={isLoading} className="rounded-full px-6">
+      <Button onClick={generate} disabled={isLoading}>
         {isLoading ? loadingLabel : idleLabel}
       </Button>
       {error ? <Alert tone="danger">{error}</Alert> : null}

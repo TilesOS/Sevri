@@ -96,10 +96,10 @@ export function GoogleCalendarIntegrationCard({
         </div>
       ) : null}
 
-      <Card tone="primary" className="space-y-4">
+      <Card className="space-y-4">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div className="space-y-2">
-            <p className="editorial-kicker">Google Calendar</p>
+            <p className="text-sm font-medium text-ink">Google Calendar</p>
             <p className="text-sm leading-6 text-ink-soft">
               {connected
                 ? `Connected as ${integration.provider_username}. Sevri syncs to a dedicated Google calendar.`
@@ -155,4 +155,3 @@ export function GoogleCalendarIntegrationCard({
     </div>
   );
 }
-

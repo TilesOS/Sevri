@@ -305,7 +305,7 @@ export function PortfolioDetailClient({
 
   return (
     <div className="space-y-8 pb-12">
-      <Card tone="contrast" className="border-contrast-line">
+      <Card>
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
@@ -322,11 +322,11 @@ export function PortfolioDetailClient({
             title={view.project.title}
             description={entry.curated_summary ?? view.summary}
             actions={
-              <Button href={`/project/${view.project.id}`} variant="outline" className="rounded-full border-white/20 bg-white/8 text-paper hover:bg-white/12">
+              <Button href={`/project/${view.project.id}`} variant="outline">
                 Open workspace
               </Button>
             }
-            className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
+            className="border-b-0 pb-0"
           />
           <ProgressBar
             value={view.completionPercent}

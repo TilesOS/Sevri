@@ -30,20 +30,20 @@ export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    "border border-transparent bg-primary text-ink shadow-soft hover:-translate-y-0.5 hover:bg-primary-hover hover:shadow-lifted",
+    "border border-transparent bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(24,35,58,0.12)] hover:bg-primary-hover hover:shadow-[0_6px_18px_rgba(24,35,58,0.18)]",
   secondary:
-    "border border-transparent bg-navy text-cream shadow-soft hover:-translate-y-0.5 hover:bg-navy-deep hover:shadow-lifted",
-  outline: "border border-line bg-transparent text-ink hover:border-line-strong hover:bg-surface",
-  ghost: "border border-transparent bg-transparent text-ink hover:bg-surface",
-  contrast: "border border-transparent bg-cream text-navy shadow-soft hover:-translate-y-0.5 hover:bg-white hover:shadow-lifted",
-  danger: "border border-transparent bg-red-600 text-white shadow-soft hover:-translate-y-0.5 hover:bg-red-700",
+    "border border-navy bg-navy text-white shadow-[0_1px_2px_rgba(5,18,54,0.12)] hover:bg-navy-deep",
+  outline: "border border-line bg-paper text-ink shadow-[0_1px_1px_rgba(32,32,29,0.03)] hover:border-line-strong hover:bg-surface/65",
+  ghost: "border border-transparent bg-transparent text-ink-soft hover:bg-surface hover:text-ink",
+  contrast: "border border-white/20 bg-white text-navy hover:bg-cream",
+  danger: "border border-transparent bg-red-600 text-white hover:bg-red-700",
 };
 
 const sizeClass: Record<ButtonSize, string> = {
-  sm: "h-10 px-4 text-sm",
-  md: "h-11 px-5 text-sm",
-  lg: "h-12 px-6 text-base",
-  xl: "h-14 px-7 text-base",
+  sm: "h-8 px-3 text-xs",
+  md: "h-9 px-4 text-sm",
+  lg: "h-10 px-5 text-sm",
+  xl: "h-11 px-6 text-base",
 };
 
 function getButtonClassName({
@@ -53,7 +53,7 @@ function getButtonClassName({
   fullWidth,
 }: Pick<CommonButtonProps, "variant" | "size" | "className" | "fullWidth">) {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-200 ease-out will-change-transform active:scale-[0.96] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100",
+    "inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60",
     "focus-visible:outline-none",
     variantClass[variant ?? "primary"],
     sizeClass[size ?? "md"],

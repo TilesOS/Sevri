@@ -1,4 +1,8 @@
+import type { ReactNode } from "react";
+import { ArrowRight, Code2, FileText, Lightbulb, Sparkles } from "lucide-react";
 import { getRequiredUser } from "@/lib/auth/guard";
+import { resolveDisplayName } from "@/lib/auth/names";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { getProjectsForDashboard } from "@/lib/db/queries/projects";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getRecommendationGenerationCount, getTrackAvailability } from "@/lib/db/queries/recommendations";
@@ -7,297 +11,237 @@ import { getPlanLabel, getTrackLabel, trackThemes } from "@/components/theme/the
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { StatCard } from "@/components/ui/stat-card";
+import { PageHeader } from "@/components/ui/page-header";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
-import type { ProjectProgressSummary } from "@/lib/projects/progress";
 
 export default async function DashboardPage() {
   const user = await getRequiredUser();
-  const [projects, plan, recommendationGenerations, trackAvailability] = await Promise.all([
+  const supabase = await createServerSupabaseClient();
+  const [projects, plan, recommendationGenerations, trackAvailability, { data: profile }] = await Promise.all([
     getProjectsForDashboard(user.id),
     getUserPlan(user.id),
     getRecommendationGenerationCount(user.id),
     getTrackAvailability(user.id),
+    supabase.from("profiles").select("full_name").eq("user_id", user.id).maybeSingle(),
   ]);
 
-  const softwareProjects = projects.filter((project) => project.project_track === "software");
-  const researchProjects = projects.filter((project) => project.project_track === "research");
   const outputTotals = projects.reduce(
     (totals, project) => {
-      if (project.project_track === "research") {
-        totals.researchWords += project.outputMetrics.wordCount;
-      } else {
-        totals.softwareCommits += project.outputMetrics.commitCount;
-      }
+      if (project.project_track === "research") totals.researchWords += project.outputMetrics.wordCount;
+      else totals.softwareCommits += project.outputMetrics.commitCount;
       return totals;
     },
     { softwareCommits: 0, researchWords: 0 },
   );
-  const activeProject =
-    projects.find((project) => project.status === "active" || project.status === "paused") ?? projects[0] ?? null;
-
+  const activeProject = projects.find((project) => project.status === "active" || project.status === "paused") ?? projects[0] ?? null;
+  const displayName = resolveDisplayName({
+    profileFullName: profile?.full_name,
+    userMetadata: user.user_metadata,
+    email: user.email,
+  });
+  const firstName = displayName.split(/\s+/).filter(Boolean)[0] ?? "there";
+  const completedProjects = projects.filter((project) => project.status === "completed").length;
+  const averageProgress = projects.length
+    ? Math.round(projects.reduce((total, project) => total + project.progress.percent, 0) / projects.length)
+    : 0;
   const nextAction = activeProject
     ? {
-        href: `/project/${activeProject.id}`,
-        label: activeProject.hasRoadmap ? "Open active workspace" : "Generate roadmap",
+        href: activeProject.hasRoadmap && activeProject.currentStepNumber
+          ? `/project/${activeProject.id}/steps/${activeProject.currentStepNumber}`
+          : `/project/${activeProject.id}`,
+        label: activeProject.hasRoadmap ? "Continue project" : "Generate roadmap",
       }
     : trackAvailability.software.hasIntake || trackAvailability.research.hasIntake
-      ? {
-          href: `/recommendations?track=${trackAvailability.software.hasIntake ? "software" : "research"}`,
-          label: "Open idea board",
-        }
-      : {
-          href: "/onboarding",
-          label: "Start onboarding",
-        };
+      ? { href: `/recommendations?track=${trackAvailability.software.hasIntake ? "software" : "research"}`, label: "Explore ideas" }
+      : { href: "/onboarding", label: "Start onboarding" };
+
+  const planDetail = plan === "pro_monthly"
+    ? "Unlimited idea generations with Pro coaching, subject to fair-use limits."
+    : `${PLAN_LIMITS.free.generation_limit} free idea generations plus roadmap access.`;
 
   return (
-    <div className="space-y-8">
-      {/* Page heading */}
-      <div style={{ marginBottom: 8 }}>
-        <div className="kicker" style={{ marginBottom: 10 }}>
-          <span className="star">✦</span>
-          <span>WORKSPACE</span>
-        </div>
-        <h1 className="display big" style={{ margin: 0 }}>
-          welcome{" "}
-          <span className="hl-yellow">back</span>
-          <span style={{ color: 'var(--pink)' }}>.</span>
-        </h1>
-      </div>
+    <div className="space-y-8 pb-8">
+      <PageHeader
+        eyebrow={`Welcome back, ${firstName}`}
+        title="Keep the next finishable step moving."
+        description="Your active work, visible momentum, and next action—without the project-management noise."
+        metadata={
+          <>
+            <Badge tone="neutral">{getPlanLabel(plan)}</Badge>
+            <span>{projects.length ? `${projects.length} saved ${projects.length === 1 ? "project" : "projects"}` : "Your workspace is ready"}</span>
+          </>
+        }
+        actions={
+          <Button href={nextAction.href} trailingIcon={<ArrowRight className="h-4 w-4" />}>
+            {activeProject?.hasRoadmap ? "Go to current step" : nextAction.label}
+          </Button>
+        }
+      />
 
-      {/* Hero coach card */}
-      <div className="coach" style={{ boxShadow: '6px 6px 0 var(--cyan)' }}>
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <span className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ color: 'var(--cyan)' }}>✦</span>
-            {activeProject ? "CONTINUE YOUR JOURNEY" : "SET THE DIRECTION"}
-          </span>
-          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(28px,4vw,48px)', fontWeight: 400, letterSpacing: '-0.03em', lineHeight: 0.96, color: 'var(--paper)', margin: '0 0 16px', maxWidth: 680 }}>
-            {activeProject ? activeProject.title : "Set the direction worth finishing."}
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1.55fr)_minmax(18rem,0.65fr)]">
+        <div className="relative isolate overflow-hidden rounded-3xl bg-navy px-6 py-7 text-cream shadow-soft sm:px-8 sm:py-8">
+          <div className="aurora-fallback pointer-events-none absolute inset-0 -z-10 opacity-35" />
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-2 rounded-full border border-cream/15 bg-cream/[0.07] px-3 py-1 text-[11px] font-semibold text-cream/75 backdrop-blur">
+              <Sparkles className="h-3.5 w-3.5 text-teal" aria-hidden="true" />
+              {activeProject ? "Continue where you left off" : "Your next project starts here"}
+            </span>
+            {activeProject ? (
+              <span className="rounded-full border border-cream/15 bg-cream/[0.05] px-3 py-1 text-[11px] font-medium text-cream/65">
+                {activeProject.progress.stageLabel}
+              </span>
+            ) : null}
+          </div>
+
+          <h2 className="mt-5 max-w-3xl font-display text-3xl leading-tight tracking-tight text-cream sm:text-4xl">
+            {activeProject ? activeProject.title : "Choose a direction worth finishing."}
           </h2>
-          <p style={{ color: 'rgba(251,246,233,0.72)', fontSize: 15, lineHeight: 1.6, maxWidth: 560, marginBottom: 24 }}>
+          <p className="mt-3 max-w-2xl text-sm leading-6 text-cream/70 sm:text-[15px]">
             {activeProject
               ? activeProject.hasRoadmap
-                ? "Your workspace is ready. Keep the next milestone moving and protect the finishable version of the project."
-                : "You have already chosen a direction. The next move is to turn it into a roadmap and start executing."
-              : "Use onboarding to shape a direction, compare strong options, and keep both your software and research tracks visible."}
+                ? activeProject.progress.stageDetail
+                : "Turn the direction you chose into a concrete, finishable roadmap."
+              : "Compare focused software and research directions, then commit to the one that fits your real time and interests."}
           </p>
-          <div className="grid max-w-2xl gap-3 pb-6 sm:grid-cols-2">
-            <DashboardOutputStat
-              accentColor="var(--yellow)"
-              label="Commits pushed"
-              value={formatMetricNumber(outputTotals.softwareCommits)}
-              detail="Linked software projects"
-            />
-            <DashboardOutputStat
-              accentColor="var(--cyan)"
-              label="Words written"
-              value={formatMetricNumber(outputTotals.researchWords)}
-              detail="Research milestone drafts"
-            />
-          </div>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <Button href={nextAction.href} className="px-6">
-              {nextAction.label}
-            </Button>
+
+          {activeProject ? (
+            <ProjectProgressTracker progress={activeProject.progress} compact contrast className="mt-6 max-w-3xl" />
+          ) : null}
+
+          <div className="mt-7 flex flex-wrap gap-2.5">
+            <Button href={nextAction.href} variant="contrast" trailingIcon={<ArrowRight className="h-4 w-4" />}>{nextAction.label}</Button>
             <Button
               href="/recommendations"
               variant="outline"
-              className="border-contrast-line bg-paper/10 text-paper hover:bg-paper/20"
+              className="border-cream/15 bg-cream/[0.06] text-cream shadow-none hover:border-cream/25 hover:bg-cream/[0.11]"
             >
-              View ideas
+              Compare ideas
             </Button>
           </div>
         </div>
-      </div>
 
-      {/* Stat cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <StatCard
-          label="Current plan"
-          value={getPlanLabel(plan)}
-          detail={
-            plan === "pro_monthly"
-              ? "Unlimited idea board generations, subject to fair-use and rate limits, plus Pro coaching."
-              : `Includes ${PLAN_LIMITS.free.generation_limit} free idea board generations plus roadmap access.`
-          }
-        />
-        <StatCard
-          label="Idea board generations used"
-          value={recommendationGenerations}
-          detail="Total idea board generations across both tracks."
-        />
-        <StatCard label="Saved projects" value={projects.length} detail="Active, paused, and completed work in one place." />
-      </div>
+        <Card tone="butter" padding="lg" elevation="soft" className="flex h-full flex-col">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="editorial-kicker">Momentum</p>
+              <h2 className="mt-2 text-lg font-semibold tracking-tight text-ink">A quick read on your work.</h2>
+            </div>
+            <Badge tone={plan === "pro_monthly" ? "accent" : "neutral"}>{getPlanLabel(plan)}</Badge>
+          </div>
+          <div className="mt-6 grid flex-1 grid-cols-2 gap-px overflow-hidden rounded-xl bg-line/80">
+            <Metric label="Average progress" value={`${averageProgress}%`} detail="Across saved projects" />
+            <Metric label="Completed" value={formatMetricNumber(completedProjects)} detail="Projects shipped" />
+            <Metric label="Commits" value={formatMetricNumber(outputTotals.softwareCommits)} detail="Software proof" icon={<Code2 className="h-3.5 w-3.5" />} />
+            <Metric label="Words" value={formatMetricNumber(outputTotals.researchWords)} detail="Research proof" icon={<FileText className="h-3.5 w-3.5" />} />
+          </div>
+          <p className="mt-4 text-xs leading-5 text-ink-muted">
+            {planDetail} {recommendationGenerations ? `${recommendationGenerations} idea ${recommendationGenerations === 1 ? "board" : "boards"} generated so far.` : ""}
+          </p>
+        </Card>
+      </section>
 
-      <TrackSection
-        title="Software Projects"
-        projects={softwareProjects.slice(0, 3)}
-        track="software"
-        hasIntake={trackAvailability.software.hasIntake}
-        recommendationCount={trackAvailability.software.recommendationCount}
-      />
-
-      <TrackSection
-        title="Research Projects"
-        projects={researchProjects.slice(0, 3)}
-        track="research"
-        hasIntake={trackAvailability.research.hasIntake}
-        recommendationCount={trackAvailability.research.recommendationCount}
+      <ProjectsSection
+        projects={projects}
+        trackAvailability={trackAvailability}
       />
     </div>
+  );
+}
+
+function Metric({ label, value, detail, icon }: { label: string; value: string; detail: string; icon?: ReactNode }) {
+  return (
+    <div className="bg-paper/90 p-4">
+      <div className="flex items-center gap-2 text-[11px] font-medium text-ink-muted">{icon}{label}</div>
+      <p className="mt-2 text-xl font-semibold tabular-nums text-ink">{value}</p>
+      <p className="mt-1 line-clamp-2 text-[11px] leading-4 text-ink-muted" title={detail}>{detail}</p>
+    </div>
+  );
+}
+
+type DashboardProject = Awaited<ReturnType<typeof getProjectsForDashboard>>[number];
+
+function ProjectsSection({
+  projects,
+  trackAvailability,
+}: {
+  projects: DashboardProject[];
+  trackAvailability: {
+    software: { hasIntake: boolean; recommendationCount: number };
+    research: { hasIntake: boolean; recommendationCount: number };
+  };
+}) {
+  return (
+    <Card padding="none" elevation="soft" className="overflow-hidden">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line/80 px-5 py-5 sm:px-6">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight text-ink">Your projects</h2>
+          <p className="mt-1 text-sm text-ink-muted">Every active direction, with the next move visible.</p>
+        </div>
+        <Button href="/recommendations" variant="outline" size="sm" leadingIcon={<Lightbulb className="h-4 w-4" />}>Browse ideas</Button>
+      </div>
+      {projects.length ? (
+        <div className="divide-y divide-line/75">
+          {projects.map((project) => {
+            const track = project.project_track === "research" ? "research" : "software";
+            const trackTheme = trackThemes[track];
+            return (
+              <div key={project.id} className="group grid gap-4 px-5 py-4 transition-colors duration-150 hover:bg-surface/45 sm:px-6 md:grid-cols-[minmax(0,1fr)_minmax(12rem,17rem)_auto] md:items-center">
+                <div className="flex min-w-0 items-start gap-3">
+                  <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl ${trackTheme.accentSurfaceClassName} ${trackTheme.iconClassName}`}>
+                    {track === "software" ? <Code2 className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
+                  </span>
+                  <div className="min-w-0">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="truncate text-sm font-semibold text-ink">{project.title}</h3>
+                    <Badge tone={trackTheme.badgeTone}>{getTrackLabel(track)}</Badge>
+                  </div>
+                    <p className="mt-1 line-clamp-1 text-xs text-ink-muted">{project.progress.stageDetail}</p>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-3 text-xs">
+                    <span className="truncate font-medium text-ink-soft">{project.progress.stageLabel}</span>
+                    <span className="shrink-0 tabular-nums text-ink-muted">{project.progress.percent}%</span>
+                  </div>
+                  <ProgressBar value={project.progress.percent} ariaLabel={`${project.title} progress`} />
+                </div>
+                <Button href={`/project/${project.id}`} variant="ghost" size="sm" trailingIcon={<ArrowRight className="h-4 w-4" />}>Open</Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid gap-4 p-5 sm:p-6 md:grid-cols-2">
+          {(["software", "research"] as const).map((track) => {
+            const availability = trackAvailability[track];
+            const trackTheme = trackThemes[track];
+            return (
+              <div
+                key={track}
+                className={`rounded-2xl p-5 ${trackTheme.accentSurfaceClassName}`}
+              >
+                <span className={`grid h-9 w-9 place-items-center rounded-xl bg-paper/75 ${trackTheme.iconClassName}`}>
+                  {track === "software" ? <Code2 className="h-4 w-4" aria-hidden="true" /> : <FileText className="h-4 w-4" aria-hidden="true" />}
+                </span>
+                <h3 className="mt-4 text-base font-semibold text-ink">{getTrackLabel(track)}</h3>
+                <p className="mt-1 text-sm leading-6 text-ink-soft">
+                  {availability.hasIntake
+                    ? `${availability.recommendationCount} saved directions. Generate an idea board and choose the strongest one.`
+                    : `Complete ${track} onboarding to start this track.`}
+                </p>
+                <Button href={availability.hasIntake ? `/recommendations?track=${track}` : "/onboarding"} variant="outline" size="sm" className="mt-4" trailingIcon={<ArrowRight className="h-3.5 w-3.5" />}>
+                  {availability.hasIntake ? "Open ideas" : "Complete onboarding"}
+                </Button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </Card>
   );
 }
 
 function formatMetricNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
-}
-
-function DashboardOutputStat({
-  accentColor,
-  label,
-  value,
-  detail,
-}: {
-  accentColor: string;
-  label: string;
-  value: string;
-  detail: string;
-}) {
-  return (
-    <div
-      className="rounded-md px-4 py-3"
-      style={{
-        border: `1px solid rgba(251,246,233,0.24)`,
-        borderLeft: `4px solid ${accentColor}`,
-        background: "rgba(251,246,233,0.08)",
-      }}
-    >
-      <p className="editorial-kicker" style={{ color: "rgba(251,246,233,0.6)" }}>
-        {label}
-      </p>
-      <p className="mt-2 text-3xl font-semibold leading-none text-paper">{value}</p>
-      <p className="mt-2 text-xs font-medium text-paper/60">{detail}</p>
-    </div>
-  );
-}
-
-function TrackSection({
-  title,
-  projects,
-  track,
-  hasIntake,
-  recommendationCount,
-}: {
-  title: string;
-  projects: Array<{
-    id: string;
-    title: string;
-    status: string;
-    hasRoadmap: boolean;
-    completedMilestones: number;
-    totalMilestones: number;
-    progress: ProjectProgressSummary;
-  }>;
-  track: "software" | "research";
-  hasIntake: boolean;
-  recommendationCount: number;
-}) {
-  const nextActionHref = hasIntake ? `/recommendations?track=${track}` : "/onboarding";
-  const nextActionLabel = hasIntake ? `Open ${track} ideas` : "Complete onboarding";
-  const trackTheme = trackThemes[track];
-
-  const accentColor = track === "software" ? "var(--yellow)" : "var(--cyan)";
-  const trackState =
-    projects.length > 0
-      ? "Project underway"
-      : recommendationCount > 0
-        ? "Ideating"
-        : hasIntake
-          ? "Ready for ideas"
-          : "Needs direction";
-
-  return (
-    <Card className="space-y-6" style={{ borderTop: `4px solid ${accentColor}` }}>
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="space-y-3">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge tone={trackTheme.badgeTone}>{getTrackLabel(track)}</Badge>
-            <Badge tone={hasIntake ? "success" : "warning"}>{hasIntake ? "Intake ready" : "Needs setup"}</Badge>
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold text-ink">{title}</h2>
-            <p className="mt-2 text-sm leading-6 text-ink-soft">
-              {track === "software"
-                ? "Keep your saved software builds moving and revisit new ideas when you need another angle."
-                : "Keep your saved research directions visible and make deliberate tradeoffs before you commit."}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-3">
-          <Button href={nextActionHref} className="px-5">
-            {nextActionLabel}
-          </Button>
-          <Button href={`/recommendations?track=${track}`} variant="outline">
-            View board
-          </Button>
-        </div>
-      </div>
-
-      <div className="grid gap-6 rounded-md bg-canvas px-5 py-4 sm:grid-cols-3" style={{ border: '2px solid var(--ink)' }}>
-        <div style={{ borderLeft: '3px solid var(--yellow)', paddingLeft: 12 }}>
-          <p className="editorial-kicker">Saved projects</p>
-          <p className="mt-3 text-3xl font-semibold text-ink">{projects.length}</p>
-        </div>
-        <div style={{ borderLeft: '3px solid var(--cyan)', paddingLeft: 12 }}>
-          <p className="editorial-kicker">Saved directions</p>
-          <p className="mt-3 text-3xl font-semibold text-ink">{recommendationCount}</p>
-        </div>
-        <div style={{ borderLeft: '3px solid var(--pink)', paddingLeft: 12 }}>
-          <p className="editorial-kicker">Track state</p>
-          <p className="mt-3 text-lg font-semibold text-ink">{trackState}</p>
-        </div>
-      </div>
-
-      {projects.length ? (
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {projects.map((project, index) => (
-            <Card key={project.id} tone="subtle" className="flex h-full flex-col" style={{ borderTop: `3px solid ${index % 2 === 0 ? accentColor : 'var(--pink)'}` }}>
-              <div className="flex items-start justify-between gap-3">
-                <Badge tone={trackTheme.badgeTone}>{track === "software" ? "Software" : "Research"}</Badge>
-                <Badge tone={project.status === "completed" ? "success" : "neutral"}>{project.progress.stageLabel}</Badge>
-              </div>
-              <div className="mt-5 space-y-3">
-                <h3 className="text-xl font-semibold text-ink">{project.title}</h3>
-                <p className="text-sm leading-6 text-ink-soft">
-                  {project.progress.stageDetail}
-                </p>
-              </div>
-              <ProjectProgressTracker progress={project.progress} compact className="mt-5" />
-              <div className="mt-auto pt-8">
-                <Button href={`/project/${project.id}`} fullWidth>
-                  Open workspace
-                </Button>
-              </div>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card tone="subtle">
-          <p className="text-sm leading-6 text-ink-soft">
-            {track === "software"
-              ? "Keep your saved software builds moving and revisit new ideas when you need another angle."
-              : "Keep your saved research projects visible alongside your software work."}
-          </p>
-          <p className="mt-3 text-sm leading-6 text-ink-soft">
-            {hasIntake
-              ? `No ${track} project saved yet. Generate an idea board for this track and save the strongest direction.`
-              : `You have not completed ${track} onboarding yet. Run onboarding and choose the ${track === "software" ? "Software Project" : "Research Project"} track to start.`}
-          </p>
-        </Card>
-      )}
-    </Card>
-  );
 }

@@ -40,6 +40,7 @@ export async function getProjectsForDashboard(userId: string) {
   const projectIds = (projects ?? []).map((project) => project.id);
   let roadmapProjectIds = new Set<string>();
   let milestoneCountsByProjectId = new Map<string, { total: number; completed: number }>();
+  let currentStepNumberByProjectId = new Map<string, number>();
   let outputMetricsByProjectId = new Map<string, ReturnType<typeof emptyProjectOutputMetrics>>();
 
   if (projectIds.length > 0) {
@@ -54,8 +55,9 @@ export async function getProjectsForDashboard(userId: string) {
         .in("project_id", projectIds),
       supabase
         .from("milestones")
-        .select("id, project_id, completed")
-        .in("project_id", projectIds),
+        .select("id, project_id, completed, order_index")
+        .in("project_id", projectIds)
+        .order("order_index", { ascending: true }),
       supabase
         .from("project_github_links")
         .select("project_id, cached_commits")
@@ -84,6 +86,12 @@ export async function getProjectsForDashboard(userId: string) {
       counts.set(milestone.project_id, current);
       return counts;
     }, new Map<string, { total: number; completed: number }>());
+    currentStepNumberByProjectId = (milestones ?? []).reduce((steps, milestone) => {
+      if (!milestone.completed && !steps.has(milestone.project_id)) {
+        steps.set(milestone.project_id, milestone.order_index + 1);
+      }
+      return steps;
+    }, new Map<string, number>());
 
     outputMetricsByProjectId = (projects ?? []).reduce((metrics, project) => {
       metrics.set(project.id, emptyProjectOutputMetrics());
@@ -143,6 +151,9 @@ export async function getProjectsForDashboard(userId: string) {
     hasRoadmap: roadmapProjectIds.has(project.id),
     completedMilestones: milestoneCountsByProjectId.get(project.id)?.completed ?? 0,
     totalMilestones: milestoneCountsByProjectId.get(project.id)?.total ?? 0,
+    currentStepNumber:
+      currentStepNumberByProjectId.get(project.id)
+      ?? ((milestoneCountsByProjectId.get(project.id)?.total ?? 0) || null),
     progress: getProjectProgressSummary({
       hasRoadmap: roadmapProjectIds.has(project.id),
       completedCount: milestoneCountsByProjectId.get(project.id)?.completed ?? 0,

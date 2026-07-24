@@ -25,7 +25,7 @@ import type {
 export const runtime = "nodejs";
 
 const bodySchema = z.object({
-  submission_text: z.string().min(1).max(20_000),
+  submission_text: z.string().min(1).max(20_600),
   submission_kind: z.enum(["pasted_text", "file_upload"]),
   submission_filename: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -44,6 +44,7 @@ type AdminSupabaseClient = ReturnType<typeof createAdminSupabaseClient>;
 type SubmissionRecord = {
   id: string;
   submission_kind: StoredMilestoneSubmission["submission_kind"];
+  submission_text: string;
   submission_filename: string | null;
   created_at: string;
   updated_at: string;
@@ -102,6 +103,7 @@ function formatSubmissionResponse(submission: SubmissionRecord): StoredMilestone
   return {
     id: submission.id,
     submission_kind: submission.submission_kind,
+    submission_text: submission.submission_text,
     submission_filename: submission.submission_filename,
     created_at: submission.created_at,
     updated_at: submission.updated_at,
@@ -156,7 +158,7 @@ async function buildEvaluationResponse(
 ): Promise<MilestoneEvaluationResponse> {
   const { data: submissions, error: submissionsError } = await supabase
     .from("milestone_submissions")
-    .select("id, submission_kind, submission_filename, created_at, updated_at")
+    .select("id, submission_kind, submission_text, submission_filename, created_at, updated_at")
     .eq("milestone_id", milestoneId)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false });

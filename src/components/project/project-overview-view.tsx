@@ -3,6 +3,8 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { DescriptionList } from "@/components/ui/description-list";
+import { PageHeader } from "@/components/ui/page-header";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { ReviewersCard } from "@/components/reviewer/reviewers-card";
 import { GithubOverviewCard } from "@/components/project/github-overview-card";
@@ -66,7 +68,7 @@ export function ProjectOverviewView({
             <p>The roadmap is ready. Calendar dates were not created on the first pass, so due dates may be missing until the schedule is rebuilt.</p>
             <div className="flex flex-wrap gap-3">
               <CalendarScheduleRetryButton projectId={workspace.project.id} className="rounded-full" />
-              <Button href="/calendar" variant="outline" className="rounded-full">
+              <Button href="/calendar" variant="outline">
                 Open calendar
               </Button>
             </div>
@@ -74,59 +76,34 @@ export function ProjectOverviewView({
         </Alert>
       ) : null}
 
-      {/* Page heading */}
-      <div>
-        <div className="kicker" style={{ marginBottom: 10 }}>
-          <span className="star">✦</span>
-          <span style={{ color: 'var(--ink-muted)' }}>~ active project ~</span>
-        </div>
-        <h1 className="display" style={{ margin: 0, maxWidth: 900, fontSize: 'clamp(40px, 5vw, 72px)' }}>
-          <span className="hl-yellow">{safeProjectTitle || workspace.project.title}</span>
-        </h1>
-        {safeOverview ? (
-          <p style={{ fontSize: 16, fontWeight: 500, color: 'var(--ink-soft)', marginTop: 12, maxWidth: 680, lineHeight: 1.6 }}>
-            {safeOverview}
-          </p>
-        ) : null}
-      </div>
+      <PageHeader
+        eyebrow="Active project"
+        title={safeProjectTitle || workspace.project.title}
+        description={safeOverview}
+        metadata={
+          <>
+            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
+            <Badge tone="neutral">{workspace.project.status}</Badge>
+            <span>{getPlanLabel(plan)}</span>
+          </>
+        }
+        actions={<Button href={nextStepHref}>{workspace.nextMilestone ? `Open Step ${workspace.nextMilestone.stepNumber}` : "Open workspace"}</Button>}
+      />
 
       {/* Hero coach card with progress */}
-      <div className="coach" style={{ marginTop: 16, boxShadow: '6px 6px 0 var(--pink)' }}>
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 20 }}>
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
-              <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
-              <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
-              <Badge tone="contrast">{workspace.project.status}</Badge>
-            </div>
-            <Button href={nextStepHref} className="shrink-0">
-              {workspace.nextMilestone ? `Open Step ${workspace.nextMilestone.stepNumber}` : "Open project workspace"}
-            </Button>
-          </div>
-
+      <Card padding="lg" className="space-y-5">
+          <div>
+            <p className="text-xs font-medium text-ink-muted">Next action</p>
           <NextActionPanel action={workspace.nextStepAction} />
-
-          <ProjectProgressTracker progress={workspace.progress} contrast />
-        </div>
-      </div>
+          </div>
+          <ProjectProgressTracker progress={workspace.progress} />
+      </Card>
 
       {/* Stat cards */}
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card style={{ borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--yellow)', backgroundColor: 'rgba(255,217,61,0.08)' }}>
-          <p className="editorial-kicker">Roadmap structure</p>
-          <p className="mt-3 text-3xl font-semibold text-ink">{workspace.milestones.length}</p>
-          <p className="mt-2 text-sm leading-6 text-ink-soft">Milestones designed to keep momentum visible.</p>
-        </Card>
-        <Card style={{ borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--cyan)', backgroundColor: 'rgba(91,208,214,0.08)' }}>
-          <p className="editorial-kicker">Completed</p>
-          <p className="mt-3 text-3xl font-semibold text-ink">{workspace.completedCount}</p>
-          <p className="mt-2 text-sm leading-6 text-ink-soft">Every completed step protects the finishable version.</p>
-        </Card>
-        <Card style={{ borderColor: 'var(--ink)', boxShadow: '3px 3px 0 var(--pink)', backgroundColor: 'rgba(255,77,166,0.06)' }}>
-          <p className="editorial-kicker">Pacing</p>
-          <p className="mt-3 text-lg font-semibold text-ink">{totalEstimatedRange(workspace.milestones)}</p>
-          <p className="mt-2 text-sm leading-6 text-ink-soft">One concrete deliverable per step, not a vague phase.</p>
-        </Card>
+      <div className="grid overflow-hidden rounded-xl border border-line bg-paper md:grid-cols-3">
+        <ProjectMetric label="Roadmap" value={`${workspace.milestones.length} milestones`} detail="Designed to keep momentum visible." />
+        <ProjectMetric label="Completed" value={`${workspace.completedCount}`} detail="Every completed step protects the finishable version." />
+        <ProjectMetric label="Pacing" value={totalEstimatedRange(workspace.milestones)} detail="One concrete deliverable per step." />
       </div>
 
       {workspace.projectTrack === "software" ? (
@@ -139,43 +116,17 @@ export function ProjectOverviewView({
       ) : null}
 
       {/* Project snapshot */}
-      <Card className="space-y-6">
+      <Card className="space-y-5">
         <div className="space-y-2">
-          <p className="editorial-kicker">Project snapshot</p>
-          <h2 className="text-2xl font-semibold text-ink">Keep the whole project legible at a glance.</h2>
+          <h2 className="text-lg font-semibold text-ink">Project snapshot</h2>
+          <p className="text-sm text-ink-muted">Keep the whole project legible at a glance.</p>
         </div>
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--ink)', borderTop: '4px solid var(--yellow)' }}>
-            <p className="editorial-kicker">Overview</p>
-            <p className="text-sm leading-6 text-ink-soft">{safeOverview}</p>
-          </div>
-          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--ink)', borderTop: '4px solid var(--cyan)' }}>
-            <p className="editorial-kicker">Next move</p>
-            <p className="text-sm leading-6 text-ink-soft">
-              {workspace.nextMilestone
-                ? `Focus on Step ${workspace.nextMilestone.stepNumber}: ${workspace.nextMilestone.title}. Keep the deliverable narrow before you move ahead.`
-                : "Your roadmap is complete. Revisit scope guardrails before expanding the project."}
-            </p>
-          </div>
-          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--ink)', borderTop: '4px solid var(--pink)' }}>
-            <p className="editorial-kicker">Protected deliverables</p>
-            <ul className="space-y-2 text-sm leading-6 text-ink-soft">
-              {workspace.keyDeliverables.map((deliverable) => (
-                <li key={deliverable}>— {deliverable}</li>
-              ))}
-            </ul>
-          </div>
-          <div className="space-y-3 rounded-md bg-canvas p-5" style={{ border: '2px solid var(--ink)', borderTop: '4px solid var(--green)' }}>
-            <p className="editorial-kicker">Project lens</p>
-            <p className="text-sm leading-6 text-ink-soft">
-              {workspace.projectLens.map((item) => item.label).join(" · ")}
-            </p>
-            <p className="text-sm leading-6 text-ink-soft">
-              {safeProjectBrief || "The research lens page keeps the framing and context visible while you build."}
-            </p>
-          </div>
-        </div>
+        <DescriptionList items={[
+          { label: "Overview", value: safeOverview || "No overview yet." },
+          { label: "Next move", value: workspace.nextMilestone ? `Focus on Step ${workspace.nextMilestone.stepNumber}: ${workspace.nextMilestone.title}. Keep the deliverable narrow before you move ahead.` : "Your roadmap is complete. Revisit scope guardrails before expanding the project." },
+          { label: "Protected deliverables", value: <ul className="space-y-1">{workspace.keyDeliverables.map((deliverable) => <li key={deliverable}>• {deliverable}</li>)}</ul> },
+          { label: "Project lens", value: <div className="space-y-1"><p>{workspace.projectLens.map((item) => item.label).join(" · ")}</p><p className="text-ink-soft">{safeProjectBrief || "The research lens keeps the framing visible while you build."}</p></div> },
+        ]} />
       </Card>
 
       <ReviewersCard
@@ -198,22 +149,22 @@ export function ProjectOverviewView({
   );
 }
 
+function ProjectMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="border-b border-line p-4 last:border-b-0 md:border-b-0 md:border-r md:last:border-r-0">
+      <p className="text-xs font-medium text-ink-muted">{label}</p>
+      <p className="mt-2 text-base font-semibold text-ink">{value}</p>
+      <p className="mt-1 text-xs leading-5 text-ink-muted">{detail}</p>
+    </div>
+  );
+}
+
 function NextActionPanel({ action }: { action: NextStepActionPreview | null }) {
   if (!action) {
     return (
-      <div
-        style={{
-          marginBottom: 24,
-          padding: '16px 18px',
-          borderRadius: 12,
-          background: 'rgba(255, 255, 255, 0.05)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-        }}
-      >
-        <p className="editorial-kicker" style={{ color: 'rgba(251, 246, 233, 0.55)' }}>
-          Roadmap complete
-        </p>
-        <p style={{ marginTop: 8, color: 'rgba(251, 246, 233, 0.85)', fontSize: 15, lineHeight: 1.55 }}>
+      <div className="mt-3 rounded-lg bg-surface p-4">
+        <p className="text-sm font-medium text-ink">Roadmap complete</p>
+        <p className="mt-1 text-sm leading-6 text-ink-soft">
           Every step is marked done. Revisit scope before expanding the project, or jump back into a step to polish it.
         </p>
       </div>
@@ -242,38 +193,17 @@ function NextActionPanel({ action }: { action: NextStepActionPreview | null }) {
       : "Checklist not loaded yet";
 
   return (
-    <div
-      style={{
-        marginBottom: 24,
-        padding: '18px 20px',
-        borderRadius: 12,
-        background: 'rgba(255, 255, 255, 0.06)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderLeft: '3px solid var(--cyan)',
-      }}
-    >
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, marginBottom: 10 }}>
-        <p className="editorial-kicker" style={{ color: 'rgba(251, 246, 233, 0.55)', margin: 0 }}>
-          Picking up at Step {action.stepNumber}
-        </p>
-        <p style={{ fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 700, letterSpacing: '0.14em', textTransform: 'uppercase', color: 'rgba(251, 246, 233, 0.55)', margin: 0 }}>
-          {progressLabel}
-        </p>
+    <div className="mt-3 rounded-lg border border-primary-line bg-primary-soft/40 p-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-ink">Picking up at Step {action.stepNumber}</p>
+        <p className="text-xs text-ink-muted">{progressLabel}</p>
       </div>
 
-      <p style={{ fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(251, 246, 233, 0.6)', margin: 0 }}>
-        Step goal
-      </p>
-      <p style={{ marginTop: 4, color: 'rgba(251, 246, 233, 0.85)', fontSize: 14, lineHeight: 1.55 }}>
-        {goal}
-      </p>
+      <p className="text-xs font-medium text-ink-muted">Step goal</p>
+      <p className="mt-1 text-sm leading-6 text-ink-soft">{goal}</p>
 
-      <p style={{ marginTop: 14, fontSize: 13, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(251, 246, 233, 0.6)', margin: '14px 0 0' }}>
-        Next up
-      </p>
-      <p style={{ marginTop: 4, color: 'var(--paper)', fontSize: 15, fontWeight: 600, lineHeight: 1.5 }}>
-        {nextLine}
-      </p>
+      <p className="mt-4 text-xs font-medium text-ink-muted">Next up</p>
+      <p className="mt-1 text-sm font-medium leading-6 text-ink">{nextLine}</p>
     </div>
   );
 }

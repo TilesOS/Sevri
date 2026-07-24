@@ -12,19 +12,22 @@ export const trackThemes: Record<
     badgeTone: "software" | "research";
     accentSurfaceClassName: string;
     borderClassName: string;
+    iconClassName: string;
     label: string;
   }
 > = {
   software: {
     badgeTone: "software",
-    accentSurfaceClassName: "bg-primary-soft",
-    borderClassName: "border-primary-line",
+    accentSurfaceClassName: "bg-surface-mint",
+    borderClassName: "border-teal-deep/20",
+    iconClassName: "text-teal-deep",
     label: "Software",
   },
   research: {
     badgeTone: "research",
-    accentSurfaceClassName: "bg-paper",
-    borderClassName: "border-line",
+    accentSurfaceClassName: "bg-navy/5",
+    borderClassName: "border-navy/20",
+    iconClassName: "text-navy",
     label: "Research",
   },
 };

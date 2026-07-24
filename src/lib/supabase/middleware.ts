@@ -9,6 +9,7 @@ const PROTECTED_PATHS = [
   "/onboarding",
   "/recommendations",
   "/project",
+  "/projects",
   "/billing",
   "/settings",
   "/reviewer",
@@ -20,6 +21,7 @@ const STUDENT_ONLY_PATHS = [
   "/onboarding",
   "/recommendations",
   "/project",
+  "/projects",
   "/billing",
   "/settings/billing",
 ];

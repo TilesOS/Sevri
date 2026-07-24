@@ -1,20 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  CheckCircle2,
+  Crosshair,
+  Lock,
+  RefreshCw,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { roadmapStatusClassName } from "@/components/project/project-status";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { PageHeader } from "@/components/ui/page-header";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { GithubStepCommits } from "@/components/project/github-step-commits";
+import { Input } from "@/components/ui/input";
 import { ReviewerFeedbackPanel } from "@/components/reviewer/reviewer-feedback-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
-import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
-import { formatDateForDisplay } from "@/lib/calendar/date-utils";
+import { trackThemes } from "@/components/theme/theme-utils";
 import { hasStepGuidanceAccess } from "@/lib/usage/limits";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
@@ -24,6 +33,7 @@ import {
   STEP_TITLE_SPEC,
 } from "@/lib/ai/content-quality-specs";
 import type { ProjectMilestoneView, ProjectWorkspaceView } from "@/lib/projects/workspace";
+import { getPinnedFocusStorageKey } from "@/lib/projects/focus-storage";
 import type { MilestoneReviewRow } from "@/lib/db/queries/reviewers";
 import type {
   LatestCompletedMilestoneEvaluation,
@@ -52,8 +62,6 @@ interface GuidanceLockState {
   previousStepNumber: number | null;
 }
 
-type GuidanceTab = "checklist" | "pitfalls" | "tools" | "done_when";
-
 type SubmissionSlot =
   | { status: "unloaded" }
   | { status: "loading" }
@@ -78,25 +86,44 @@ type SubmissionSlot =
 
 const ACCEPTED_FILE_EXTENSIONS = ".py,.js,.ts,.jsx,.tsx,.html,.css,.md,.txt,.json,.csv,.sql";
 const MAX_SUBMISSION_CHARS = 20_000;
+const MAX_REBUTTAL_CHARS = 500;
 const NOTES_SEPARATOR = "\n\n--- Notes ---\n\n";
-
-const VERDICT_TONE: Record<string, "success" | "warning" | "danger"> = {
-  pass: "success",
-  partial: "warning",
-  not_yet: "danger",
-};
-
-const VERDICT_LABEL: Record<string, string> = {
-  pass: "Pass",
-  partial: "Partial",
-  not_yet: "Not yet",
-};
 
 const CONFIDENCE_LABEL: Record<string, string> = {
   high: "High confidence",
   medium: "Medium confidence",
   low: "Low confidence",
 };
+
+type EvaluationHeadline = "Done" | "Drifted" | "Gap";
+
+function getEvaluationHeadline(evaluation: WorkEvaluation): EvaluationHeadline {
+  if (evaluation.scope_assessment?.drifted) {
+    return "Drifted";
+  }
+
+  if (evaluation.ready_to_mark_complete) {
+    return "Done";
+  }
+
+  return "Gap";
+}
+
+function getEvaluationFocus(evaluation: WorkEvaluation) {
+  if (getEvaluationHeadline(evaluation) === "Drifted") {
+    return evaluation.scope_assessment?.out_of_scope_note ?? evaluation.next_best_action;
+  }
+
+  return evaluation.next_best_action;
+}
+
+function buildRebuttalSubmission(submission: StoredMilestoneSubmission, rebuttal: string) {
+  return [
+    `Student rebuttal to the prior evaluation: ${rebuttal.trim()}`,
+    "Original submission:",
+    submission.submission_text,
+  ].join("\n\n");
+}
 
 function buildSubmissionSlot(body: MilestoneEvaluationResponse | null | undefined): SubmissionSlot {
   if (!body?.current_submission) {
@@ -180,32 +207,6 @@ function getSubmissionLockMessage(previousStepNumber: number | null) {
   return "Detailed feedback unlocks once the previous step is complete.";
 }
 
-function getUrgencyBadgeTone(urgency: ProjectMilestoneView["urgency"]) {
-  switch (urgency) {
-    case "completed":
-      return "success" as const;
-    case "due_soon":
-      return "warning" as const;
-    case "overdue":
-      return "danger" as const;
-    default:
-      return "neutral" as const;
-  }
-}
-
-function getUrgencyLabel(urgency: ProjectMilestoneView["urgency"]) {
-  switch (urgency) {
-    case "completed":
-      return "Completed";
-    case "due_soon":
-      return "Due soon";
-    case "overdue":
-      return "Overdue";
-    default:
-      return "On track";
-  }
-}
-
 export function ProjectStepWorkspace({
   workspace,
   milestone,
@@ -218,6 +219,8 @@ export function ProjectStepWorkspace({
   reviews: MilestoneReviewRow[];
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const returningFromFocus = searchParams.get("from") === "focus";
   const hasDetailAccess = hasStepGuidanceAccess(plan);
   const trackTheme = trackThemes[workspace.projectTrack];
   const [guidanceSlot, setGuidanceSlot] = useState<GuidanceSlot | null>(null);
@@ -226,13 +229,13 @@ export function ProjectStepWorkspace({
     milestone.guidanceLocked ? { previousStepNumber: milestone.previousStepNumber } : null,
   );
   const [isGuidancePending, setIsGuidancePending] = useState(false);
-  const [activeTab, setActiveTab] = useState<GuidanceTab>("checklist");
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
   const [submissionSlot, setSubmissionSlot] = useState<SubmissionSlot>({ status: "unloaded" });
   const [evaluationError, setEvaluationError] = useState<string | null>(null);
   const [isEvaluationPending, setIsEvaluationPending] = useState(false);
   const [isComposerOpen, setIsComposerOpen] = useState(false);
   const [isResubmitMode, setIsResubmitMode] = useState(false);
+  const [currentFocus, setCurrentFocus] = useState<string | null>(null);
   const [isCompletionPending, setIsCompletionPending] = useState(false);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const fetchGuidanceRef = useRef(fetchGuidance);
@@ -253,7 +256,7 @@ export function ProjectStepWorkspace({
     setEvaluationError(null);
     setIsComposerOpen(false);
     setIsResubmitMode(false);
-    setActiveTab("checklist");
+    setCurrentFocus(null);
     setCheckedItems({});
 
     if (!hasDetailAccess) {
@@ -266,6 +269,20 @@ export function ProjectStepWorkspace({
 
     void loadSubmissionRef.current();
   }, [hasDetailAccess, milestone.guidanceLocked, milestone.id, milestone.previousStepNumber]);
+
+  useEffect(() => {
+    const pinnedFocus = window.sessionStorage.getItem(
+      getPinnedFocusStorageKey(workspace.project.id, milestone.id),
+    );
+    if (pinnedFocus?.trim()) {
+      setCurrentFocus(pinnedFocus.trim());
+    }
+
+    if (returningFromFocus) {
+      setIsComposerOpen(true);
+      setIsResubmitMode(false);
+    }
+  }, [milestone.id, returningFromFocus, workspace.project.id]);
 
   useEffect(() => {
     if (!guidanceSlot) {
@@ -344,6 +361,11 @@ export function ProjectStepWorkspace({
     }
 
     setIsCompletionPending(false);
+    window.dispatchEvent(
+      new CustomEvent("sevri:project-sidebar-refresh", {
+        detail: { projectId: workspace.project.id },
+      }),
+    );
     router.refresh();
   }
 
@@ -468,56 +490,52 @@ export function ProjectStepWorkspace({
     setIsEvaluationPending(false);
   }
 
+  function pinCurrentFocus(focus: string) {
+    setCurrentFocus(focus);
+    window.sessionStorage.setItem(
+      getPinnedFocusStorageKey(workspace.project.id, milestone.id),
+      focus,
+    );
+  }
+
   const fallbackEvaluation = getFallbackEvaluation(submissionSlot);
+  const currentChecklistIndex =
+    guidanceSlot?.guidance.checklist.findIndex((_item, index) => !checkedItems[index]) ?? -1;
 
   return (
-    <div className="space-y-8 pb-52">
-      <Card tone="contrast" className="border-contrast-line" style={{ boxShadow: '6px 6px 0 var(--cyan)' }}>
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
-            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
-            <Badge tone={milestone.completed ? "success" : "warning"}>
-              {milestone.completed ? "Complete" : milestone.status === "in_progress" ? "In progress" : "Not started"}
-            </Badge>
-          </div>
-          <div className="space-y-3">
-            <p className="editorial-kicker text-paper/55">
-              <span style={{ color: 'var(--cyan)' }}>✦</span>
-              {" "}Focused step workspace
-            </p>
-            <h1 className="font-display text-4xl leading-none text-paper sm:text-5xl">
-              {safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
-            </h1>
-            <p className="max-w-3xl text-base leading-7 text-paper/72">
-              {safeRenderText(milestone.objective, STEP_OBJECTIVE_SPEC).text}
-            </p>
-          </div>
-          <div className="grid gap-4 lg:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--yellow)' }}>
-              <p className="editorial-kicker text-paper/55">Deliverable</p>
-              <p className="mt-3 text-lg font-semibold text-paper">{milestone.deliverable}</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--pink)' }}>
-              <p className="editorial-kicker text-paper/55">Time estimate</p>
-              <p className="mt-3 text-lg font-semibold text-paper">{milestone.rough_time_estimate}</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-white/6 p-5" style={{ borderTop: '3px solid var(--cyan)' }}>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="editorial-kicker text-paper/55">Due date</p>
-                {milestone.urgency ? (
-                  <Badge tone={getUrgencyBadgeTone(milestone.urgency)}>{getUrgencyLabel(milestone.urgency)}</Badge>
-                ) : null}
-              </div>
-              <p className="mt-3 text-lg font-semibold text-paper">
-                {milestone.dueDate
-                  ? formatDateForDisplay(milestone.dueDate, { month: "short", day: "numeric", year: "numeric" })
-                  : "Not scheduled yet"}
-              </p>
-            </div>
+    <div className="space-y-7 pb-36">
+      {currentFocus ? (
+        <div className="sticky top-[4.25rem] z-30 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-soft px-4 py-3 shadow-soft backdrop-blur-xl">
+          <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink">Current focus</p>
+            <p className="mt-0.5 text-sm leading-6 text-ink">{currentFocus}</p>
           </div>
         </div>
-      </Card>
+      ) : null}
+
+      <PageHeader
+        eyebrow={`Step ${milestone.stepNumber}`}
+        title={safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
+        metadata={
+          <>
+            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
+            <Badge tone={milestone.completed ? "success" : milestone.status === "in_progress" ? "accent" : "neutral"}>
+              {milestone.completed ? "Complete" : milestone.status === "in_progress" ? "In progress" : "Not started"}
+            </Badge>
+          </>
+        }
+        actions={
+          <Button
+            href={`/projects/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}
+            leadingIcon={<Crosshair className="h-4 w-4" />}
+          >
+            Start focus block
+          </Button>
+        }
+      />
 
       <StepTimeline milestones={workspace.milestones} projectId={workspace.project.id} activeStepNumber={milestone.stepNumber} />
 
@@ -527,62 +545,65 @@ export function ProjectStepWorkspace({
         <GithubStepCommits projectId={workspace.project.id} milestoneId={milestone.id} />
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-        <Card className="space-y-4">
+      <Card tone="primary" padding="lg" elevation="soft" className="grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-paper/80 text-teal-deep shadow-[0_1px_2px_rgba(32,32,29,0.04)]">
+          <Target className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
           <p className="editorial-kicker">Step objective</p>
-          <p className="text-sm leading-6 text-ink-soft">{milestone.objective}</p>
-          <Button
-            type="button"
-            variant={milestone.completed ? "outline" : "primary"}
-            onClick={() => void toggleMilestone()}
-            disabled={isCompletionPending}
-            className="rounded-full"
-          >
-            {isCompletionPending
-              ? "Saving..."
-              : milestone.completed
-                ? "Mark as not complete"
-                : "Mark step complete"}
-          </Button>
-        </Card>
-
-        <Card className="space-y-4">
-          <p className="editorial-kicker">Why this step matters</p>
-          <p className="text-sm leading-6 text-ink-soft">
-            Each step is meant to produce one visible artifact. Keep the finishable version moving before you add polish.
+          <p className="mt-2 max-w-3xl text-[15px] font-medium leading-7 text-ink">
+            {safeRenderText(milestone.objective, STEP_OBJECTIVE_SPEC).text}
           </p>
-          <div className="text-sm leading-6 text-ink-soft">
-            {workspace.nextMilestone?.id === milestone.id
-              ? "This is the current focus step."
-              : milestone.isFuture
-                ? "This step stays visible early, but it should remain de-emphasized until earlier work is locked in."
-                : "This step is already in motion or complete."}
-          </div>
-        </Card>
-      </div>
+        </div>
+        <Button
+          type="button"
+          variant={milestone.completed ? "outline" : "primary"}
+          leadingIcon={milestone.completed ? <CheckCircle2 className="h-4 w-4" /> : undefined}
+          onClick={() => void toggleMilestone()}
+          disabled={isCompletionPending}
+        >
+          {isCompletionPending
+            ? "Saving..."
+            : milestone.completed
+              ? "Mark as not complete"
+              : "Mark step complete"}
+        </Button>
+      </Card>
 
       {!hasDetailAccess ? (
-        <Card className="space-y-4">
-          <p className="editorial-kicker">Premium step coaching</p>
-          <h2 className="text-2xl font-semibold text-ink">Upgrade to unlock detailed step guidance and work evaluation.</h2>
-          <p className="text-sm leading-6 text-ink-soft">
-            Free keeps the roadmap, project pages, and each step objective visible so you can try one software project and one research project. Pro adds the full coaching experience for each step, including detailed guidance, done-when review, and AI evaluation of your work.
-          </p>
-          <div>
-            <Button href="/settings/billing" className="rounded-full px-6">
-              Upgrade to Pro
-            </Button>
+        <Card tone="contrast" padding="lg" className="relative overflow-hidden">
+          <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-30" />
+          <div className="relative z-10 max-w-3xl">
+            <div className="flex items-center gap-2 text-cream/65">
+              <Lock className="h-4 w-4" aria-hidden="true" />
+              <p className="text-xs font-semibold uppercase tracking-[0.14em]">Premium step coaching</p>
+            </div>
+            <h2 className="mt-4 font-display text-2xl leading-tight text-cream sm:text-3xl">
+              Turn every roadmap step into a focused workbench.
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-cream/70">
+              Pro adds a tailored checklist, done-when criteria, and honest evaluation of the work you submit—right where you need the next move.
+            </p>
+            <div className="mt-6">
+              <Button href="/settings/billing" variant="contrast">Unlock coaching with Pro</Button>
+            </div>
           </div>
         </Card>
       ) : (
         <>
           {!isGuidanceLocked && guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
 
-          <Card className="space-y-5">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-start">
+          <Card padding="lg" elevation="soft" className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="editorial-kicker">Step guidance</p>
-                <h2 className="mt-2 text-2xl font-semibold text-ink">One context at a time.</h2>
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-soft text-primary-hover">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="editorial-kicker">Workbench</p>
+                  <h2 className="mt-1 text-lg font-semibold tracking-tight text-ink">Your next concrete moves</h2>
+                </div>
               </div>
               {isGuidanceLocked ? (
                 <Badge tone="warning">Locked</Badge>
@@ -590,9 +611,10 @@ export function ProjectStepWorkspace({
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
+                  leadingIcon={<RefreshCw className="h-3.5 w-3.5" />}
                   onClick={() => void fetchGuidance(true)}
                   disabled={isGuidancePending}
-                  className="rounded-full"
                 >
                   {isGuidancePending ? "Refreshing..." : "Refresh guidance"}
                 </Button>
@@ -605,48 +627,40 @@ export function ProjectStepWorkspace({
               </Alert>
             ) : guidanceSlot ? (
               <>
-                <Card tone="subtle" padding="sm">
-                  <p className="editorial-kicker">Coaching note</p>
-                  <p className="mt-2 text-sm leading-6 text-ink-soft">
-                    {safeRenderText(guidanceSlot.guidance.encouragement, GUIDANCE_ENCOURAGEMENT_SPEC).text}
+                <div className="space-y-5 rounded-2xl bg-surface/70 p-5 sm:p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-ink">Checklist</p>
+                    <span className="text-xs tabular-nums text-ink-muted">
+                      {Object.values(checkedItems).filter(Boolean).length} of {guidanceSlot.guidance.checklist.length} done
+                    </span>
+                  </div>
+                  <p className="text-sm leading-6 text-ink-soft">
+                    {safeRenderText(guidanceSlot.guidance.what_to_do_now, GUIDANCE_WHAT_TO_DO_SPEC).text}
                   </p>
-                </Card>
-
-                <div className="flex flex-wrap gap-2">
-                  {[
-                    { value: "checklist", label: "Checklist / Do" },
-                    { value: "pitfalls", label: "Watch Out / Pitfalls" },
-                    { value: "tools", label: "Tools / Resources" },
-                    { value: "done_when", label: "Done When" },
-                  ].map((tab) => (
-                    <button
-                      key={tab.value}
-                      type="button"
-                      className={cn(
-                        "rounded-full border px-4 py-2 text-sm font-medium transition",
-                        activeTab === tab.value ? "muted-toggle-surface-active" : "muted-toggle-surface",
-                      )}
-                      onClick={() => setActiveTab(tab.value as GuidanceTab)}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                {activeTab === "checklist" ? (
-                  <Card className="space-y-4" style={{ backgroundColor: 'rgba(91,208,214,0.10)', borderColor: 'var(--ink)', borderTop: '3px solid var(--cyan)' }}>
-                    <p className="editorial-kicker">Checklist / Do</p>
-                    <p className="text-sm leading-6 text-ink-soft">
-                      {safeRenderText(guidanceSlot.guidance.what_to_do_now, GUIDANCE_WHAT_TO_DO_SPEC).text}
-                    </p>
-                    <ol className="space-y-3">
-                      {guidanceSlot.guidance.checklist.map((item, index) => (
-                        <li key={`${item}-${index}`} className="rounded-2xl bg-paper/70 px-4 py-3">
+                  <ol className="space-y-3">
+                    {guidanceSlot.guidance.checklist.map((item, index) => {
+                      const isCurrentTask = index === currentChecklistIndex;
+                      return (
+                        <li
+                          key={`${item}-${index}`}
+                          className={cn(
+                            "rounded-xl border px-4 py-3.5 transition-colors",
+                            isCurrentTask
+                              ? "border-primary/25 bg-primary-soft shadow-[0_1px_2px_rgba(32,32,29,0.04)]"
+                              : checkedItems[index]
+                                ? "border-transparent bg-paper/55"
+                                : "border-line/80 bg-paper",
+                          )}
+                        >
+                          {isCurrentTask ? (
+                            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted">
+                              Current task
+                            </p>
+                          ) : null}
                           <label className="flex items-start gap-3">
                             <input
                               type="checkbox"
-                              className="mt-1 h-4 w-4 rounded border-line"
-                              style={{ accentColor: 'var(--yellow)' }}
+                              className="mt-1 h-4 w-4 rounded border-line accent-primary"
                               checked={checkedItems[index] ?? false}
                               onChange={() =>
                                 setCheckedItems((current) => {
@@ -656,51 +670,72 @@ export function ProjectStepWorkspace({
                                 })
                               }
                             />
-                            <span className="text-sm leading-6 text-ink-soft">{normalizeGuidanceItem(item, "ordered")}</span>
+                            <span className={cn("text-sm leading-6", isCurrentTask ? "font-semibold text-ink" : "text-ink-soft")}>
+                              {normalizeGuidanceItem(item, "ordered")}
+                            </span>
                           </label>
                         </li>
-                      ))}
-                    </ol>
-                  </Card>
-                ) : null}
+                      );
+                    })}
+                  </ol>
+                </div>
 
-                {activeTab === "pitfalls" ? (
-                  <Card className="space-y-4">
-                    <p className="editorial-kicker">Watch Out / Pitfalls</p>
-                    <GuidanceList items={guidanceSlot.guidance.pitfalls} />
-                  </Card>
-                ) : null}
-
-                {activeTab === "tools" ? (
-                  <Card className="space-y-4">
-                    <p className="editorial-kicker">Tools / Resources</p>
-                    <GuidanceList items={guidanceSlot.guidance.tools_resources} />
-                  </Card>
-                ) : null}
-
-                {activeTab === "done_when" ? (
-                  <Card className="space-y-4">
-                    <p className="editorial-kicker">Done When / Acceptance</p>
-                    <GuidanceList items={guidanceSlot.guidance.done_when} />
-                  </Card>
-                ) : null}
-
-                <GenerationFeedbackForm
-                  variant="compact"
-                  stage="step_guidance"
-                  milestoneGuidanceId={guidanceSlot.guidanceId}
-                  title="How is this coaching?"
-                  description="Optional. Share what feels useful, too heavy, or missing."
-                />
+                <details className="group rounded-xl border border-line bg-paper px-4 py-3">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-0.5 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                    Show step detail
+                    <span className="text-xs text-ink-muted transition group-open:rotate-180">▾</span>
+                  </summary>
+                  <div className="mt-5 space-y-5 border-t border-line pt-5">
+                    <div>
+                      <p className="text-xs font-medium text-ink-muted">Coaching note</p>
+                      <p className="mt-2 text-sm leading-6 text-ink-soft">
+                        {safeRenderText(guidanceSlot.guidance.encouragement, GUIDANCE_ENCOURAGEMENT_SPEC).text}
+                      </p>
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-xs font-medium text-ink-muted">Watch out</p>
+                      <GuidanceList items={guidanceSlot.guidance.pitfalls} />
+                    </div>
+                    <div className="space-y-3">
+                      <p className="text-xs font-medium text-ink-muted">Tools / resources</p>
+                      <GuidanceList items={guidanceSlot.guidance.tools_resources} />
+                    </div>
+                    <GenerationFeedbackForm
+                      variant="compact"
+                      stage="step_guidance"
+                      milestoneGuidanceId={guidanceSlot.guidanceId}
+                      title="How is this coaching?"
+                      description="Optional. Share what feels useful, too heavy, or missing."
+                    />
+                  </div>
+                </details>
               </>
             ) : (
-              <p className="text-sm leading-6 text-ink-soft">
-                {isGuidancePending ? "Loading step guidance..." : "Open guidance to load the current coaching for this step."}
-              </p>
+              isGuidancePending ? (
+                <div className="space-y-3" role="status" aria-live="polite">
+                  <span className="sr-only">Loading step guidance</span>
+                  <div className="h-4 w-2/3 animate-pulse rounded-full bg-surface-strong motion-reduce:animate-none" />
+                  <div className="h-20 animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
+                  <div className="h-20 animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
+                  <div className="h-20 animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
+                </div>
+              ) : (
+                <p className="text-sm leading-6 text-ink-soft">Open guidance to load the current coaching for this step.</p>
+              )
             )}
           </Card>
 
-          <div className="space-y-4" id="submission-area">
+          <aside className="space-y-4 xl:sticky xl:top-20" id="submission-area" aria-label="Step details and submission">
+            {guidanceSlot ? (
+              <Card tone="butter" padding="md" className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-teal-deep" aria-hidden="true" />
+                  <p className="text-sm font-semibold text-ink">Done when</p>
+                </div>
+                <GuidanceList items={guidanceSlot.guidance.done_when} />
+              </Card>
+            ) : null}
+
             {isGuidanceLocked ? (
               <Alert tone="warning" heading="Feedback stays focused, too">
                 {submissionLockMessage}
@@ -711,29 +746,58 @@ export function ProjectStepWorkspace({
               slot={submissionSlot}
               evaluationError={evaluationError}
               isEvaluationPending={isEvaluationPending}
+              isCompletionPending={isCompletionPending}
+              isMilestoneComplete={milestone.completed}
               actionsDisabled={isGuidanceLocked}
               onOpenComposer={() => {
                 setIsComposerOpen(true);
                 setIsResubmitMode(true);
               }}
+              onPinFocus={pinCurrentFocus}
+              onMarkDone={() => {
+                if (!milestone.completed) {
+                  void toggleMilestone();
+                }
+              }}
+              onRebuttal={(submission, rebuttal) =>
+                void submitWork(
+                  buildRebuttalSubmission(submission, rebuttal),
+                  submission.submission_kind,
+                  submission.submission_filename ?? undefined,
+                )
+              }
             />
 
             {fallbackEvaluation ? (
               <EvaluationResult
-                title="Last completed evaluation"
                 note={
                   submissionSlot.status === "pending"
-                    ? "Your newest submission is still pending, so Sevri is keeping the last completed evaluation visible."
-                    : "Your newest submission failed to evaluate, so Sevri is keeping the last completed evaluation visible."
+                    ? "Previous verdict shown while the newest submission is evaluated."
+                    : "Previous verdict shown because the newest evaluation failed."
                 }
                 submission={fallbackEvaluation.submission}
-                evaluationId={fallbackEvaluation.evaluation_id}
                 evaluation={fallbackEvaluation.evaluation}
                 actionsDisabled={isGuidanceLocked}
+                isActionPending={isEvaluationPending || isCompletionPending}
+                isMilestoneComplete={milestone.completed}
+                onPinFocus={pinCurrentFocus}
+                onMarkDone={() => {
+                  if (!milestone.completed) {
+                    void toggleMilestone();
+                  }
+                }}
+                onRebuttal={(submission, rebuttal) =>
+                  void submitWork(
+                    buildRebuttalSubmission(submission, rebuttal),
+                    submission.submission_kind,
+                    submission.submission_filename ?? undefined,
+                  )
+                }
               />
             ) : null}
 
             <ReviewerFeedbackPanel reviews={reviews} />
+          </aside>
           </div>
 
           <SubmissionDock
@@ -759,6 +823,11 @@ export function ProjectStepWorkspace({
             githubImportEnabled={
               workspace.projectTrack === "software" && workspace.githubLink?.status === "active"
             }
+            autoImportFromGithub={
+              returningFromFocus &&
+              workspace.projectTrack === "software" &&
+              workspace.githubLink?.status === "active"
+            }
           />
         </>
       )}
@@ -776,8 +845,8 @@ function StepTimeline({
   activeStepNumber: number;
 }) {
   return (
-    <div className="overflow-x-auto pb-1">
-      <div className="flex min-w-max gap-3">
+    <div className="overflow-x-auto pb-1 lg:hidden" aria-label="Project steps">
+      <div className="flex min-w-max gap-2 rounded-2xl border border-line bg-paper p-2">
         {milestones.map((item) => {
           const isActive = item.stepNumber === activeStepNumber;
 
@@ -785,17 +854,18 @@ function StepTimeline({
             <Link
               key={item.id}
               href={`/project/${projectId}/steps/${item.stepNumber}`}
-              style={isActive ? { borderTop: '3px solid var(--yellow)' } : undefined}
               className={cn(
-                "min-w-[11rem] rounded-2xl border px-4 py-3 transition",
-                isActive ? "muted-toggle-surface-active" : "muted-toggle-surface",
+                "min-w-[9.5rem] rounded-xl border px-3 py-2.5 transition-colors",
+                isActive
+                  ? "border-primary/20 bg-primary-soft text-ink"
+                  : "border-transparent bg-transparent text-ink-soft hover:bg-surface",
                 item.isFuture && !isActive && "opacity-70",
               )}
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Step {item.stepNumber}</p>
-                  <p className="mt-2 text-sm font-semibold text-current">{item.title}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Step {item.stepNumber}</p>
+                  <p className="mt-1.5 line-clamp-1 text-sm font-semibold text-current">{item.title}</p>
                 </div>
                 <span
                   className={cn("h-2.5 w-2.5 shrink-0 rounded-full", roadmapStatusClassName[item.status])}
@@ -814,19 +884,29 @@ function SubmissionSummary({
   slot,
   evaluationError,
   isEvaluationPending,
+  isCompletionPending,
+  isMilestoneComplete,
   actionsDisabled,
   onOpenComposer,
+  onPinFocus,
+  onMarkDone,
+  onRebuttal,
 }: {
   slot: SubmissionSlot;
   evaluationError: string | null;
   isEvaluationPending: boolean;
+  isCompletionPending: boolean;
+  isMilestoneComplete: boolean;
   actionsDisabled: boolean;
   onOpenComposer: () => void;
+  onPinFocus: (focus: string) => void;
+  onMarkDone: () => void;
+  onRebuttal: (submission: StoredMilestoneSubmission, rebuttal: string) => void;
 }) {
   if (slot.status === "unloaded" || slot.status === "loading" || slot.status === "empty") {
     return (
       <Card className="space-y-3">
-        <p className="editorial-kicker">Submission</p>
+        <p className="text-sm font-medium text-ink">Submission</p>
         <p className="text-sm leading-6 text-ink-soft">
           Submit work from the bottom action bar when you are ready for a review.
         </p>
@@ -839,10 +919,13 @@ function SubmissionSummary({
     return (
       <EvaluationResult
         submission={slot.submission}
-        evaluationId={slot.evaluationId}
         evaluation={slot.evaluation}
         actionsDisabled={actionsDisabled}
-        onResubmit={onOpenComposer}
+        isActionPending={isEvaluationPending || isCompletionPending}
+        isMilestoneComplete={isMilestoneComplete}
+        onPinFocus={onPinFocus}
+        onMarkDone={onMarkDone}
+        onRebuttal={onRebuttal}
       />
     );
   }
@@ -873,6 +956,7 @@ function SubmissionDock({
   projectId,
   milestoneId,
   githubImportEnabled,
+  autoImportFromGithub,
 }: {
   slot: SubmissionSlot;
   isOpen: boolean;
@@ -888,13 +972,14 @@ function SubmissionDock({
   projectId: string;
   milestoneId: string;
   githubImportEnabled: boolean;
+  autoImportFromGithub: boolean;
 }) {
   const summary = getSubmissionDockSummary(slot, isPending, actionsDisabled, lockedMessage);
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(42rem,calc(100vw-19rem))] lg:right-8">
+    <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(44rem,calc(100vw-18rem))] lg:right-8">
       {isOpen && !actionsDisabled ? (
-        <Card className="mb-3 space-y-4 border-line-strong bg-paper/98 backdrop-blur">
+        <Card padding="lg" elevation="lifted" className="mb-3 space-y-4 border-line bg-paper/95 backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="editorial-kicker">{isResubmitMode ? "Submit another version" : "Submit your work"}</p>
@@ -913,16 +998,32 @@ function SubmissionDock({
             projectId={projectId}
             milestoneId={milestoneId}
             githubImportEnabled={githubImportEnabled}
+            autoImportFromGithub={autoImportFromGithub}
           />
           {evaluationError ? <Alert tone="danger">{evaluationError}</Alert> : null}
         </Card>
       ) : null}
 
-      <Card className="border-line-strong bg-paper/98 px-4 py-3 backdrop-blur">
+      <Card className="border-line bg-paper/95 px-4 py-3 shadow-lifted backdrop-blur-xl">
         <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className={cn(
+                "h-2.5 w-2.5 shrink-0 rounded-full",
+                actionsDisabled
+                  ? "bg-ink-muted"
+                  : slot.status === "completed"
+                    ? "bg-teal-deep"
+                    : slot.status === "failed"
+                      ? "bg-red-500"
+                      : "bg-primary",
+              )}
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
             <p className="text-sm font-semibold text-ink">{summary.title}</p>
             <p className="truncate text-xs text-ink-muted">{summary.description}</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {slot.status !== "empty" && slot.status !== "unloaded" && slot.status !== "loading" ? (
@@ -937,7 +1038,7 @@ function SubmissionDock({
                 Resubmit
               </Button>
             ) : null}
-            <Button type="button" size="sm" className="rounded-full" onClick={onToggle} disabled={actionsDisabled}>
+            <Button type="button" size="sm" onClick={onToggle} disabled={actionsDisabled}>
               {isOpen ? "Hide form" : slot.status === "completed" ? "Submit new version" : "Submit work"}
             </Button>
           </div>
@@ -961,11 +1062,15 @@ function getSubmissionDockSummary(
   }
 
   if (slot.status === "completed") {
+    const headline = getEvaluationHeadline(slot.evaluation);
     return {
-      title: "Latest evaluation saved",
-      description: slot.evaluation.ready_to_mark_complete
-        ? "This step looks ready to mark complete."
-        : "You have feedback ready for another revision.",
+      title: `${headline} verdict`,
+      description:
+        headline === "Done"
+          ? "Every done-when criterion is met."
+          : headline === "Drifted"
+            ? slot.evaluation.scope_assessment?.out_of_scope_note ?? "Cut or park the out-of-scope work."
+            : slot.evaluation.clearest_gap,
     };
   }
 
@@ -997,12 +1102,14 @@ function MilestoneSubmissionForm({
   projectId,
   milestoneId,
   githubImportEnabled,
+  autoImportFromGithub,
 }: {
   onSubmit: (text: string, kind: "pasted_text" | "file_upload", filename?: string) => void;
   disabled: boolean;
   projectId: string;
   milestoneId: string;
   githubImportEnabled: boolean;
+  autoImportFromGithub: boolean;
 }) {
   const [pastedText, setPastedText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -1011,8 +1118,9 @@ function MilestoneSubmissionForm({
   const [isImporting, setIsImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importInfo, setImportInfo] = useState<string | null>(null);
+  const autoImportStartedRef = useRef(false);
 
-  async function handleGithubImport() {
+  const handleGithubImport = useCallback(async () => {
     setIsImporting(true);
     setImportError(null);
     setImportInfo(null);
@@ -1047,7 +1155,16 @@ function MilestoneSubmissionForm({
     } finally {
       setIsImporting(false);
     }
-  }
+  }, [milestoneId, projectId]);
+
+  useEffect(() => {
+    if (!autoImportFromGithub || !githubImportEnabled || autoImportStartedRef.current) {
+      return;
+    }
+
+    autoImportStartedRef.current = true;
+    void handleGithubImport();
+  }, [autoImportFromGithub, githubImportEnabled, handleGithubImport]);
 
   const combinedLength = fileContent
     ? fileContent.length + (pastedText ? NOTES_SEPARATOR.length + pastedText.length : 0)
@@ -1220,26 +1337,55 @@ function CurrentSubmissionStatusCard({
 
 function EvaluationResult({
   submission,
-  evaluationId,
   evaluation,
-  onResubmit,
   actionsDisabled = false,
-  title = "Latest evaluation",
+  isActionPending,
+  isMilestoneComplete,
+  onPinFocus,
+  onMarkDone,
+  onRebuttal,
   note,
 }: {
   submission: StoredMilestoneSubmission;
-  evaluationId?: string;
   evaluation: WorkEvaluation;
-  onResubmit?: () => void;
   actionsDisabled?: boolean;
-  title?: string;
+  isActionPending: boolean;
+  isMilestoneComplete: boolean;
+  onPinFocus: (focus: string) => void;
+  onMarkDone: () => void;
+  onRebuttal: (submission: StoredMilestoneSubmission, rebuttal: string) => void;
   note?: string;
 }) {
+  const [isRebuttalOpen, setIsRebuttalOpen] = useState(false);
+  const [rebuttal, setRebuttal] = useState("");
+  const headline = getEvaluationHeadline(evaluation);
+  const focus = getEvaluationFocus(evaluation);
+  const detail =
+    headline === "Done"
+      ? "Every done-when criterion is met."
+      : headline === "Drifted"
+        ? evaluation.scope_assessment?.out_of_scope_note ?? "Cut or park the out-of-scope work before continuing."
+        : evaluation.clearest_gap;
+  const tone = headline === "Done" ? "success" : headline === "Drifted" ? "warning" : "danger";
+  const controlsDisabled = actionsDisabled || isActionPending;
+
+  function submitRebuttal(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const trimmed = rebuttal.trim();
+    if (!trimmed || controlsDisabled) {
+      return;
+    }
+
+    setIsRebuttalOpen(false);
+    setRebuttal("");
+    onRebuttal(submission, trimmed);
+  }
+
   return (
     <Card tone="subtle" className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-1">
-          <p className="editorial-kicker">{title}</p>
+          <p className="editorial-kicker">Work verdict</p>
           <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">
             <span>{formatSubmissionKind(submission.submission_kind, submission.submission_filename)}</span>
             <span>&middot;</span>
@@ -1255,72 +1401,78 @@ function EvaluationResult({
           </div>
           {note ? <p className="text-xs text-ink-muted">{note}</p> : null}
         </div>
-        {onResubmit ? (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={onResubmit}
-            className="rounded-full"
-            disabled={actionsDisabled}
-          >
-            Submit new version
-          </Button>
-        ) : null}
+        <Badge tone={tone}>{headline}</Badge>
       </div>
 
-      <div className="space-y-2">
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Criterion verdicts</p>
-        <ul className="space-y-2">
+      <Alert tone={tone} heading={headline}>
+        {detail}
+      </Alert>
+
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Done-when checklist</p>
+        <ul className="space-y-3">
           {evaluation.criterion_verdicts.map((verdict, index) => (
             <li key={`${verdict.criterion}-${index}`} className="flex items-start gap-2 text-sm">
-              <Badge tone={VERDICT_TONE[verdict.verdict]} className="mt-0.5 shrink-0 text-[10px]">
-                {VERDICT_LABEL[verdict.verdict]}
-              </Badge>
-              <div>
-                <span className="font-medium text-ink">{verdict.criterion}</span>
-                <span className="text-ink-soft"> - {verdict.note}</span>
+              {verdict.verdict === "met" || verdict.verdict === "pass" ? (
+                <span
+                  className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-xs font-bold text-emerald-700"
+                  aria-label="Met"
+                >
+                  &#10003;
+                </span>
+              ) : (
+                <span
+                  className="mt-0.5 h-5 w-5 shrink-0 rounded-full border-2 border-dashed border-ink-muted/60"
+                  aria-label="Not yet"
+                />
+              )}
+              <div className="space-y-0.5">
+                <p className="font-medium text-ink">{verdict.criterion}</p>
+                <p className="text-ink-soft">{verdict.note}</p>
               </div>
             </li>
           ))}
         </ul>
       </div>
 
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Overall assessment</p>
-        <p className="mt-1 text-sm leading-6 text-ink-soft">{evaluation.overall_assessment}</p>
+      <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
+        <Button type="button" onClick={() => onPinFocus(focus)} disabled={controlsDisabled}>
+          Make this my next block
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onMarkDone}
+          disabled={controlsDisabled || isMilestoneComplete}
+        >
+          Mark done anyway
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => setIsRebuttalOpen(true)}
+          disabled={controlsDisabled || isRebuttalOpen}
+        >
+          I disagree
+        </Button>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-2">
-        <Card padding="sm" style={{ borderColor: 'var(--ink)', borderTop: '3px solid var(--yellow)', backgroundColor: 'rgba(255,217,61,0.07)' }}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Strongest aspect</p>
-          <p className="mt-1 text-sm leading-6 text-ink">{evaluation.strongest_aspect}</p>
-        </Card>
-        <Card padding="sm" style={{ borderColor: 'var(--ink)', borderTop: '3px solid var(--cyan)', backgroundColor: 'rgba(91,208,214,0.07)' }}>
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Clearest gap</p>
-          <p className="mt-1 text-sm leading-6 text-ink">{evaluation.clearest_gap}</p>
-        </Card>
-      </div>
-
-      <div>
-        <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Next best action</p>
-        <p className="mt-1 text-sm leading-6 text-ink-soft">{evaluation.next_best_action}</p>
-      </div>
-
-      {evaluation.ready_to_mark_complete ? (
-        <Alert tone="success">This step looks done. You can mark it complete above.</Alert>
-      ) : (
-        <p className="text-xs text-ink-muted">Address the gap above before you mark this step complete.</p>
-      )}
-
-      {evaluationId ? (
-        <GenerationFeedbackForm
-          variant="compact"
-          stage="work_evaluation"
-          submissionEvaluationId={evaluationId}
-          title="How did this evaluation feel?"
-          description="Optional. This does not change the verdict. It only sharpens future review quality."
-        />
+      {isRebuttalOpen ? (
+        <form className="flex flex-col gap-2 sm:flex-row" onSubmit={submitRebuttal}>
+          <Input
+            type="text"
+            value={rebuttal}
+            onChange={(event) => setRebuttal(event.target.value)}
+            placeholder="Briefly say what the evaluation missed"
+            maxLength={MAX_REBUTTAL_CHARS}
+            aria-label="Evaluation rebuttal"
+            autoFocus
+            disabled={controlsDisabled}
+          />
+          <Button type="submit" size="sm" disabled={controlsDisabled || !rebuttal.trim()}>
+            Submit
+          </Button>
+        </form>
       ) : null}
     </Card>
   );
@@ -1328,10 +1480,11 @@ function EvaluationResult({
 
 function GuidanceList({ items }: { items: string[] }) {
   return (
-    <ul className="space-y-3 text-sm leading-6 text-ink-soft">
+    <ul className="space-y-2.5 text-sm leading-6 text-ink-soft">
       {items.map((item, index) => (
-        <li key={`${item}-${index}`} className="rounded-2xl bg-canvas px-4 py-3">
-          {normalizeGuidanceItem(item, "bullet")}
+        <li key={`${item}-${index}`} className="flex items-start gap-3">
+          <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" aria-hidden="true" />
+          <span>{normalizeGuidanceItem(item, "bullet")}</span>
         </li>
       ))}
     </ul>
