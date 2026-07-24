@@ -507,7 +507,7 @@ export function ProjectStepWorkspace({
     <div className="space-y-7 pb-36">
       {currentFocus ? (
         <div className="sticky top-[4.25rem] z-30 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-soft px-4 py-3 shadow-soft backdrop-blur-xl">
-          <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary text-ink">
+          <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
             <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
           </span>
           <div>
@@ -595,7 +595,7 @@ export function ProjectStepWorkspace({
               Pro adds a tailored checklist, done-when criteria, and honest evaluation of the work you submit—right where you need the next move.
             </p>
             <div className="mt-6">
-              <Button href="/settings/billing">Unlock coaching with Pro</Button>
+              <Button href="/settings/billing" variant="contrast">Unlock coaching with Pro</Button>
             </div>
           </div>
         </Card>

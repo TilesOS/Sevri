@@ -101,7 +101,7 @@ export default async function DashboardPage() {
           ) : null}
 
           <div className="mt-7 flex flex-wrap gap-2.5">
-            <Button href={nextAction.href} trailingIcon={<ArrowRight className="h-4 w-4" />}>{nextAction.label}</Button>
+            <Button href={nextAction.href} variant="contrast" trailingIcon={<ArrowRight className="h-4 w-4" />}>{nextAction.label}</Button>
             <Button
               href="/recommendations"
               variant="outline"

@@ -30,7 +30,7 @@ export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    "border border-transparent bg-primary text-ink shadow-[0_1px_2px_rgba(32,32,29,0.10)] hover:bg-primary-hover hover:shadow-[0_4px_12px_rgba(242,84,45,0.18)]",
+    "border border-transparent bg-primary text-primary-foreground shadow-[0_1px_2px_rgba(24,35,58,0.12)] hover:bg-primary-hover hover:shadow-[0_6px_18px_rgba(24,35,58,0.18)]",
   secondary:
     "border border-navy bg-navy text-white shadow-[0_1px_2px_rgba(5,18,54,0.12)] hover:bg-navy-deep",
   outline: "border border-line bg-paper text-ink shadow-[0_1px_1px_rgba(32,32,29,0.03)] hover:border-line-strong hover:bg-surface/65",

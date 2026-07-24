@@ -199,7 +199,7 @@ function getProjectButtonClassName(selected: boolean) {
   return cn(
     "relative w-full min-w-0 rounded-lg border px-4 py-3 text-left transition",
     selected
-      ? "z-10 border-coral/25 bg-coral/[0.06] shadow-soft"
+      ? "z-10 border-primary/25 bg-primary-soft shadow-soft"
       : "border-line bg-paper/70 hover:border-line-strong hover:bg-paper",
   );
 }
@@ -381,7 +381,7 @@ function DayCell({
         "relative grid min-h-[4.75rem] grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2 border-b border-line px-3 py-2.5 text-left transition",
         "sm:flex sm:min-h-[7.5rem] sm:flex-col sm:gap-2 sm:border-b-0 sm:border-r sm:border-t sm:px-2.5 sm:py-2.5 lg:min-h-[8rem]",
         isCurrentMonth ? "bg-paper" : "hidden bg-surface/45 text-ink-muted sm:flex",
-        selected && "bg-coral/[0.06] ring-1 ring-inset ring-coral/40",
+        selected && "bg-primary-soft ring-1 ring-inset ring-primary/40",
         dropActive && "bg-teal/10 ring-1 ring-inset ring-teal-deep/30",
       )}
       onDragOver={(event) => {
@@ -403,7 +403,7 @@ function DayCell({
         <span
           className={cn(
             "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-sm font-semibold",
-            isToday ? "bg-coral text-ink shadow-soft" : "text-ink",
+            isToday ? "bg-primary text-primary-foreground shadow-soft" : "text-ink",
             !isCurrentMonth && !isToday && "text-ink-muted",
           )}
         >
@@ -1144,7 +1144,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               </form>
             </Card>
 
-            <Card padding="sm" className="space-y-4 border-coral/20 bg-coral/[0.035]">
+            <Card padding="sm" className="space-y-4 border-primary/20 bg-primary-soft">
               <div className="space-y-2">
                 <p className="editorial-kicker">Selected day</p>
                 <h2 className="text-lg font-semibold leading-snug tracking-tight text-ink">

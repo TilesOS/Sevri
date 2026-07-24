@@ -31,6 +31,7 @@ const config: Config = {
           DEFAULT: "rgb(var(--color-primary-rgb) / <alpha-value>)",
           hover: "rgb(var(--color-primary-hover-rgb) / <alpha-value>)",
           active: "var(--color-primary-active)",
+          foreground: "var(--color-primary-foreground)",
           soft: "var(--color-primary-soft)",
           line: "var(--color-primary-line)",
         },

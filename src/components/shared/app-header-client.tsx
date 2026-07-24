@@ -134,7 +134,7 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
             <Menu className="h-4 w-4" />
           </button>
           <div className="flex min-w-0 items-center gap-2 text-sm">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-coral" aria-hidden="true" />
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
             <span className="truncate font-medium text-ink">{getPageLabel(pathname)}</span>
             <span className="hidden text-ink-muted sm:inline">/</span>
             <span className="hidden truncate text-ink-muted sm:inline">Sevri workspace</span>
@@ -176,7 +176,7 @@ function SidebarContent({
 
       <Link
         href="/recommendations"
-        className="mb-5 flex h-9 items-center justify-center gap-2 rounded-[10px] bg-primary px-3 text-sm font-semibold text-ink shadow-[0_1px_2px_rgba(32,32,29,0.10)] transition-[background-color,box-shadow,transform] duration-150 hover:bg-primary-hover hover:shadow-[0_4px_12px_rgba(242,84,45,0.16)] active:translate-y-px"
+        className="mb-5 flex h-9 items-center justify-center gap-2 rounded-[10px] bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-[0_1px_2px_rgba(24,35,58,0.12)] transition-[background-color,box-shadow,transform] duration-150 hover:bg-primary-hover hover:shadow-[0_6px_18px_rgba(24,35,58,0.18)] active:translate-y-px"
         onClick={onNavigate}
       >
         <Plus className="h-4 w-4" aria-hidden="true" />

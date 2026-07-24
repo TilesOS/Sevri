@@ -11,6 +11,7 @@
   --color-primary: #FF6B4C;
   --color-primary-hover: #F2542D;
   --color-primary-active: #DC431D;
+  --color-primary-foreground: #18181B;
   --color-primary-soft: rgba(255, 107, 76, 0.10);
   --color-primary-line: rgba(255, 107, 76, 0.28);
 
@@ -91,35 +92,44 @@
   --app-sidebar-width: 15.5rem;
 }
 
-/* Authenticated workspace: warmer, quieter chrome with a bright working canvas.
-   The landing palette stays intact; the product reuses coral as its one strong
-   action color and keeps teal/navy for semantic state and focused moments. */
+/* Authenticated workspace: blue-forward chrome around a bright working canvas.
+   The landing palette stays intact; routine product actions use brand blue while
+   coral is reserved for a few high-attention accents. */
 .product-ui {
-  --canvas: #F8F7F4;
-  --paper: #FFFFFF;
-  --surface: #F1F0EC;
-  --surface-strong: #E8E6E0;
+  --color-primary: #2B61B0;
+  --color-primary-hover: #235399;
+  --color-primary-active: #1D4481;
+  --color-primary-foreground: #FFFDE2;
+  --color-primary-soft: #EAF1FC;
+  --color-primary-line: #C4D6F1;
+  --color-primary-rgb: 43 97 176;
+  --color-primary-hover-rgb: 35 83 153;
+
+  --canvas: #F5F7FB;
+  --paper: #FCFDFF;
+  --surface: #EBF0F7;
+  --surface-strong: #E1E7F0;
   --surface-mint: #EDF5F1;
   --surface-butter: #F5F2E9;
-  --line: #E7E5DF;
-  --line-strong: #D7D4CB;
-  --ink: #20201D;
-  --ink-soft: #575751;
-  --ink-muted: #6F6F68;
+  --line: #DCE3EE;
+  --line-strong: #C9D2DF;
+  --ink: #18233A;
+  --ink-soft: #515C70;
+  --ink-muted: #606B7F;
 
-  --canvas-rgb: 248 247 244;
-  --paper-rgb: 255 255 255;
-  --surface-rgb: 241 240 236;
-  --surface-strong-rgb: 232 230 224;
-  --line-rgb: 231 229 223;
-  --line-strong-rgb: 215 212 203;
-  --ink-rgb: 32 32 29;
-  --ink-soft-rgb: 87 87 81;
-  --ink-muted-rgb: 111 111 104;
+  --canvas-rgb: 245 247 251;
+  --paper-rgb: 252 253 255;
+  --surface-rgb: 235 240 247;
+  --surface-strong-rgb: 225 231 240;
+  --line-rgb: 220 227 238;
+  --line-strong-rgb: 201 210 223;
+  --ink-rgb: 24 35 58;
+  --ink-soft-rgb: 81 92 112;
+  --ink-muted-rgb: 96 107 127;
 
-  --focus-ring: rgba(255, 107, 76, 0.34);
-  --shadow-soft: 0 1px 2px rgba(32, 32, 29, 0.04), 0 8px 24px rgba(32, 32, 29, 0.045);
-  --shadow-lifted: 0 18px 48px rgba(32, 32, 29, 0.14), 0 2px 8px rgba(32, 32, 29, 0.06);
+  --focus-ring: rgba(43, 97, 176, 0.34);
+  --shadow-soft: 0 1px 2px rgba(24, 35, 58, 0.04), 0 8px 24px rgba(24, 35, 58, 0.055);
+  --shadow-lifted: 0 18px 48px rgba(24, 35, 58, 0.15), 0 2px 8px rgba(24, 35, 58, 0.07);
 }
 
 /* ── Product scrollbars ── */
@@ -174,7 +184,7 @@ html.lenis body {
   }
 
   .product-ui ::selection {
-    background: rgba(255, 107, 76, 0.20);
+    background: rgba(59, 111, 196, 0.20);
   }
 
   :focus-visible {
@@ -333,7 +343,7 @@ html.lenis body {
     background: var(--paper);
   }
   .tab.is-active svg {
-    color: var(--coral);
+    color: var(--color-primary);
   }
   .tab.flat {
     background: transparent;
@@ -506,7 +516,7 @@ html.lenis body {
     transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
   }
   .step-row:hover { border-color: var(--line-strong); }
-  .step-row.active { background: var(--color-primary-soft); border-color: var(--color-primary-line); box-shadow: inset 2px 0 0 var(--coral); }
+  .step-row.active { background: var(--color-primary-soft); border-color: var(--color-primary-line); box-shadow: inset 2px 0 0 var(--color-primary); }
   .step-row.done   { background: var(--surface); }
   .step-row.locked { opacity: 0.55; box-shadow: none; cursor: default; }
   .step-row.locked:hover { transform: none; box-shadow: none; }
