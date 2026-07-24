@@ -545,8 +545,8 @@ function TrackSelector({
 export function CalendarPageClient({ initialData, plan, canExport }: CalendarPageClientProps) {
   const [data, setData] = useState(initialData);
   const [visibleProjectIds, setVisibleProjectIds] = useState(initialData.visibleProjectIds);
-  const [currentMonth, setCurrentMonth] = useState(startOfMonthDateString(initialData.today));
-  const [selectedDate, setSelectedDate] = useState(initialData.today);
+  const [currentMonth, setCurrentMonth] = useState(startOfMonthDateString(initialData.defaultMonth));
+  const [selectedDate, setSelectedDate] = useState(initialData.defaultMonth);
   const [rescheduleDraft, setRescheduleDraft] = useState<RescheduleDraft | null>(null);
   const [dragItem, setDragItem] = useState<CalendarDisplayItem | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
@@ -557,7 +557,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
   const [expandedResearchHistory, setExpandedResearchHistory] = useState(false);
   const [exportStepsExpanded, setExportStepsExpanded] = useState(false);
   const [workSessionDraft, setWorkSessionDraft] = useState(() =>
-    buildInitialWorkSessionDraft(initialData, initialData.today),
+    buildInitialWorkSessionDraft(initialData, initialData.defaultMonth),
   );
   const [workSessionError, setWorkSessionError] = useState<string | null>(null);
   const [isSavingWorkSession, setIsSavingWorkSession] = useState(false);
