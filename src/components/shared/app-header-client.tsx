@@ -1,6 +1,6 @@
 "use client";
 
-import type { ComponentType, ReactNode, SVGProps } from "react";
+import type { ComponentType, CSSProperties, ReactNode, SVGProps } from "react";
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -12,6 +12,7 @@ import {
   Lightbulb,
   LogOut,
   Menu,
+  PanelLeft,
   Plus,
   Settings,
   X,
@@ -23,6 +24,12 @@ import { PageTransition } from "@/components/ui/page-transition";
 import { cn } from "@/lib/utils";
 
 type NavIcon = ComponentType<SVGProps<SVGSVGElement>>;
+
+const DEFAULT_SIDEBAR_WIDTH = 248;
+const MIN_SIDEBAR_WIDTH = 208;
+const MAX_SIDEBAR_WIDTH = 360;
+const SIDEBAR_COLLAPSE_THRESHOLD = 176;
+const SIDEBAR_STORAGE_KEY = "sevri:sidebar";
 
 const workspaceLinks: Array<{
   href: string;
@@ -46,11 +53,80 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   const pathname = usePathname();
   const mobileTriggerRef = useRef<HTMLButtonElement>(null);
   const mobileDrawerRef = useRef<HTMLElement>(null);
+  const lastExpandedSidebarWidthRef = useRef(DEFAULT_SIDEBAR_WIDTH);
   const [isMobileDrawerOpen, setIsMobileDrawerOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [isSidebarResizing, setIsSidebarResizing] = useState(false);
+  const [hasLoadedSidebarPreference, setHasLoadedSidebarPreference] = useState(false);
   const initials = getInitials(displayName);
 
   useEffect(() => setIsMobileDrawerOpen(false), [pathname]);
   const headerBreadcrumbs = getHeaderBreadcrumbs(pathname);
+
+  useEffect(() => {
+    try {
+      const savedPreference = window.localStorage.getItem(SIDEBAR_STORAGE_KEY);
+      if (savedPreference) {
+        const parsed = JSON.parse(savedPreference) as { width?: number; collapsed?: boolean };
+        if (typeof parsed.width === "number") {
+          const savedWidth = clampSidebarWidth(parsed.width);
+          setSidebarWidth(savedWidth);
+          lastExpandedSidebarWidthRef.current = savedWidth;
+        }
+        if (typeof parsed.collapsed === "boolean") {
+          setIsSidebarCollapsed(parsed.collapsed);
+        }
+      }
+    } catch {
+      // Ignore invalid or unavailable local storage and use the default layout.
+    } finally {
+      setHasLoadedSidebarPreference(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!hasLoadedSidebarPreference || isSidebarResizing) return;
+    try {
+      window.localStorage.setItem(
+        SIDEBAR_STORAGE_KEY,
+        JSON.stringify({ width: sidebarWidth, collapsed: isSidebarCollapsed }),
+      );
+    } catch {
+      // The sidebar still works when storage is unavailable; it simply will not persist.
+    }
+  }, [hasLoadedSidebarPreference, isSidebarCollapsed, isSidebarResizing, sidebarWidth]);
+
+  useEffect(() => {
+    if (!isSidebarResizing) return;
+
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.clientX <= SIDEBAR_COLLAPSE_THRESHOLD) {
+        setIsSidebarCollapsed(true);
+        return;
+      }
+
+      const nextWidth = clampSidebarWidth(event.clientX);
+      setIsSidebarCollapsed(false);
+      setSidebarWidth(nextWidth);
+      lastExpandedSidebarWidthRef.current = nextWidth;
+    };
+    const stopResizing = () => setIsSidebarResizing(false);
+
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+    window.addEventListener("pointermove", onPointerMove);
+    window.addEventListener("pointerup", stopResizing, { once: true });
+    window.addEventListener("pointercancel", stopResizing, { once: true });
+
+    return () => {
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+      window.removeEventListener("pointermove", onPointerMove);
+      window.removeEventListener("pointerup", stopResizing);
+      window.removeEventListener("pointercancel", stopResizing);
+    };
+  }, [isSidebarResizing]);
 
   useEffect(() => {
     if (!isMobileDrawerOpen) return;
@@ -80,9 +156,19 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   }, [isMobileDrawerOpen]);
 
   const closeMobileDrawer = () => setIsMobileDrawerOpen(false);
+  const desktopSidebarWidth = isSidebarCollapsed ? 0 : sidebarWidth;
+  const shellStyle = {
+    "--desktop-sidebar-width": `${desktopSidebarWidth}px`,
+  } as CSSProperties;
+
+  const restoreSidebar = () => {
+    const restoredWidth = clampSidebarWidth(lastExpandedSidebarWidthRef.current);
+    setSidebarWidth(restoredWidth);
+    setIsSidebarCollapsed(false);
+  };
 
   return (
-    <div className="product-ui relative min-h-screen bg-canvas">
+    <div className="product-ui relative min-h-screen bg-canvas" style={shellStyle}>
       {isMobileDrawerOpen ? (
         <button
           type="button"
@@ -92,14 +178,60 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
         />
       ) : null}
 
-      <aside className="app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[var(--app-sidebar-width)] flex-col overflow-hidden lg:flex">
-        <SidebarContent
-          displayName={displayName}
-          email={email}
-          initials={initials}
-          pathname={pathname}
-          onNavigate={() => undefined}
-        />
+      <aside
+        className={cn(
+          "app-sidebar-shell fixed inset-y-0 left-0 z-[65] hidden w-[var(--desktop-sidebar-width)] flex-col lg:flex",
+          !isSidebarResizing && "transition-[width] duration-200 ease-out",
+        )}
+      >
+        <div className="h-full overflow-hidden">
+          <div className="h-full" style={{ minWidth: sidebarWidth }}>
+            <SidebarContent
+              displayName={displayName}
+              email={email}
+              initials={initials}
+              pathname={pathname}
+              onNavigate={() => undefined}
+            />
+          </div>
+        </div>
+        {!isSidebarCollapsed ? (
+          <div
+            role="separator"
+            aria-label="Resize sidebar"
+            aria-orientation="vertical"
+            aria-valuemin={MIN_SIDEBAR_WIDTH}
+            aria-valuemax={MAX_SIDEBAR_WIDTH}
+            aria-valuenow={sidebarWidth}
+            tabIndex={0}
+            className="group absolute inset-y-0 -right-1.5 z-10 w-3 cursor-col-resize touch-none outline-none"
+            onPointerDown={(event) => {
+              event.preventDefault();
+              setIsSidebarResizing(true);
+            }}
+            onDoubleClick={() => setIsSidebarCollapsed(true)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") {
+                setIsSidebarCollapsed(true);
+                return;
+              }
+              if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+              event.preventDefault();
+              const direction = event.key === "ArrowLeft" ? -16 : 16;
+              const nextWidth = clampSidebarWidth(sidebarWidth + direction);
+              setSidebarWidth(nextWidth);
+              lastExpandedSidebarWidthRef.current = nextWidth;
+            }}
+          >
+            <span
+              className={cn(
+                "absolute inset-y-0 left-1/2 w-0.5 -translate-x-1/2 rounded-full bg-primary opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100",
+                isSidebarResizing && "opacity-100",
+              )}
+              aria-hidden="true"
+            />
+          </div>
+        ) : null}
       </aside>
 
       <aside
@@ -122,7 +254,12 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
         />
       </aside>
 
-      <div className="relative min-h-screen lg:ml-[var(--app-sidebar-width)]">
+      <div
+        className={cn(
+          "relative min-h-screen lg:ml-[var(--desktop-sidebar-width)]",
+          !isSidebarResizing && "transition-[margin-left] duration-200 ease-out",
+        )}
+      >
         <header className="sticky top-0 z-40 flex h-14 items-center border-b border-line/80 bg-paper/85 px-4 backdrop-blur-xl sm:px-8">
           <button
             ref={mobileTriggerRef}
@@ -134,6 +271,15 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
           >
             <Menu className="h-4 w-4" />
           </button>
+          {isSidebarCollapsed ? (
+            <IconButton
+              label="Open sidebar"
+              className="mr-2 hidden border-line bg-paper shadow-[0_1px_2px_rgba(24,35,58,0.06)] lg:inline-flex"
+              onClick={restoreSidebar}
+            >
+              <PanelLeft className="h-4 w-4" />
+            </IconButton>
+          ) : null}
           <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
             <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
             {headerBreadcrumbs.map((item, index) => (
@@ -281,6 +427,10 @@ function getInitials(displayName: string) {
   const parts = displayName.split(" ").map((part) => part.trim()).filter(Boolean).slice(0, 2);
   if (!parts.length) return "S";
   return parts.map((part) => part[0]?.toUpperCase() ?? "").join("");
+}
+
+function clampSidebarWidth(width: number) {
+  return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
 }
 
 function getPageLabel(pathname: string) {
