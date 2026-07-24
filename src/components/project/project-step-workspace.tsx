@@ -3,6 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import {
+  CheckCircle2,
+  ChevronRight,
+  Crosshair,
+  Lock,
+  RefreshCw,
+  Sparkles,
+  Target,
+} from "lucide-react";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { roadmapStatusClassName } from "@/components/project/project-status";
@@ -353,6 +362,11 @@ export function ProjectStepWorkspace({
     }
 
     setIsCompletionPending(false);
+    window.dispatchEvent(
+      new CustomEvent("sevri:project-sidebar-refresh", {
+        detail: { projectId: workspace.project.id },
+      }),
+    );
     router.refresh();
   }
 
@@ -490,29 +504,46 @@ export function ProjectStepWorkspace({
     guidanceSlot?.guidance.checklist.findIndex((_item, index) => !checkedItems[index]) ?? -1;
 
   return (
-    <div className="space-y-8 pb-52">
+    <div className="space-y-7 pb-36">
       {currentFocus ? (
-        <div className="sticky top-14 z-30 rounded-lg border border-primary/35 bg-paper/95 px-4 py-3 shadow-soft backdrop-blur">
-          <p className="text-sm text-ink">
-            <span className="mr-2 font-semibold">Current focus:</span>
-            {currentFocus}
-          </p>
+        <div className="sticky top-[4.25rem] z-30 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-soft px-4 py-3 shadow-soft backdrop-blur-xl">
+          <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary text-ink">
+            <Crosshair className="h-3.5 w-3.5" aria-hidden="true" />
+          </span>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-ink">Current focus</p>
+            <p className="mt-0.5 text-sm leading-6 text-ink">{currentFocus}</p>
+          </div>
         </div>
       ) : null}
 
       <PageHeader
         eyebrow={`Step ${milestone.stepNumber}`}
         title={safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
+        breadcrumbs={
+          <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-muted">
+            <Link href={`/project/${workspace.project.id}`} className="transition-colors hover:text-ink">
+              {workspace.project.title}
+            </Link>
+            <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />
+            <span>Roadmap</span>
+          </div>
+        }
         metadata={
           <>
             <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
-            <Badge tone={milestone.completed ? "success" : "warning"}>
+            <Badge tone={milestone.completed ? "success" : milestone.status === "in_progress" ? "accent" : "neutral"}>
               {milestone.completed ? "Complete" : milestone.status === "in_progress" ? "In progress" : "Not started"}
             </Badge>
           </>
         }
         actions={
-          <Button href={`/projects/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}>Start focus block</Button>
+          <Button
+            href={`/projects/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}
+            leadingIcon={<Crosshair className="h-4 w-4" />}
+          >
+            Start focus block
+          </Button>
         }
       />
 
@@ -524,14 +555,20 @@ export function ProjectStepWorkspace({
         <GithubStepCommits projectId={workspace.project.id} milestoneId={milestone.id} />
       ) : null}
 
-      <Card className="space-y-4">
-        <p className="text-xs font-medium text-ink-muted">Step objective</p>
-        <p className="text-sm leading-6 text-ink-soft">
-          {safeRenderText(milestone.objective, STEP_OBJECTIVE_SPEC).text}
-        </p>
+      <Card tone="primary" padding="lg" elevation="soft" className="grid gap-5 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
+        <span className="grid h-11 w-11 place-items-center rounded-2xl bg-paper/80 text-teal-deep shadow-[0_1px_2px_rgba(32,32,29,0.04)]">
+          <Target className="h-5 w-5" aria-hidden="true" />
+        </span>
+        <div>
+          <p className="editorial-kicker">Step objective</p>
+          <p className="mt-2 max-w-3xl text-[15px] font-medium leading-7 text-ink">
+            {safeRenderText(milestone.objective, STEP_OBJECTIVE_SPEC).text}
+          </p>
+        </div>
         <Button
           type="button"
           variant={milestone.completed ? "outline" : "primary"}
+          leadingIcon={milestone.completed ? <CheckCircle2 className="h-4 w-4" /> : undefined}
           onClick={() => void toggleMilestone()}
           disabled={isCompletionPending}
         >
@@ -544,32 +581,48 @@ export function ProjectStepWorkspace({
       </Card>
 
       {!hasDetailAccess ? (
-        <Card className="space-y-4">
-          <p className="text-xs font-medium text-ink-muted">Premium step coaching</p>
-          <h2 className="text-2xl font-semibold text-ink">Upgrade to unlock detailed step guidance and work evaluation.</h2>
-          <p className="text-sm leading-6 text-ink-soft">
-            Free keeps the roadmap, project pages, and each step objective visible so you can try one software project and one research project. Pro adds the full coaching experience for each step, including detailed guidance, done-when review, and AI evaluation of your work.
-          </p>
-          <div>
-            <Button href="/settings/billing">
-              Upgrade to Pro
-            </Button>
+        <Card tone="contrast" padding="lg" className="relative overflow-hidden">
+          <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-30" />
+          <div className="relative z-10 max-w-3xl">
+            <div className="flex items-center gap-2 text-cream/65">
+              <Lock className="h-4 w-4" aria-hidden="true" />
+              <p className="text-xs font-semibold uppercase tracking-[0.14em]">Premium step coaching</p>
+            </div>
+            <h2 className="mt-4 font-display text-2xl leading-tight text-cream sm:text-3xl">
+              Turn every roadmap step into a focused workbench.
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-cream/70">
+              Pro adds a tailored checklist, done-when criteria, and honest evaluation of the work you submit—right where you need the next move.
+            </p>
+            <div className="mt-6">
+              <Button href="/settings/billing">Unlock coaching with Pro</Button>
+            </div>
           </div>
         </Card>
       ) : (
         <>
           {!isGuidanceLocked && guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
 
-          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem] xl:items-start">
-          <Card className="space-y-5">
+          <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-start">
+          <Card padding="lg" elevation="soft" className="space-y-6">
             <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-medium text-ink">Step guidance</p>
+              <div className="flex items-center gap-3">
+                <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary-soft text-primary-hover">
+                  <Sparkles className="h-4 w-4" aria-hidden="true" />
+                </span>
+                <div>
+                  <p className="editorial-kicker">Workbench</p>
+                  <h2 className="mt-1 text-lg font-semibold tracking-tight text-ink">Your next concrete moves</h2>
+                </div>
+              </div>
               {isGuidanceLocked ? (
                 <Badge tone="warning">Locked</Badge>
               ) : (
                 <Button
                   type="button"
                   variant="outline"
+                  size="sm"
+                  leadingIcon={<RefreshCw className="h-3.5 w-3.5" />}
                   onClick={() => void fetchGuidance(true)}
                   disabled={isGuidancePending}
                 >
@@ -584,15 +637,12 @@ export function ProjectStepWorkspace({
               </Alert>
             ) : guidanceSlot ? (
               <>
-                <Card className="space-y-4 bg-surface" elevation="soft">
+                <div className="space-y-5 rounded-2xl bg-surface/70 p-5 sm:p-6">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <p className="text-sm font-medium text-ink">Checklist</p>
-                    <Button
-                      href={`/projects/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}
-                      size="sm"
-                    >
-                      Start focus block
-                    </Button>
+                    <p className="text-sm font-semibold text-ink">Checklist</p>
+                    <span className="text-xs tabular-nums text-ink-muted">
+                      {Object.values(checkedItems).filter(Boolean).length} of {guidanceSlot.guidance.checklist.length} done
+                    </span>
                   </div>
                   <p className="text-sm leading-6 text-ink-soft">
                     {safeRenderText(guidanceSlot.guidance.what_to_do_now, GUIDANCE_WHAT_TO_DO_SPEC).text}
@@ -604,8 +654,12 @@ export function ProjectStepWorkspace({
                         <li
                           key={`${item}-${index}`}
                           className={cn(
-                            "rounded-lg border bg-paper px-4 py-3",
-                            isCurrentTask ? "border-primary/60 shadow-soft" : "border-transparent",
+                            "rounded-xl border px-4 py-3.5 transition-colors",
+                            isCurrentTask
+                              ? "border-primary/25 bg-primary-soft shadow-[0_1px_2px_rgba(32,32,29,0.04)]"
+                              : checkedItems[index]
+                                ? "border-transparent bg-paper/55"
+                                : "border-line/80 bg-paper",
                           )}
                         >
                           {isCurrentTask ? (
@@ -634,10 +688,10 @@ export function ProjectStepWorkspace({
                       );
                     })}
                   </ol>
-                </Card>
+                </div>
 
-                <details className="group rounded-lg border border-line bg-paper px-4 py-3">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
+                <details className="group rounded-xl border border-line bg-paper px-4 py-3">
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-0.5 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
                     Show step detail
                     <span className="text-xs text-ink-muted transition group-open:rotate-180">▾</span>
                   </summary>
@@ -667,16 +721,27 @@ export function ProjectStepWorkspace({
                 </details>
               </>
             ) : (
-              <p className="text-sm leading-6 text-ink-soft">
-                {isGuidancePending ? "Loading step guidance..." : "Open guidance to load the current coaching for this step."}
-              </p>
+              isGuidancePending ? (
+                <div className="space-y-3" role="status" aria-live="polite">
+                  <span className="sr-only">Loading step guidance</span>
+                  <div className="h-4 w-2/3 animate-pulse rounded-full bg-surface-strong motion-reduce:animate-none" />
+                  <div className="h-20 animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
+                  <div className="h-20 animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
+                  <div className="h-20 animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
+                </div>
+              ) : (
+                <p className="text-sm leading-6 text-ink-soft">Open guidance to load the current coaching for this step.</p>
+              )
             )}
           </Card>
 
-          <div className="space-y-4 xl:sticky xl:top-16" id="submission-area">
+          <aside className="space-y-4 xl:sticky xl:top-20" id="submission-area" aria-label="Step details and submission">
             {guidanceSlot ? (
-              <Card padding="sm" className="space-y-3">
-                <p className="text-sm font-medium text-ink">Done when</p>
+              <Card tone="butter" padding="md" className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-teal-deep" aria-hidden="true" />
+                  <p className="text-sm font-semibold text-ink">Done when</p>
+                </div>
                 <GuidanceList items={guidanceSlot.guidance.done_when} />
               </Card>
             ) : null}
@@ -742,7 +807,7 @@ export function ProjectStepWorkspace({
             ) : null}
 
             <ReviewerFeedbackPanel reviews={reviews} />
-          </div>
+          </aside>
           </div>
 
           <SubmissionDock
@@ -790,8 +855,8 @@ function StepTimeline({
   activeStepNumber: number;
 }) {
   return (
-    <div className="overflow-x-auto pb-1">
-      <div className="flex min-w-max gap-3">
+    <div className="overflow-x-auto pb-1 lg:hidden" aria-label="Project steps">
+      <div className="flex min-w-max gap-2 rounded-2xl border border-line bg-paper p-2">
         {milestones.map((item) => {
           const isActive = item.stepNumber === activeStepNumber;
 
@@ -800,16 +865,17 @@ function StepTimeline({
               key={item.id}
               href={`/project/${projectId}/steps/${item.stepNumber}`}
               className={cn(
-                "min-w-[11rem] rounded-lg border px-4 py-3 transition-colors",
-                isActive && "border-primary-line shadow-[inset_0_2px_0_var(--coral)]",
-                isActive ? "muted-toggle-surface-active" : "muted-toggle-surface",
+                "min-w-[9.5rem] rounded-xl border px-3 py-2.5 transition-colors",
+                isActive
+                  ? "border-primary/20 bg-primary-soft text-ink"
+                  : "border-transparent bg-transparent text-ink-soft hover:bg-surface",
                 item.isFuture && !isActive && "opacity-70",
               )}
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Step {item.stepNumber}</p>
-                  <p className="mt-2 text-sm font-semibold text-current">{item.title}</p>
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">Step {item.stepNumber}</p>
+                  <p className="mt-1.5 line-clamp-1 text-sm font-semibold text-current">{item.title}</p>
                 </div>
                 <span
                   className={cn("h-2.5 w-2.5 shrink-0 rounded-full", roadmapStatusClassName[item.status])}
@@ -921,9 +987,9 @@ function SubmissionDock({
   const summary = getSubmissionDockSummary(slot, isPending, actionsDisabled, lockedMessage);
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(42rem,calc(100vw-17rem))] lg:right-8">
+    <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(44rem,calc(100vw-18rem))] lg:right-8">
       {isOpen && !actionsDisabled ? (
-        <Card className="mb-3 space-y-4 border-line-strong bg-paper/98 backdrop-blur">
+        <Card padding="lg" elevation="lifted" className="mb-3 space-y-4 border-line bg-paper/95 backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="editorial-kicker">{isResubmitMode ? "Submit another version" : "Submit your work"}</p>
@@ -948,11 +1014,26 @@ function SubmissionDock({
         </Card>
       ) : null}
 
-      <Card className="border-line-strong bg-paper/98 px-4 py-3 backdrop-blur">
+      <Card className="border-line bg-paper/95 px-4 py-3 shadow-lifted backdrop-blur-xl">
         <div className="flex items-center justify-between gap-4">
-          <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-3">
+            <span
+              className={cn(
+                "h-2.5 w-2.5 shrink-0 rounded-full",
+                actionsDisabled
+                  ? "bg-ink-muted"
+                  : slot.status === "completed"
+                    ? "bg-teal-deep"
+                    : slot.status === "failed"
+                      ? "bg-red-500"
+                      : "bg-primary",
+              )}
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
             <p className="text-sm font-semibold text-ink">{summary.title}</p>
             <p className="truncate text-xs text-ink-muted">{summary.description}</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             {slot.status !== "empty" && slot.status !== "unloaded" && slot.status !== "loading" ? (
@@ -1409,10 +1490,11 @@ function EvaluationResult({
 
 function GuidanceList({ items }: { items: string[] }) {
   return (
-    <ul className="space-y-3 text-sm leading-6 text-ink-soft">
+    <ul className="space-y-2.5 text-sm leading-6 text-ink-soft">
       {items.map((item, index) => (
-        <li key={`${item}-${index}`} className="rounded-2xl bg-canvas px-4 py-3">
-          {normalizeGuidanceItem(item, "bullet")}
+        <li key={`${item}-${index}`} className="flex items-start gap-3">
+          <span className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary/70" aria-hidden="true" />
+          <span>{normalizeGuidanceItem(item, "bullet")}</span>
         </li>
       ))}
     </ul>

@@ -30,11 +30,11 @@ export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
 
 const variantClass: Record<ButtonVariant, string> = {
   primary:
-    "border border-transparent bg-primary text-ink hover:bg-primary-hover",
+    "border border-transparent bg-primary text-ink shadow-[0_1px_2px_rgba(32,32,29,0.10)] hover:bg-primary-hover hover:shadow-[0_4px_12px_rgba(242,84,45,0.18)]",
   secondary:
-    "border border-ink bg-ink text-white hover:bg-ink-soft",
-  outline: "border border-line bg-transparent text-ink hover:border-line-strong hover:bg-surface",
-  ghost: "border border-transparent bg-transparent text-ink hover:bg-surface",
+    "border border-navy bg-navy text-white shadow-[0_1px_2px_rgba(5,18,54,0.12)] hover:bg-navy-deep",
+  outline: "border border-line bg-paper text-ink shadow-[0_1px_1px_rgba(32,32,29,0.03)] hover:border-line-strong hover:bg-surface/65",
+  ghost: "border border-transparent bg-transparent text-ink-soft hover:bg-surface hover:text-ink",
   contrast: "border border-white/20 bg-white text-navy hover:bg-cream",
   danger: "border border-transparent bg-red-600 text-white hover:bg-red-700",
 };
@@ -53,7 +53,7 @@ function getButtonClassName({
   fullWidth,
 }: Pick<CommonButtonProps, "variant" | "size" | "className" | "fullWidth">) {
   return cn(
-    "inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-colors duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60",
+    "inline-flex items-center justify-center gap-2 rounded-[10px] font-semibold transition-[color,background-color,border-color,box-shadow,transform] duration-150 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-60",
     "focus-visible:outline-none",
     variantClass[variant ?? "primary"],
     sizeClass[size ?? "md"],

@@ -37,7 +37,7 @@ export function ProjectSidebarNavigation({
   return (
     <div className="space-y-1">
       <div className="mb-3 px-2">
-        <p className="truncate text-sm font-medium text-ink" title={projectTitle}>{projectTitle}</p>
+        <p className="truncate text-sm font-semibold text-ink" title={projectTitle}>{projectTitle}</p>
         <Link
           href="/dashboard"
           className="mt-1 inline-flex items-center gap-1.5 text-xs text-ink-muted transition-colors hover:text-ink"
@@ -47,14 +47,14 @@ export function ProjectSidebarNavigation({
         </Link>
       </div>
 
-      <div className="mb-3 rounded-lg border border-line bg-paper p-3">
+      <div className="mb-3 rounded-xl border border-line bg-paper/85 p-3 shadow-[0_1px_2px_rgba(32,32,29,0.03)]">
         <p className="mb-2 text-xs font-medium text-ink">{progress.stageLabel}</p>
         <ProjectProgressTracker progress={progress} compact />
       </div>
 
       {baseSectionLinks.map((link) => {
         const href = `${projectBasePath}${link.href}`;
-        const isActive = pathname === href;
+        const isActive = pathname === href || pathname === `/projects/${projectId}${link.href}`;
         const isDisabled = !hasRoadmap && link.href !== "";
 
         return (
@@ -69,11 +69,12 @@ export function ProjectSidebarNavigation({
         );
       })}
 
-      <p className="px-2 pb-1 pt-4 text-[11px] font-medium text-ink-muted">Steps</p>
+      <p className="px-2 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">Steps</p>
 
       {milestones.map((milestone) => {
         const href = `${projectBasePath}/steps/${milestone.stepNumber}`;
-        const isActive = pathname === href;
+        const isActive =
+          pathname === href || pathname === `/projects/${projectId}/steps/${milestone.stepNumber}`;
         const isDisabled = !hasRoadmap;
 
         return (
@@ -81,6 +82,7 @@ export function ProjectSidebarNavigation({
             key={milestone.id}
             href={href}
             label={`Step ${milestone.stepNumber}`}
+            description={milestone.title}
             isActive={isActive}
             isDisabled={isDisabled}
             status={milestone.status}

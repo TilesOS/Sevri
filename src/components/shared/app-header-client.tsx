@@ -12,6 +12,7 @@ import {
   Lightbulb,
   LogOut,
   Menu,
+  Plus,
   Settings,
   X,
 } from "lucide-react";
@@ -30,7 +31,7 @@ const workspaceLinks: Array<{
   match: (pathname: string) => boolean;
 }> = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: (p) => p === "/dashboard" },
-  { href: "/recommendations", label: "Ideas", icon: Lightbulb, match: (p) => p.startsWith("/recommendations") },
+  { href: "/recommendations", label: "Project ideas", icon: Lightbulb, match: (p) => p.startsWith("/recommendations") },
   { href: "/calendar", label: "Calendar", icon: CalendarDays, match: (p) => p.startsWith("/calendar") },
   { href: "/portfolio", label: "Portfolio", icon: BriefcaseBusiness, match: (p) => p.startsWith("/portfolio") },
 ];
@@ -121,7 +122,7 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
       </aside>
 
       <div className="relative min-h-screen lg:ml-[var(--app-sidebar-width)]">
-        <header className="sticky top-0 z-40 flex h-12 items-center border-b border-line bg-canvas/90 px-4 backdrop-blur sm:px-8">
+        <header className="sticky top-0 z-40 flex h-14 items-center border-b border-line/80 bg-paper/85 px-4 backdrop-blur-xl sm:px-8">
           <button
             ref={mobileTriggerRef}
             type="button"
@@ -132,9 +133,14 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
           >
             <Menu className="h-4 w-4" />
           </button>
-          <div className="min-w-0 text-sm font-medium text-ink-soft">{getPageLabel(pathname)}</div>
+          <div className="flex min-w-0 items-center gap-2 text-sm">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-coral" aria-hidden="true" />
+            <span className="truncate font-medium text-ink">{getPageLabel(pathname)}</span>
+            <span className="hidden text-ink-muted sm:inline">/</span>
+            <span className="hidden truncate text-ink-muted sm:inline">Sevri workspace</span>
+          </div>
         </header>
-        <main className="min-h-[calc(100vh-3rem)] py-6 sm:py-8">
+        <main className="min-h-[calc(100vh-3.5rem)] py-7 sm:py-10">
           <Container>
             <PageTransition transitionKey={pathname}>{children}</PageTransition>
           </Container>
@@ -157,16 +163,27 @@ function SidebarContent({
   pathname: string;
   onNavigate: () => void;
 }) {
-  const isProjectRoute = pathname.startsWith("/project/");
+  const isFocusRoute = /^\/projects\/[^/]+\/focus(?:\/|$)/.test(pathname);
+  const isProjectRoute =
+    (pathname.startsWith("/project/") || pathname.startsWith("/projects/")) && !isFocusRoute;
 
   return (
     <div className="flex h-full min-h-0 flex-col px-3 py-3">
-      <Link href="/dashboard" className="mb-5 flex h-9 items-center gap-2 rounded-lg px-2 text-ink" onClick={onNavigate}>
-        <span className="grid h-6 w-6 place-items-center rounded-md bg-coral text-xs font-bold text-white">S</span>
-        <span className="text-sm font-semibold tracking-tight">Sevri</span>
+      <Link href="/dashboard" className="mb-3 flex min-h-10 items-center gap-2 rounded-xl px-2 text-ink" onClick={onNavigate}>
+        <span className="grid h-7 w-7 place-items-center rounded-lg bg-navy text-xs font-bold text-cream shadow-[0_1px_2px_rgba(5,18,54,0.18)]">S</span>
+        <span className="font-serif text-[1.35rem] leading-none">Sevri</span>
       </Link>
 
-      <p className="mb-1 px-2 text-[11px] font-medium text-ink-muted">Workspace</p>
+      <Link
+        href="/recommendations"
+        className="mb-5 flex h-9 items-center justify-center gap-2 rounded-[10px] bg-primary px-3 text-sm font-semibold text-ink shadow-[0_1px_2px_rgba(32,32,29,0.10)] transition-[background-color,box-shadow,transform] duration-150 hover:bg-primary-hover hover:shadow-[0_4px_12px_rgba(242,84,45,0.16)] active:translate-y-px"
+        onClick={onNavigate}
+      >
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        <span>Explore a project</span>
+      </Link>
+
+      <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">Workspace</p>
       <nav className="space-y-0.5" aria-label="Workspace">
         {workspaceLinks.map((link) => {
           const Icon = link.icon;
@@ -187,7 +204,7 @@ function SidebarContent({
 
       {isProjectRoute ? (
         <div className="mt-6 flex min-h-0 flex-1 flex-col border-t border-line pt-4">
-          <p className="mb-2 px-2 text-[11px] font-medium text-ink-muted">Current project</p>
+          <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">Current project</p>
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
             <ProjectSidebarSlot pathname={pathname} />
           </div>
@@ -196,7 +213,7 @@ function SidebarContent({
 
       <details className="group relative mt-3 border-t border-line pt-3">
         <summary className="user-tab cursor-pointer list-none hover:bg-surface-strong marker:hidden">
-          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-ink text-xs font-semibold text-white">{initials}</div>
+          <div className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-navy text-xs font-semibold text-cream">{initials}</div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-ink">{displayName}</p>
             {email ? <p className="truncate text-xs text-ink-muted">{email}</p> : null}
@@ -227,8 +244,8 @@ function getInitials(displayName: string) {
 }
 
 function getPageLabel(pathname: string) {
-  if (pathname.startsWith("/project/")) return "Project workspace";
-  if (pathname.startsWith("/recommendations")) return "Ideas";
+  if (pathname.startsWith("/project/") || pathname.startsWith("/projects/")) return "Project workspace";
+  if (pathname.startsWith("/recommendations")) return "Project ideas";
   if (pathname.startsWith("/calendar")) return "Calendar";
   if (pathname.startsWith("/portfolio")) return "Portfolio";
   if (pathname.startsWith("/settings")) return "Settings";

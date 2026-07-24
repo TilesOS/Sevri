@@ -14,7 +14,7 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(function 
       <select
         ref={ref}
         className={cn(
-          "h-9 w-full appearance-none rounded-lg border bg-paper px-3 pr-10 text-sm text-ink outline-none transition-colors",
+          "h-10 w-full appearance-none rounded-[10px] border bg-paper px-3 pr-10 text-sm text-ink shadow-[inset_0_1px_0_rgba(32,32,29,0.015)] outline-none transition-[background-color,border-color,box-shadow]",
           hasError ? "border-red-300" : "border-line",
           "focus:border-primary/50 focus:ring-2 focus:ring-primary/10",
           "disabled:cursor-not-allowed disabled:bg-surface/60 disabled:text-ink-muted",

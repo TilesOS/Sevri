@@ -13,13 +13,18 @@ interface PageHeaderProps {
 
 export function PageHeader({ eyebrow, breadcrumbs, metadata, title, description, actions, className }: PageHeaderProps) {
   return (
-    <div className={cn("flex flex-col gap-4 border-b border-line pb-5 lg:flex-row lg:items-end lg:justify-between", className)}>
-      <div className="max-w-3xl space-y-2">
+    <div className={cn("flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between", className)}>
+      <div className="max-w-3xl space-y-2.5">
         {breadcrumbs}
-        {eyebrow ? <p className="text-xs font-medium text-ink-muted">{eyebrow}</p> : null}
-        <div className="space-y-2">
-          <h1 className="font-sans text-3xl font-semibold leading-tight tracking-tight text-ink">{title}</h1>
-          {description ? <p className="max-w-2xl text-sm leading-6 text-ink-soft">{description}</p> : null}
+        {eyebrow ? (
+          <p className="flex items-center gap-2 font-serif text-lg italic text-ink-soft">
+            <span className="h-1.5 w-1.5 rounded-full bg-coral" aria-hidden="true" />
+            {eyebrow}
+          </p>
+        ) : null}
+        <div className="space-y-2.5">
+          <h1 className="font-display text-3xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-[2.1rem]">{title}</h1>
+          {description ? <p className="max-w-2xl text-[15px] leading-6 text-ink-soft">{description}</p> : null}
           {metadata ? <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">{metadata}</div> : null}
         </div>
       </div>
