@@ -140,10 +140,7 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
             className="fixed inset-0 z-40 overflow-hidden bg-canvas/70 backdrop-blur-2xl"
           >
             <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-40" />
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{ background: "radial-gradient(120% 100% at 50% 0%, rgba(251,246,233,0.25), transparent 62%)" }}
-            />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_100%_at_50%_0%,rgba(251,246,233,0.25),transparent_62%)]" />
 
             <div className="relative z-10 flex h-full flex-col justify-center">
               <Container>

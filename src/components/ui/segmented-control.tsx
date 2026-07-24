@@ -36,7 +36,7 @@ export function SegmentedControl<T extends string>({
               aria-pressed={isActive}
               onClick={() => onChange(option.value)}
               className={cn(
-                "rounded-xl border px-4 py-4 text-left transition",
+                "rounded-lg border px-4 py-3 text-left transition-colors",
                 isActive ? "muted-toggle-surface-active" : "muted-toggle-surface",
               )}
             >

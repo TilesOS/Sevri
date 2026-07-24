@@ -14,6 +14,9 @@ import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Disclosure } from "@/components/ui/disclosure";
+import { PageHeader } from "@/components/ui/page-header";
+import { Toolbar } from "@/components/ui/toolbar";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import type { Plan, ProjectTrack } from "@/types/domain";
 
@@ -181,58 +184,45 @@ export function RecommendationsClient({
         {error ?? (isGenerating ? "Generating recommendations." : isSelectingId ? "Selecting recommendation." : "")}
       </div>
 
-      {/* Page heading */}
-      <div>
-        <div className="kicker" style={{ marginBottom: 10 }}>
-          <span className="star">✦</span>
-          <span>PROJECT IDEA BOARD</span>
-        </div>
-        <h1 className="font-display text-5xl leading-[0.98] tracking-tight text-ink sm:text-7xl">
-          three <span className="hl-yellow">actually</span> different<br />
-          directions<span style={{ color: 'var(--pink)' }}>.</span>
-        </h1>
-        <p style={{ fontSize: 16, lineHeight: 1.6, fontWeight: 500, color: 'var(--ink-soft)', marginTop: 20, maxWidth: 600 }}>
-          {subtitle}
-        </p>
-      </div>
+      <PageHeader eyebrow="Idea board" title="Project ideas" description={subtitle} />
 
       {/* Stats strip */}
-      <div className="coach px-7 py-5">
-        <div style={{ position: 'relative', zIndex: 1, display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: 16 }}>
-          <div>
-            <div className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>Plan</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--paper)', fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>{getPlanLabel(plan)}</div>
+      <div className="grid overflow-hidden rounded-xl border border-line bg-paper sm:grid-cols-3">
+          <div className="border-b border-line p-4 sm:border-b-0 sm:border-r">
+            <p className="text-xs font-medium text-ink-muted">Plan</p>
+            <p className="mt-2 text-xl font-semibold text-ink">{getPlanLabel(plan)}</p>
           </div>
-          <div>
-            <div className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>Boards used</div>
-            <div style={{ fontSize: 28, fontWeight: 800, color: 'var(--paper)', fontFamily: 'var(--font-display)', letterSpacing: '-0.03em' }}>
+          <div className="border-b border-line p-4 sm:border-b-0 sm:border-r">
+            <p className="text-xs font-medium text-ink-muted">Boards used</p>
+            <p className="mt-2 text-xl font-semibold text-ink">
               {unlimitedGenerations || generationLimit === null
                 ? localGenerationsUsed
                 : `${localGenerationsUsed} / ${generationLimit}`}
-            </div>
+            </p>
           </div>
-          <div>
-            <div className="kicker" style={{ color: 'rgba(251,246,233,0.6)', marginBottom: 8 }}>Track readiness</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: 'var(--paper)' }}>{hasTrackIntake ? "Ready to compare" : "Setup needed"}</div>
+          <div className="p-4">
+            <p className="text-xs font-medium text-ink-muted">Track readiness</p>
+            <p className="mt-2 text-xl font-semibold text-ink">{hasTrackIntake ? "Ready to compare" : "Setup needed"}</p>
           </div>
-        </div>
       </div>
 
       {/* Track switcher — tab buttons */}
-      <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-        {(['software', 'research'] as ProjectTrack[]).map((t) => (
-          <button
-            key={t}
-            className={`tab ${activeTrack === t ? 'is-active' : ''}`}
-            style={{ width: 'auto', minWidth: 160, justifyContent: 'center', textTransform: 'uppercase', letterSpacing: '.08em', fontFamily: 'var(--font-mono)', fontSize: 13, opacity: isSwitchingTrack && activeTrack !== t ? 0.6 : 1 }}
-            onClick={() => switchTrack(t)}
-            disabled={isSwitchingTrack}
-          >
-            {activeTrack === t && <span style={{ marginRight: 4 }}>→</span>}
-            {t}
-          </button>
-        ))}
-        <div style={{ marginLeft: 'auto', display: 'flex', gap: 12 }}>
+      <Toolbar className="border-y">
+        <div className="inline-flex rounded-lg bg-surface p-1" role="tablist" aria-label="Project track">
+          {(["software", "research"] as ProjectTrack[]).map((track) => (
+            <button
+              key={track}
+              role="tab"
+              aria-selected={activeTrack === track}
+              className={activeTrack === track ? "rounded-md bg-paper px-4 py-1.5 text-sm font-medium text-ink shadow-soft" : "rounded-md px-4 py-1.5 text-sm text-ink-muted hover:text-ink"}
+              onClick={() => switchTrack(track)}
+              disabled={isSwitchingTrack}
+            >
+              {track === "software" ? "Software" : "Research"}
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
           <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
           <Button
             onClick={handleGenerate}
@@ -242,7 +232,7 @@ export function RecommendationsClient({
             {isGenerating ? "Generating..." : generateLabel}
           </Button>
         </div>
-      </div>
+      </Toolbar>
 
       {!canRegenerate ? (
         <Alert
@@ -285,10 +275,10 @@ export function RecommendationsClient({
       <AnimatePresence mode="wait" initial={false}>
         <motion.div
           key={`${activeTrack}-${recommendations.map((item) => item.id).join(",") || "empty"}`}
-          initial={{ opacity: 0, y: 18 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -18 }}
-          transition={{ duration: 0.28, ease: "easeOut" }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.16, ease: "easeOut" }}
           className="grid gap-6 xl:grid-cols-3"
         >
           {recommendations.map((item, index) => {
@@ -302,50 +292,26 @@ export function RecommendationsClient({
             return (
               <motion.div
                 key={item.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.28, delay: index * 0.06, ease: "easeOut" }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.16, delay: index * 0.03, ease: "easeOut" }}
               >
                 <div className={`rec-card ${cardTone}`}>
-                  {ribbon ? (
-                    <div
-                      className="ribbon"
-                      style={{
-                        background: cardTone === "featured" ? 'var(--ink)' : 'var(--ink)',
-                        color: 'var(--paper)',
-                      }}
-                    >
-                      {ribbon}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-xs font-medium text-ink-muted">Option {index + 1}</span>
+                    <div className="flex items-center gap-2">
+                      {ribbon ? <Badge tone="neutral">{ribbon}</Badge> : null}
+                      <Badge tone="neutral">{difficultyLabel[item.difficulty] ?? item.difficulty}</Badge>
                     </div>
-                  ) : null}
-
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
-                    <span className="kicker">
-                      <span className="star">✦</span>
-                      OPTION 0{index + 1}
-                    </span>
-                    <span className="kicker" style={{ color: 'var(--ink-muted)' }}>
-                      {difficultyLabel[item.difficulty] ?? item.difficulty}
-                    </span>
                   </div>
 
                   <div>
                     <h2 className="title">
                       {safeRenderText(item.title, RECOMMENDATION_CARD_TITLE_SPEC).text}
                     </h2>
-                    <p className="body" style={{ marginTop: 8 }}>
+                    <p className="body mt-2">
                       {safeRenderText(item.summary, RECOMMENDATION_CARD_PROSE_SPEC).text}
                     </p>
-                  </div>
-
-                  {/* Detail sections */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    {details.map((detail) => (
-                      <div key={detail.label} className="rounded-xl bg-ink/[0.04] px-3 py-2.5">
-                        <p className="editorial-kicker" style={{ marginBottom: 4 }}>{detail.label}</p>
-                        <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-soft)' }}>{detail.value}</p>
-                      </div>
-                    ))}
                   </div>
 
                   {/* Metrics grid */}
@@ -368,34 +334,39 @@ export function RecommendationsClient({
                     </div>
                   </div>
 
-                  {/* Why it fits */}
-                  <div>
-                    <p className="editorial-kicker" style={{ marginBottom: 6 }}>Why it fits</p>
-                    <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-soft)' }}>
-                      {safeRenderText(item.why_it_fits, RECOMMENDATION_CARD_PROSE_SPEC).text}
-                    </p>
-                  </div>
-
-                  {item.authenticity_note ? (
-                    <div>
-                      <p className="editorial-kicker" style={{ marginBottom: 6 }}>Authenticity note</p>
-                      <p style={{ fontSize: 13, lineHeight: 1.6, color: 'var(--ink-soft)' }}>{item.authenticity_note}</p>
-                    </div>
-                  ) : null}
-
-                  {item.skills_demonstrated && item.skills_demonstrated.length ? (
-                    <div>
-                      <p className="editorial-kicker" style={{ marginBottom: 8 }}>Skills demonstrated</p>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                        {item.skills_demonstrated.slice(0, 4).map((skill) => (
-                          <span key={skill} className="pill" style={{ fontSize: 9 }}>{skill}</span>
+                  <Disclosure title="View full details" className="border-line bg-surface/40">
+                    <div className="space-y-5">
+                      <div className="space-y-3">
+                        {details.map((detail) => (
+                          <div key={detail.label}>
+                            <p className="text-xs font-medium text-ink-muted">{detail.label}</p>
+                            <p className="mt-1 text-sm leading-6 text-ink-soft">{detail.value}</p>
+                          </div>
                         ))}
                       </div>
+                      <div>
+                        <p className="text-xs font-medium text-ink-muted">Why it fits</p>
+                        <p className="mt-1 text-sm leading-6 text-ink-soft">{safeRenderText(item.why_it_fits, RECOMMENDATION_CARD_PROSE_SPEC).text}</p>
+                      </div>
+                      {item.authenticity_note ? (
+                        <div>
+                          <p className="text-xs font-medium text-ink-muted">Authenticity note</p>
+                          <p className="mt-1 text-sm leading-6 text-ink-soft">{item.authenticity_note}</p>
+                        </div>
+                      ) : null}
+                      {item.skills_demonstrated && item.skills_demonstrated.length ? (
+                        <div>
+                          <p className="text-xs font-medium text-ink-muted">Skills demonstrated</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {item.skills_demonstrated.map((skill) => <Badge key={skill} tone="neutral">{skill}</Badge>)}
+                          </div>
+                        </div>
+                      ) : null}
                     </div>
-                  ) : null}
+                  </Disclosure>
 
                   {/* Pick button — pinned to bottom */}
-                  <div style={{ marginTop: 'auto', paddingTop: 8 }}>
+                  <div className="mt-auto pt-2">
                     <Button
                       onClick={() => handleSelect(item.id)}
                       disabled={Boolean(isSelectingId)}

@@ -126,7 +126,7 @@ export function SettingsForm({ email, initialValues }: SettingsFormProps) {
         {error ? <Alert tone="danger">{error}</Alert> : null}
 
         <div className="flex flex-wrap items-center gap-3">
-          <Button type="submit" disabled={!isDirty || isSubmitting} className="rounded-full px-6">
+          <Button type="submit" disabled={!isDirty || isSubmitting}>
             {isSubmitting ? "Saving..." : "Save changes"}
           </Button>
 

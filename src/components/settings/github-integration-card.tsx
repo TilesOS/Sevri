@@ -62,10 +62,10 @@ export function GithubIntegrationCard({
         </div>
       ) : null}
 
-      <Card tone="primary" className="space-y-3">
+      <Card className="space-y-3">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="editorial-kicker">GitHub</p>
+            <p className="text-sm font-medium text-ink">GitHub</p>
             <p className="mt-2 text-sm leading-6 text-ink-soft">
               {connected
                 ? `Connected as @${integration.provider_username}.`

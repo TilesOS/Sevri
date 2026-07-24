@@ -13,7 +13,7 @@ export function ReviewerShell({ children, displayName, email }: ReviewerShellPro
   const primaryLabel = displayName ?? email ?? "Reviewer";
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="product-ui flex min-h-screen flex-col">
       <header className="sticky top-0 z-30 border-b border-line bg-paper/94 backdrop-blur">
         <Container className="flex h-16 items-center justify-between gap-4">
           <Link href="/reviewer" className="font-display text-2xl leading-none text-ink">
@@ -30,7 +30,7 @@ export function ReviewerShell({ children, displayName, email }: ReviewerShellPro
               ) : null}
             </div>
             <form action="/auth/sign-out" method="post">
-              <Button type="submit" variant="outline" size="sm" className="rounded-full">
+              <Button type="submit" variant="outline" size="sm">
                 Sign out
               </Button>
             </form>

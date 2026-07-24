@@ -163,7 +163,7 @@ export function FocusBlockClient({
         <div className="w-full space-y-9 rounded-[2rem] border border-line bg-paper px-6 py-10 shadow-lifted sm:px-12 sm:py-14">
           <div className="space-y-4">
             <p className="editorial-kicker">Focus block</p>
-            <h1 className="font-display text-3xl leading-tight text-ink sm:text-5xl">{task}</h1>
+            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink">{task}</h1>
             {triggerContext ? <p className="text-sm text-ink-muted">Your cue: {triggerContext}</p> : null}
           </div>
 

@@ -11,10 +11,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
         <Container className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div className="relative hidden overflow-hidden rounded-3xl bg-navy p-10 text-cream lg:flex">
             <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-45" />
-            <div
-              className="pointer-events-none absolute inset-0"
-              style={{ background: "radial-gradient(120% 90% at 50% 0%, transparent 40%, rgba(5,18,54,0.7) 100%)" }}
-            />
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(120%_90%_at_50%_0%,transparent_40%,rgba(5,18,54,0.7)_100%)]" />
             <div className="relative z-10 flex flex-col justify-between">
               <span className="font-serif text-3xl italic text-cream/80">Sevri</span>
               <div className="space-y-5">

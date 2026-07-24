@@ -21,10 +21,10 @@ export function ProjectRoadmapEmptyState({
 
   return (
     <div className="space-y-8">
-      <Card tone="contrast" className="border-contrast-line">
+      <Card>
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-3">
-            <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
+            <Badge tone="neutral">{getPlanLabel(plan)}</Badge>
             <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
           </div>
           <PageHeader
@@ -34,7 +34,7 @@ export function ProjectRoadmapEmptyState({
                 ? "Generate the roadmap overview first, then open each step to keep the objective visible and unlock deeper research guidance with Pro."
                 : "Generate the roadmap overview first, then open each step to keep the objective visible and unlock deeper build guidance with Pro."
             }
-            className="text-paper [&_h1]:text-paper [&_p]:text-paper/72"
+            className="border-b-0 pb-0"
           />
           <GenerateRoadmapButton projectId={projectId} projectTrack={projectTrack} />
         </div>

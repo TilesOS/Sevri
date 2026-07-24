@@ -7,11 +7,12 @@ interface ProgressBarProps {
   value: number;
   max?: number;
   label?: string;
+  ariaLabel?: string;
   helperText?: string;
   className?: string;
 }
 
-export function ProgressBar({ value, max = 100, label, helperText, className }: ProgressBarProps) {
+export function ProgressBar({ value, max = 100, label, ariaLabel, helperText, className }: ProgressBarProps) {
   const clampedValue = Math.max(0, Math.min(value, max));
   const percentage = max === 0 ? 0 : (clampedValue / max) * 100;
 
@@ -27,8 +28,9 @@ export function ProgressBar({ value, max = 100, label, helperText, className }: 
         </div>
       ) : null}
       <div
-        className="h-3 overflow-hidden rounded-full bg-surface"
+        className="h-2 overflow-hidden rounded-full bg-surface-strong"
         role="progressbar"
+        aria-label={ariaLabel ?? label}
         aria-valuemin={0}
         aria-valuemax={max}
         aria-valuenow={Math.round(clampedValue)}

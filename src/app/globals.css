@@ -7,29 +7,30 @@
   --color-black: #0B1526;
   --color-white: #FFFDE2;
 
-  /* Primary → warm coral (from fromanother.love) */
+  /* Coral is the single high-attention action accent. */
   --color-primary: #FF6B4C;
   --color-primary-hover: #F2542D;
   --color-primary-active: #DC431D;
+  --color-primary-foreground: #18181B;
   --color-primary-soft: rgba(255, 107, 76, 0.10);
   --color-primary-line: rgba(255, 107, 76, 0.28);
 
   /* Warm cream surfaces (light base) — warmer canvas + dimmed cards so they mesh */
-  --canvas: #F8F8F7;
+  --canvas: #F7F7F5;
   --paper: #FFFFFF;
-  --surface: #F2F2F0;
-  --surface-strong: #E9E9E6;
-  --surface-mint: #E9F2EA;   /* faint teal-tinted panel */
-  --surface-butter: #F6F6F4;
+  --surface: #F1F1EE;
+  --surface-strong: #E8E8E4;
+  --surface-mint: #EDF4F2;
+  --surface-butter: #FFFFFF;
 
   /* Lines */
-  --line: #EAEAE7;
-  --line-strong: #DCDCD8;
+  --line: #E5E5E1;
+  --line-strong: #D4D4CE;
 
   /* Ink (navy-tinted, not pure black) */
-  --ink: #0B1526;
-  --ink-soft: #33405A;
-  --ink-muted: #6B7488;
+  --ink: #18181B;
+  --ink-soft: #52525B;
+  --ink-muted: #7A7A84;
 
   /* Contrast / dark "moment" (deep navy) */
   --contrast: #0B1E4D;
@@ -45,7 +46,7 @@
   /* Accent palette */
   --coral: #FF6B4C;
   --teal: #5BD0D6;
-  --teal-deep: #46D3C0;
+  --teal-deep: #0F766E;
   --pale-blue: #D2E4F4;
 
   /* Legacy accent names remapped onto the new palette so
@@ -57,20 +58,20 @@
 
   /* RGB channel triples — let Tailwind apply <alpha-value> (e.g. text-cream/70).
      The hex vars above stay for direct CSS/inline use. */
-  --canvas-rgb: 248 248 247;
+  --canvas-rgb: 247 247 245;
   --paper-rgb: 255 255 255;
-  --surface-rgb: 242 242 240;
-  --surface-strong-rgb: 233 233 230;
-  --line-rgb: 234 234 231;
-  --line-strong-rgb: 220 220 216;
-  --ink-rgb: 11 21 38;
-  --ink-soft-rgb: 51 64 90;
-  --ink-muted-rgb: 107 116 136;
+  --surface-rgb: 241 241 238;
+  --surface-strong-rgb: 232 232 228;
+  --line-rgb: 229 229 225;
+  --line-strong-rgb: 212 212 206;
+  --ink-rgb: 24 24 27;
+  --ink-soft-rgb: 82 82 91;
+  --ink-muted-rgb: 122 122 132;
   --color-primary-rgb: 255 107 76;
   --color-primary-hover-rgb: 242 84 45;
   --coral-rgb: 255 107 76;
   --teal-rgb: 91 208 214;
-  --teal-deep-rgb: 70 211 192;
+  --teal-deep-rgb: 15 118 110;
   --navy-rgb: 11 30 77;
   --navy-deep-rgb: 5 18 54;
   --cream-rgb: 255 253 226;
@@ -84,47 +85,62 @@
 
   /* Interaction — soft diffuse shadows (premium, not brutalist offset) */
   --focus-ring: rgba(255, 107, 76, 0.38);
-  --shadow-soft: 0 1px 2px rgba(11, 21, 38, 0.06), 0 10px 30px rgba(11, 21, 38, 0.08);
-  --shadow-lifted: 0 18px 50px rgba(11, 21, 38, 0.14);
+  --shadow-soft: 0 1px 2px rgba(24, 24, 27, 0.06), 0 4px 12px rgba(24, 24, 27, 0.04);
+  --shadow-lifted: 0 16px 40px rgba(24, 24, 27, 0.14);
 
   /* Sidebar */
-  --app-sidebar-width: 18.000rem;
+  --app-sidebar-width: 15.5rem;
 }
 
-/* ── Hidden scrollbars (scroll still works) ── */
-* {
-  scrollbar-width: none;
-  -ms-overflow-style: none;
+/* Authenticated workspace: blue-forward chrome around a bright working canvas.
+   The landing palette stays intact; routine product actions use brand blue while
+   coral is reserved for a few high-attention accents. */
+.product-ui {
+  --color-primary: #2B61B0;
+  --color-primary-hover: #235399;
+  --color-primary-active: #1D4481;
+  --color-primary-foreground: #FFFDE2;
+  --color-primary-soft: #EAF1FC;
+  --color-primary-line: #C4D6F1;
+  --color-primary-rgb: 43 97 176;
+  --color-primary-hover-rgb: 35 83 153;
+
+  --canvas: #F5F7FB;
+  --paper: #FCFDFF;
+  --surface: #EBF0F7;
+  --surface-strong: #E1E7F0;
+  --surface-mint: #EDF5F1;
+  --surface-butter: #FCFDFF;
+  --line: #DCE3EE;
+  --line-strong: #C9D2DF;
+  --ink: #18233A;
+  --ink-soft: #515C70;
+  --ink-muted: #606B7F;
+
+  --canvas-rgb: 245 247 251;
+  --paper-rgb: 252 253 255;
+  --surface-rgb: 235 240 247;
+  --surface-strong-rgb: 225 231 240;
+  --line-rgb: 220 227 238;
+  --line-strong-rgb: 201 210 223;
+  --ink-rgb: 24 35 58;
+  --ink-soft-rgb: 81 92 112;
+  --ink-muted-rgb: 96 107 127;
+
+  --focus-ring: rgba(43, 97, 176, 0.34);
+  --shadow-soft: 0 1px 2px rgba(24, 35, 58, 0.04), 0 8px 24px rgba(24, 35, 58, 0.055);
+  --shadow-lifted: 0 18px 48px rgba(24, 35, 58, 0.15), 0 2px 8px rgba(24, 35, 58, 0.07);
 }
 
-::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
-}
-
-/* ── Lenis smooth scroll ── */
-html.lenis,
-html.lenis body {
-  height: auto;
-}
-.lenis.lenis-smooth {
-  scroll-behavior: auto !important;
-}
-.lenis.lenis-smooth [data-lenis-prevent] {
-  overscroll-behavior: contain;
-}
-.lenis.lenis-stopped {
-  overflow: hidden;
-}
+/* ── Product scrollbars ── */
+* { scrollbar-width: thin; scrollbar-color: var(--line-strong) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--line-strong); border: 2px solid transparent; border-radius: 999px; background-clip: padding-box; }
+::-webkit-scrollbar-track { background: transparent; }
 
 @layer base {
   * {
     @apply border-line;
-  }
-
-  html {
-    scroll-behavior: smooth;
   }
 
   body {
@@ -148,9 +164,13 @@ html.lenis body {
     color: var(--ink);
   }
 
+  .product-ui ::selection {
+    background: rgba(59, 111, 196, 0.20);
+  }
+
   :focus-visible {
-    outline: 2px solid transparent;
-    box-shadow: 0 0 0 3px var(--focus-ring);
+    outline: 2px solid var(--color-primary-hover) !important;
+    outline-offset: 3px;
   }
 }
 
@@ -215,9 +235,9 @@ html.lenis body {
   }
 
   .app-sidebar-shell {
-    background-color: var(--canvas);
+    background-color: var(--surface);
     border-right: 1px solid var(--line);
-    box-shadow: 18px 0 45px rgba(11, 21, 38, 0.04);
+    box-shadow: inset -1px 0 0 rgba(255, 255, 255, 0.48);
   }
 }
 
@@ -225,10 +245,11 @@ html.lenis body {
   /* ── Typography ── */
 
   .display {
-    font-family: var(--font-display), 'Arial Black', sans-serif;
-    font-size: clamp(36px, 4vw, 56px);
-    line-height: 0.96;
-    letter-spacing: -0.03em;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: clamp(28px, 3vw, 32px);
+    font-weight: 650;
+    line-height: 1.12;
+    letter-spacing: -0.025em;
   }
   .display.big { font-size: clamp(56px, 6vw, 96px); }
   .display.lg  { font-size: clamp(44px, 4.5vw, 72px); }
@@ -245,11 +266,11 @@ html.lenis body {
   }
 
   .sidebar-section-label {
-    font-family: var(--font-mono), 'JetBrains Mono', monospace;
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.16em;
-    text-transform: uppercase;
+    font-family: var(--font-sans), system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    text-transform: none;
     color: var(--ink-muted);
     display: flex;
     align-items: center;
@@ -277,29 +298,33 @@ html.lenis body {
     align-items: center;
     gap: 10px;
     width: 100%;
-    padding: 10px 12px;
+    padding: 8px 10px;
     background: transparent;
     border: 1px solid transparent;
-    border-radius: 12px;
+    border-radius: 10px;
     box-shadow: none;
-    font-size: 14px;
-    font-weight: 600;
-    color: var(--ink);
+    font-size: 13px;
+    font-weight: 550;
+    color: var(--ink-soft);
     cursor: pointer;
     text-decoration: none;
-    transition: background-color 180ms ease, color 180ms ease, transform 180ms ease;
+    transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
   }
   .tab:hover {
-    background: var(--surface);
-    transform: translateX(2px);
+    background: rgba(var(--paper-rgb), 0.66);
+    color: var(--ink);
     box-shadow: none;
   }
   .tab.is-active {
-    background: var(--color-primary-soft);
-    color: var(--coral);
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: 0 1px 2px rgba(32, 32, 29, 0.04), inset 0 0 0 1px var(--line);
   }
   .tab.is-active:hover {
-    background: var(--color-primary-soft);
+    background: var(--paper);
+  }
+  .tab.is-active svg {
+    color: var(--color-primary);
   }
   .tab.flat {
     background: transparent;
@@ -316,11 +341,11 @@ html.lenis body {
   /* ── User tab (sidebar header) ── */
 
   .user-tab {
-    background: var(--surface);
-    border: 1px solid rgba(var(--line-rgb), 0.75);
-    border-radius: 16px;
-    box-shadow: var(--shadow-soft);
-    padding: 12px 14px;
+    background: rgba(var(--paper-rgb), 0.58);
+    border: 1px solid rgba(var(--line-rgb), 0.9);
+    border-radius: 12px;
+    box-shadow: 0 1px 2px rgba(32, 32, 29, 0.03);
+    padding: 8px;
     display: flex;
     align-items: center;
     gap: 10px;
@@ -335,8 +360,8 @@ html.lenis body {
     padding: 10px 12px;
     background: var(--paper);
     border: 1px solid transparent;
-    border-radius: 12px;
-    box-shadow: var(--shadow-soft);
+    border-radius: 10px;
+    box-shadow: none;
   }
   .course-tile.locked {
     opacity: 0.55;
@@ -375,19 +400,19 @@ html.lenis body {
 
   .rec-card {
     position: relative;
-    border: 0;
-    border-radius: 24px;
+    border: 1px solid var(--line);
+    border-radius: 16px;
     box-shadow: var(--shadow-soft);
-    padding: 24px;
+    padding: 20px;
     background: var(--paper);
     display: flex;
     flex-direction: column;
     gap: 16px;
     height: 100%;
   }
-  .rec-card.featured { background: var(--color-primary-soft); }
-  .rec-card.cyan     { background: var(--surface-mint); }
-  .rec-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lifted); }
+  .rec-card.featured,
+  .rec-card.cyan { background: var(--paper); }
+  .rec-card:hover { border-color: var(--line-strong); }
 
   .rec-card .ribbon {
     position: absolute;
@@ -432,27 +457,28 @@ html.lenis body {
   .coach {
     background: var(--navy);
     color: var(--cream);
-    border-radius: 24px;
-    box-shadow: var(--shadow-lifted);
-    padding: 28px 32px;
+    border: 1px solid var(--contrast-line);
+    border-radius: 18px;
+    box-shadow: var(--shadow-soft);
+    padding: 24px;
     position: relative;
     overflow: hidden;
   }
   .coach::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(circle at 18% 20%, rgba(70, 211, 192, 0.22), transparent 34%),
-      radial-gradient(circle at 82% 12%, rgba(255, 107, 76, 0.19), transparent 32%),
-      radial-gradient(circle at 60% 90%, rgba(210, 228, 244, 0.14), transparent 35%);
+      radial-gradient(60% 75% at 12% 8%, rgba(70, 211, 192, 0.24), transparent 72%),
+      radial-gradient(55% 70% at 90% 86%, rgba(255, 107, 76, 0.22), transparent 75%);
     pointer-events: none;
   }
-  .coach .kicker { color: rgba(251, 246, 233, 0.6); }
+  .coach > * { position: relative; z-index: 1; }
+  .coach .kicker { color: rgba(var(--cream-rgb), 0.58); }
   .coach h1,
   .coach h2,
-  .coach h3 { color: var(--cream); font-weight: 800; margin: 12px 0 8px; }
-  .coach p   { color: rgba(251, 246, 233, 0.78); font-size: 14px; line-height: 1.6; }
+  .coach h3 { color: var(--cream); font-weight: 650; margin: 12px 0 8px; }
+  .coach p   { color: rgba(var(--cream-rgb), 0.74); font-size: 14px; line-height: 1.6; }
 
   /* ── Step rows (project roadmap) ── */
 
@@ -462,16 +488,16 @@ html.lenis body {
     gap: 14px;
     padding: 14px 16px;
     border: 1px solid transparent;
-    border-radius: 14px;
-    box-shadow: var(--shadow-soft);
+    border-radius: 10px;
+    box-shadow: none;
     background: var(--paper);
     width: 100%;
     text-align: left;
     cursor: pointer;
     transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease;
   }
-  .step-row:hover { transform: translateY(-2px); box-shadow: var(--shadow-lifted); }
-  .step-row.active { background: var(--surface-mint); border-color: rgba(var(--teal-deep-rgb), 0.22); }
+  .step-row:hover { border-color: var(--line-strong); }
+  .step-row.active { background: var(--color-primary-soft); border-color: var(--color-primary-line); box-shadow: inset 2px 0 0 var(--color-primary); }
   .step-row.done   { background: var(--surface); }
   .step-row.locked { opacity: 0.55; box-shadow: none; cursor: default; }
   .step-row.locked:hover { transform: none; box-shadow: none; }
@@ -506,7 +532,7 @@ html.lenis body {
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--pink);
+    background: var(--teal-deep);
     flex-shrink: 0;
   }
 
@@ -540,4 +566,15 @@ html.lenis body {
   /* ── Star / accent decorations ── */
 
   .star { color: var(--coral); }
+}
+
+@layer components {
+  .product-ui .hl-yellow {
+    background: none;
+    padding: 0;
+  }
+
+  .product-ui .star {
+    color: var(--coral);
+  }
 }

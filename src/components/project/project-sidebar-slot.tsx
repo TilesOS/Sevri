@@ -22,7 +22,7 @@ type ProjectSidebarState =
 function extractProjectId(pathname: string) {
   const segments = pathname.split("/").filter(Boolean);
 
-  if (segments[0] !== "project" || !segments[1]) {
+  if ((segments[0] !== "project" && segments[0] !== "projects") || !segments[1]) {
     return null;
   }
 
@@ -32,6 +32,23 @@ function extractProjectId(pathname: string) {
 export function ProjectSidebarSlot({ pathname }: { pathname: string }) {
   const projectId = extractProjectId(pathname);
   const [state, setState] = useState<ProjectSidebarState>({ status: "idle" });
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  useEffect(() => {
+    if (!projectId) {
+      return;
+    }
+
+    const refreshSidebar = (event: Event) => {
+      const detail = (event as CustomEvent<{ projectId?: string }>).detail;
+      if (!detail?.projectId || detail.projectId === projectId) {
+        setRefreshToken((current) => current + 1);
+      }
+    };
+
+    window.addEventListener("sevri:project-sidebar-refresh", refreshSidebar);
+    return () => window.removeEventListener("sevri:project-sidebar-refresh", refreshSidebar);
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId) {
@@ -72,7 +89,7 @@ export function ProjectSidebarSlot({ pathname }: { pathname: string }) {
       });
 
     return () => controller.abort();
-  }, [projectId]);
+  }, [projectId, refreshToken]);
 
   if (!projectId) {
     return null;

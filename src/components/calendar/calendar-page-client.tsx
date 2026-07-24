@@ -1,6 +1,6 @@
 "use client";
 
-import type { CSSProperties, FormEvent } from "react";
+import type { FormEvent } from "react";
 import { useDeferredValue, useEffect, useState } from "react";
 import { CalendarScheduleRetryButton } from "@/components/calendar/calendar-schedule-retry-button";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
@@ -129,58 +129,23 @@ function isProjectScheduleReady(project: {
   );
 }
 
-function resolveInitialSelectedDate(input: CalendarPageView) {
-  const visibleProjectIds = new Set(input.visibleProjectIds);
-  const visibleItems = input.projects
-    .filter((project) => visibleProjectIds.has(project.projectId))
-    .flatMap((project) => project.items);
-  const defaultMonthKey = input.defaultMonth.slice(0, 7);
-
-  if (input.today.startsWith(defaultMonthKey) && visibleItems.some((item) => item.date === input.today)) {
-    return input.today;
-  }
-
-  const itemsInDefaultMonth = visibleItems
-    .map((item) => item.date)
-    .filter((date) => date.startsWith(defaultMonthKey))
-    .sort((left, right) => left.localeCompare(right));
-
-  if (itemsInDefaultMonth.length > 0) {
-    return itemsInDefaultMonth[0];
-  }
-
-  const sortedDates = visibleItems.map((item) => item.date).sort((left, right) => left.localeCompare(right));
-  return sortedDates[0] ?? startOfMonthDateString(input.defaultMonth);
-}
-
 function getStatusSurfaceClassName(status: CalendarCompletionState) {
   switch (status) {
     case "complete":
-      return "border-line text-ink";
+      return "border-teal-deep/20 bg-teal/10 text-ink";
     case "in_progress":
-      return "border-line text-ink";
+      return "border-navy/15 bg-navy/[0.06] text-ink";
     default:
       return "border-line bg-paper text-ink-soft";
-  }
-}
-
-function getStatusSurfaceStyle(status: CalendarCompletionState): CSSProperties | undefined {
-  switch (status) {
-    case "complete":
-      return { backgroundColor: 'rgba(91,208,214,0.18)', borderColor: 'rgba(91,208,214,0.5)' };
-    case "in_progress":
-      return { backgroundColor: 'rgba(255,217,61,0.18)', borderColor: 'rgba(255,217,61,0.5)' };
-    default:
-      return undefined;
   }
 }
 
 function getStatusTextClassName(status: CalendarCompletionState) {
   switch (status) {
     case "complete":
-      return "text-ink";
+      return "text-ink-soft";
     case "in_progress":
-      return "text-ink";
+      return "text-navy";
     default:
       return "text-ink-soft";
   }
@@ -232,8 +197,10 @@ function getTrackSummaryLabel(
 
 function getProjectButtonClassName(selected: boolean) {
   return cn(
-    "relative w-full min-w-0 rounded-2xl border px-4 py-4 text-left transition",
-    selected ? "z-10 border-line-strong bg-paper shadow-soft" : "border-line bg-canvas/68 hover:border-line-strong hover:bg-paper",
+    "relative w-full min-w-0 rounded-lg border px-4 py-3 text-left transition",
+    selected
+      ? "z-10 border-primary/25 bg-primary-soft shadow-soft"
+      : "border-line bg-paper/70 hover:border-line-strong hover:bg-paper",
   );
 }
 
@@ -400,24 +367,23 @@ function DayCell({
 }) {
   const isCurrentMonth = date.startsWith(currentMonth.slice(0, 7));
   const isToday = date === today;
+  const weekdayLabel = WEEKDAY_LABELS[new Date(`${date}T00:00:00Z`).getUTCDay()];
+  const dayLabel = formatDateForDisplay(date, {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+  });
 
   return (
     <div
-      role="button"
-      tabIndex={0}
       className={cn(
-        "flex min-h-[8.5rem] flex-col gap-2 border-r border-t border-line px-3 py-3 text-left transition focus-visible:outline-none",
-        isCurrentMonth ? "bg-paper/92" : "bg-surface/60 text-ink-muted",
-        dropActive && "bg-surface-butter shadow-[inset_0_0_0_1px_rgba(81,126,95,0.3)]",
+        "relative grid min-h-[4.75rem] grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2 border-b border-line px-3 py-2.5 text-left transition",
+        "sm:flex sm:min-h-[7.5rem] sm:flex-col sm:gap-2 sm:border-b-0 sm:border-r sm:border-t sm:px-2.5 sm:py-2.5 lg:min-h-[8rem]",
+        isCurrentMonth ? "bg-paper" : "hidden bg-surface/45 text-ink-muted sm:flex",
+        selected && "bg-primary-soft ring-1 ring-inset ring-primary/40",
+        dropActive && "bg-teal/10 ring-1 ring-inset ring-teal-deep/30",
       )}
-      style={selected ? { backgroundColor: 'rgba(91,208,214,0.14)', boxShadow: 'inset 0 0 0 2px rgba(91,208,214,0.5)' } : undefined}
-      onClick={() => onSelect(date)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter" || event.key === " ") {
-          event.preventDefault();
-          onSelect(date);
-        }
-      }}
       onDragOver={(event) => {
         event.preventDefault();
       }}
@@ -425,19 +391,35 @@ function DayCell({
         event.preventDefault();
         onDrop(date);
       }}
-      aria-pressed={selected}
     >
-      <div className="flex items-center justify-between gap-2">
+      <button
+        type="button"
+        className="flex min-h-11 w-full flex-col items-center justify-center gap-0.5 rounded-lg text-center focus-visible:outline-none sm:min-h-0 sm:w-auto sm:flex-row sm:justify-between sm:gap-2 sm:text-left"
+        onClick={() => onSelect(date)}
+        aria-pressed={selected}
+        aria-current={isToday ? "date" : undefined}
+        aria-label={`${dayLabel}, ${items.length} ${items.length === 1 ? "item" : "items"}`}
+      >
         <span
-          className="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
-          style={isToday ? { backgroundColor: 'var(--yellow)', color: 'var(--ink)', border: '2px solid var(--ink)' } : undefined}
+          className={cn(
+            "inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-sm font-semibold",
+            isToday ? "bg-primary text-primary-foreground shadow-soft" : "text-ink",
+            !isCurrentMonth && !isToday && "text-ink-muted",
+          )}
         >
           {date.slice(8, 10).replace(/^0/, "")}
         </span>
-        {items.length > 0 ? <span className="text-[11px] font-medium uppercase tracking-[0.16em] text-ink-muted">{items.length}</span> : null}
-      </div>
+        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-muted sm:hidden">
+          {weekdayLabel}
+        </span>
+        {items.length > 0 ? (
+          <span className="ml-auto hidden text-[10px] font-medium tabular-nums text-ink-muted sm:inline">
+            {items.length}
+          </span>
+        ) : null}
+      </button>
 
-      <div className="space-y-2">
+      <div className="min-w-0 space-y-1.5">
         {items.slice(0, 3).map((item) => (
           <button
             key={item.id}
@@ -454,30 +436,30 @@ function DayCell({
               event.dataTransfer.setData("text/plain", item.id);
               onDragItemStart(item);
             }}
-            onClick={(event) => {
-              event.stopPropagation();
+            onClick={() => {
               onSelect(date);
             }}
             className={cn(
-              "w-full rounded-xl border px-2.5 py-2 text-left text-[11px] font-medium leading-4 transition",
+              "w-full rounded-md border px-2 py-1.5 text-left text-[11px] font-medium leading-4 transition hover:border-line-strong",
               getStatusSurfaceClassName(item.status),
               item.itemType === "work_session" && item.completedAt && "opacity-60",
             )}
-            style={getStatusSurfaceStyle(item.status)}
             title={`${item.projectTitle} - ${item.title}`}
           >
             <p className="truncate">
               {item.itemType === "work_session" && item.completedAt ? "✓ " : ""}
               {getItemChipLabel(item)}
             </p>
-            <p className={cn("mt-1 truncate text-[10px]", getStatusTextClassName(item.status))}>
+            <p className={cn("truncate text-[10px]", getStatusTextClassName(item.status))}>
               {item.itemType === "work_session" && item.durationMinutes
                 ? `${item.durationMinutes} min - ${item.workDescription ?? item.title}`
                 : item.title}
             </p>
           </button>
         ))}
-        {items.length > 3 ? <p className="text-[11px] text-ink-muted">+{items.length - 3} more on this day</p> : null}
+        {items.length > 3 ? (
+          <p className="px-1 text-[10px] font-medium text-ink-muted">+{items.length - 3} more</p>
+        ) : null}
       </div>
     </div>
   );
@@ -505,7 +487,7 @@ function TrackSelector({
   const hiddenCount = projects.length - TRACK_HISTORY_LIMIT;
 
   return (
-    <div className="min-w-0 space-y-3 rounded-[1.6rem] border border-line bg-canvas/72 p-4">
+    <div className="min-w-0 space-y-3 rounded-xl border border-line bg-surface/50 p-4">
       <div className="flex min-w-0 items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
           <Badge tone={theme.badgeTone}>{theme.label}</Badge>
@@ -547,7 +529,7 @@ function TrackSelector({
             <button
               type="button"
               onClick={onToggleExpanded}
-              className="w-full rounded-xl border border-line bg-canvas/48 px-3 py-2 text-xs font-medium text-ink-muted transition hover:border-line-strong hover:bg-paper hover:text-ink"
+              className="w-full rounded-lg border border-line bg-paper/70 px-3 py-2 text-xs font-medium text-ink-muted transition hover:border-line-strong hover:bg-paper hover:text-ink"
             >
               {expandedHistory ? "Show less" : `Show ${hiddenCount} older ${hiddenCount === 1 ? "project" : "projects"}`}
             </button>
@@ -630,13 +612,14 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
   const monthEnd = endOfCalendarGrid(currentMonth);
   const visibleDates = listDateStringsInRange(monthStart, monthEnd);
   const dayItems = itemsByDate.get(selectedDate) ?? [];
-  const overdueCount = visibleItems.filter((item) => item.urgency === "overdue").length;
-  const dueSoonCount = visibleItems.filter((item) => item.urgency === "due_soon").length;
-  const monthItemCount = visibleItems.filter(
+  const currentMonthItems = visibleItems.filter(
     (item) =>
       compareDateStrings(item.date, startOfMonthDateString(currentMonth)) >= 0 &&
       compareDateStrings(item.date, endOfMonthDateString(currentMonth)) <= 0,
-  ).length;
+  );
+  const overdueCount = currentMonthItems.filter((item) => item.urgency === "overdue").length;
+  const dueSoonCount = currentMonthItems.filter((item) => item.urgency === "due_soon").length;
+  const monthItemCount = currentMonthItems.length;
   const unscheduledProjects = visibleProjects.filter((project) => !project.scheduleReady);
   const softwareProjects = data.projects.filter((project) => project.projectTrack === "software");
   const researchProjects = data.projects.filter((project) => project.projectTrack === "research");
@@ -812,44 +795,20 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
     : false;
 
   return (
-    <div className="space-y-8 pb-10">
-      <Card tone="contrast" className="border-contrast-line">
-        <div className="space-y-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
-            <Badge tone="contrast">{visibleProjects.length} projects visible</Badge>
-            <Badge tone="contrast">{monthItemCount} items this month</Badge>
-          </div>
-          <PageHeader
-            eyebrow="Project calendar"
-            title="See the roadmap as a finishable timeline."
-            description="The calendar sits on top of your roadmap so due dates stay visible without changing the AI estimate behind each step."
-            actions={
-              <div className="flex flex-wrap gap-3">
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => moveMonth(-1)}>
-                  Previous month
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="rounded-full"
-                  onClick={() => {
-                    const todayMonth = startOfMonthDateString(initialData.today);
-                    setCurrentMonth(todayMonth);
-                    setSelectedDate(initialData.today);
-                  }}
-                >
-                  Today
-                </Button>
-                <Button type="button" variant="outline" className="rounded-full" onClick={() => moveMonth(32)}>
-                  Next month
-                </Button>
-              </div>
-            }
-            className="text-paper [&_.editorial-kicker]:text-paper/55 [&_h1]:text-paper [&_p]:text-paper/72"
-          />
-        </div>
-      </Card>
+    <div className="space-y-6 pb-10">
+      <PageHeader
+        eyebrow="Project calendar"
+        title="Turn your roadmap into a workable month."
+        description="Keep milestones, completion targets, and focused work blocks in one calm planning view. Moving a date here updates it everywhere without changing the estimate behind the step."
+        metadata={
+          <>
+            <Badge tone="neutral">{getPlanLabel(plan)}</Badge>
+            <span>{visibleProjects.length} projects visible</span>
+            <span aria-hidden="true">·</span>
+            <span>{monthItemCount} items this month</span>
+          </>
+        }
+      />
 
       {data.projects.length === 0 ? (
         <Card className="space-y-4">
@@ -861,55 +820,74 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
             Calendar dates appear as soon as a roadmap is created. Once a project has milestones, Sevri lays them out here automatically.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button href="/dashboard" className="rounded-full">
+            <Button href="/dashboard">
               Open dashboard
             </Button>
-            <Button href="/recommendations" variant="outline" className="rounded-full">
+            <Button href="/recommendations" variant="outline">
               Browse ideas
             </Button>
           </div>
         </Card>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.7fr)_22rem]">
-          <div className="min-w-0 space-y-6">
-            <div className="grid gap-4 md:grid-cols-3">
-              <Card tone="butter" elevation="soft">
-                <p className="editorial-kicker">Month in focus</p>
-                <p className="mt-3 text-2xl font-semibold text-ink">{formatMonthLabel(currentMonth)}</p>
-                <p className="mt-2 text-sm leading-6 text-ink-soft">Keep the roadmap legible at the project level before you worry about work blocks.</p>
-              </Card>
-              <Card tone={overdueCount > 0 ? "blush" : "primary"}>
-                <p className="editorial-kicker">Attention needed</p>
-                <p className="mt-3 text-2xl font-semibold text-ink">{overdueCount + dueSoonCount}</p>
-                <p className="mt-2 text-sm leading-6 text-ink-soft">
-                  {overdueCount > 0
-                    ? `${overdueCount} overdue and ${dueSoonCount} due soon across visible projects.`
-                    : `${dueSoonCount} items are due soon across visible projects.`}
-                </p>
-              </Card>
-              <Card className="bg-surface-mint" elevation="soft">
-                <p className="editorial-kicker">Source of truth</p>
-                <p className="mt-3 text-lg font-semibold text-ink">Due dates update everywhere.</p>
-                <p className="mt-2 text-sm leading-6 text-ink-soft">Dragging or moving a date here updates the step due date shown in guidance across Sevri.</p>
-              </Card>
-            </div>
-
-            <Card padding="none" className="overflow-hidden">
-              <div className="flex flex-wrap items-center justify-between gap-4 border-b border-line px-6 py-5">
-                <div className="space-y-1">
-                  <p className="editorial-kicker">Month view</p>
-                  <h2 className="text-2xl font-semibold text-ink">{formatMonthLabel(currentMonth)}</h2>
+        <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
+          <div className="min-w-0 space-y-5">
+            <section
+              aria-labelledby="calendar-month-heading"
+              className="overflow-hidden rounded-xl border border-line bg-paper shadow-soft"
+            >
+              <div className="border-b border-line px-4 py-4 sm:px-5">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium text-ink-muted">Month view</p>
+                    <h2 id="calendar-month-heading" className="text-xl font-semibold tracking-tight text-ink">
+                      {formatMonthLabel(currentMonth)}
+                    </h2>
+                  </div>
+                  <div
+                    className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-surface/55 p-1"
+                    role="group"
+                    aria-label="Calendar month navigation"
+                  >
+                    <Button type="button" variant="ghost" size="sm" onClick={() => moveMonth(-1)}>
+                      Previous
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        const todayMonth = startOfMonthDateString(initialData.today);
+                        setCurrentMonth(todayMonth);
+                        setSelectedDate(initialData.today);
+                      }}
+                    >
+                      Today
+                    </Button>
+                    <Button type="button" variant="ghost" size="sm" onClick={() => moveMonth(32)}>
+                      Next
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge tone="neutral">{visibleItems.length} scheduled items</Badge>
-                  <Badge tone="warning">{dueSoonCount} due soon</Badge>
-                  <Badge tone={overdueCount > 0 ? "danger" : "success"}>{overdueCount > 0 ? `${overdueCount} overdue` : "No overdue items"}</Badge>
+
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-line bg-canvas/70 px-3 py-2 text-xs text-ink-muted">
+                  <span>
+                    <strong className="font-semibold text-ink">{monthItemCount}</strong> items this month
+                  </span>
+                  <span>
+                    <strong className="font-semibold text-ink">{visibleProjects.length}</strong> visible projects
+                  </span>
+                  <span className={cn("font-medium", dueSoonCount > 0 ? "text-ink-soft" : "text-ink-muted")}>
+                    {dueSoonCount} due soon
+                  </span>
+                  <span className={cn("font-medium", overdueCount > 0 ? "text-red-700" : "text-emerald-700")}>
+                    {overdueCount > 0 ? `${overdueCount} overdue` : "No overdue items"}
+                  </span>
                 </div>
               </div>
 
-              <div className="grid grid-cols-7 border-b border-line bg-canvas/72">
+              <div className="hidden grid-cols-7 border-b border-line bg-surface/55 sm:grid" aria-hidden="true">
                 {WEEKDAY_LABELS.map((label) => (
-                  <div key={label} className="px-3 py-3 text-xs font-semibold uppercase tracking-[0.18em] text-ink-muted">
+                  <div key={label} className="px-3 py-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-muted">
                     {label}
                   </div>
                 ))}
@@ -947,7 +925,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   />
                 ))}
               </div>
-            </Card>
+            </section>
 
             {unscheduledProjects.length > 0 ? (
               <Alert tone="warning" heading="Some visible projects still need dates.">
@@ -1002,11 +980,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
             </Card>
           </div>
 
-          <div className="space-y-6 xl:sticky xl:top-24 xl:self-start">
-            <Card className="space-y-5">
+          <aside aria-label="Calendar details and planning" className="space-y-4 xl:sticky xl:top-24 xl:self-start">
+            <Card padding="sm" className="space-y-5">
               <div className="space-y-2">
                 <p className="editorial-kicker">Plan work time</p>
-                <h2 className="text-xl font-semibold text-ink">When this happens, I will do this work.</h2>
+                <h2 className="text-lg font-semibold tracking-tight text-ink">Add a focused work block.</h2>
+                <p className="text-sm leading-5 text-ink-soft">Turn the selected day into a concrete commitment.</p>
               </div>
 
               <form className="space-y-4" onSubmit={(event) => void submitWorkSession(event)}>
@@ -1159,16 +1138,16 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
 
                 {workSessionError ? <Alert tone="danger">{workSessionError}</Alert> : null}
 
-                <Button type="submit" className="w-full rounded-full" disabled={isSavingWorkSession || !workSessionProject}>
+                <Button type="submit" fullWidth disabled={isSavingWorkSession || !workSessionProject}>
                   {isSavingWorkSession ? "Saving..." : "Plan work block"}
                 </Button>
               </form>
             </Card>
 
-            <Card className="space-y-5">
+            <Card padding="sm" className="space-y-4 border-primary/20 bg-primary-soft">
               <div className="space-y-2">
                 <p className="editorial-kicker">Selected day</p>
-                <h2 className="text-2xl font-semibold text-ink">
+                <h2 className="text-lg font-semibold leading-snug tracking-tight text-ink">
                   {formatDateForDisplay(selectedDate, {
                     weekday: "long",
                     month: "long",
@@ -1184,11 +1163,10 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                     <div
                       key={item.id}
                       className={cn(
-                        "rounded-[1.4rem] border px-4 py-4",
+                        "rounded-lg border px-3 py-3",
                         getStatusSurfaceClassName(item.status),
                         item.itemType === "work_session" && item.completedAt && "opacity-65",
                       )}
-                      style={getStatusSurfaceStyle(item.status)}
                     >
                       <div className="flex flex-wrap items-center gap-2">
                         <Badge tone={trackThemes[item.projectTrack].badgeTone}>{trackThemes[item.projectTrack].label}</Badge>
@@ -1219,12 +1197,12 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                           <Button
                             href={`/projects/${item.projectId}/focus?session=${encodeURIComponent(item.id)}`}
                             size="sm"
-                            className="rounded-full"
+                            className="rounded-lg"
                           >
                             Start
                           </Button>
                         ) : null}
-                        <Button href={item.href} variant="outline" size="sm" className="rounded-full">
+                        <Button href={item.href} variant="outline" size="sm">
                           Open in workspace
                         </Button>
                         {item.itemType === "work_session" ? (
@@ -1232,7 +1210,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="rounded-full"
+                            className="rounded-lg"
                             onClick={() => void deleteWorkSession(item)}
                             disabled={deletingWorkSessionId === item.id}
                           >
@@ -1243,7 +1221,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                             type="button"
                             variant="ghost"
                             size="sm"
-                            className="rounded-full"
+                            className="rounded-lg"
                             onClick={() => {
                               setRescheduleDraft({
                                 item,
@@ -1267,22 +1245,22 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               )}
             </Card>
 
-            <Card className="space-y-4">
+            <Card padding="sm" className="space-y-4">
               <div className="space-y-2">
                 <p className="editorial-kicker">Legend</p>
-                <h2 className="text-xl font-semibold text-ink">Completion is the main signal. Risk stays secondary.</h2>
+                <h2 className="text-base font-semibold text-ink">Completion is the main signal.</h2>
               </div>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 rounded-2xl border border-line bg-paper px-4 py-3">
-                  <span className="h-3 w-3 rounded-full bg-paper shadow-[inset_0_0_0_1px_rgba(163,173,168,0.9)]" />
+              <div className="space-y-1 text-sm">
+                <div className="flex items-center gap-3 rounded-md px-2 py-1.5">
+                  <span className="h-3 w-3 rounded-full border border-line-strong bg-paper" />
                   <span className="text-sm text-ink-soft">Not started</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3" style={{ backgroundColor: 'rgba(255,217,61,0.12)' }}>
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: 'var(--yellow)', border: '1px solid rgba(22,20,18,0.3)' }} />
+                <div className="flex items-center gap-3 rounded-md bg-navy/[0.05] px-2 py-1.5">
+                  <span className="h-3 w-3 rounded-full border border-navy/30 bg-navy" />
                   <span className="text-sm text-ink">In progress</span>
                 </div>
-                <div className="flex items-center gap-3 rounded-2xl border border-line px-4 py-3" style={{ backgroundColor: 'rgba(91,208,214,0.12)' }}>
-                  <span className="h-3 w-3 rounded-full" style={{ backgroundColor: 'var(--cyan)', border: '1px solid rgba(22,20,18,0.3)' }} />
+                <div className="flex items-center gap-3 rounded-md bg-teal/10 px-2 py-1.5">
+                  <span className="h-3 w-3 rounded-full border border-teal-deep/30 bg-teal-deep" />
                   <span className="text-sm text-ink">Completed</span>
                 </div>
               </div>
@@ -1294,7 +1272,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               </div>
             </Card>
 
-            <Card className="space-y-5">
+            <Card padding="sm" className="space-y-5">
               <div className="space-y-2">
                 <p className="editorial-kicker">Export</p>
                 <h2 className="text-xl font-semibold text-ink">Send a project schedule out without turning on sync.</h2>
@@ -1315,7 +1293,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                             "rounded-full border px-3 py-2 text-xs font-semibold transition",
                             exportProject.projectId === project.projectId
                               ? "border-line-strong bg-paper text-ink"
-                              : "border-line bg-canvas/72 text-ink-soft hover:border-line-strong hover:bg-paper",
+                              : "border-line bg-canvas/70 text-ink-soft hover:border-line-strong hover:bg-paper",
                           )}
                           onClick={() => setExportProjectId(project.projectId)}
                         >
@@ -1326,7 +1304,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
 
                     {exportProject.scheduleReady ? (
                       <>
-                        <div className="rounded-[1.4rem] border border-line bg-canvas/72 p-4">
+                        <div className="rounded-[1.4rem] border border-line bg-canvas/70 p-4">
                           <div className="flex flex-wrap items-center justify-between gap-3">
                             <div>
                               <p className="text-sm font-semibold text-ink">{exportProject.projectTitle}</p>
@@ -1336,7 +1314,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                               <button
                                 type="button"
                                 onClick={() => setExportStepsExpanded((prev) => !prev)}
-                                className="rounded-full border border-line bg-canvas/72 px-3 py-1.5 text-xs font-medium text-ink-soft transition hover:border-line-strong hover:bg-paper hover:text-ink"
+                                className="rounded-full border border-line bg-canvas/70 px-3 py-1.5 text-xs font-medium text-ink-soft transition hover:border-line-strong hover:bg-paper hover:text-ink"
                               >
                                 {exportStepsExpanded ? "Hide steps" : "Show steps"}
                               </button>
@@ -1360,7 +1338,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                                 href={buildGoogleCalendarUrl(event)}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="block rounded-2xl border border-line bg-paper px-4 py-3 transition hover:border-line-strong hover:bg-canvas/72"
+                                className="block rounded-2xl border border-line bg-paper px-4 py-3 transition hover:border-line-strong hover:bg-canvas/70"
                               >
                                 <p className="text-sm font-semibold text-ink">{event.title}</p>
                                 <p className="mt-1 text-xs text-ink-muted">
@@ -1372,7 +1350,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                         ) : null}
                       </>
                     ) : (
-                      <div className="space-y-3 rounded-[1.4rem] border border-line bg-canvas/72 p-4">
+                      <div className="space-y-3 rounded-[1.4rem] border border-line bg-canvas/70 p-4">
                         <p className="text-sm text-ink-soft">Dates need to be rebuilt before this project can be exported.</p>
                         <CalendarScheduleRetryButton projectId={exportProject.projectId} className="rounded-full" />
                       </div>
@@ -1382,7 +1360,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   <p className="text-sm leading-6 text-ink-soft">Choose a visible project to export.</p>
                 )
               ) : (
-                <div className="space-y-4 rounded-[1.4rem] border border-line bg-canvas/72 p-4">
+                <div className="space-y-4 rounded-[1.4rem] border border-line bg-canvas/70 p-4">
                   <div className="flex flex-wrap items-center gap-3">
                     <Badge tone="warning">Pro only</Badge>
                     <Badge tone="neutral">{getPlanLabel(plan)}</Badge>
@@ -1390,18 +1368,18 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                   <p className="text-sm leading-6 text-ink-soft">
                     Calendar exports stay behind Pro. Free users can still plan and reschedule everything inside Sevri.
                   </p>
-                  <Button href="/settings/billing" variant="outline" className="rounded-full">
+                  <Button href="/settings/billing" variant="outline">
                     Upgrade to Pro
                   </Button>
                 </div>
               )}
             </Card>
-          </div>
+          </aside>
         </div>
       )}
 
       {rescheduleDraft ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/26 px-4 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-ink/25 px-4 backdrop-blur-sm">
           <Card className="w-full max-w-xl space-y-5 shadow-lifted">
             <div className="space-y-2">
               <p className="editorial-kicker">Move date</p>
@@ -1412,7 +1390,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl border border-line bg-canvas/72 p-4">
+              <div className="rounded-2xl border border-line bg-canvas/70 p-4">
                 <p className="text-xs uppercase tracking-[0.16em] text-ink-muted">Current date</p>
                 <p className="mt-2 text-sm font-semibold text-ink">
                   {formatDateForDisplay(rescheduleDraft.item.date, {
@@ -1439,7 +1417,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               </div>
             </div>
 
-            <div className="space-y-3 rounded-2xl border border-line bg-canvas/72 p-4">
+            <div className="space-y-3 rounded-2xl border border-line bg-canvas/70 p-4">
               <p className="text-sm font-semibold text-ink">How should Sevri handle the rest of the timeline?</p>
               <p className="text-sm leading-6 text-ink-soft">
                 Choose whether this is a local exception or whether downstream dates should be respaced while preserving step order and duration assumptions.

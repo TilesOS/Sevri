@@ -25,7 +25,7 @@ export function FormField({
       <label htmlFor={htmlFor} className="block text-sm font-semibold text-ink">
         {label}
         {required ? (
-          <span className="ml-1 text-coral">
+          <span className="ml-1 text-red-700">
             *
           </span>
         ) : null}

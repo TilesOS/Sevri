@@ -4,6 +4,8 @@
 
 **Golden rule:** when unsure, open the landing page and copy how it does it. The landing is the single source of truth. You have creative latitude on layout per screen, but **never** leave the palette / token / motion norms below.
 
+> **Authenticated-product exception (approved July 2026):** inside `.product-ui`, brand blue—not coral—is the semantic primary for routine actions, focus, progress, active navigation, and selected states. The landing and other public pages keep the coral primary. Navy remains the dark “moment” color, teal means completion/software, and coral is reserved for a few warm attention accents.
+
 ---
 
 ## 0. Scope
@@ -21,7 +23,7 @@
 
 ## 1. Design language (north star)
 
-Premium warm-editorial. Warm-cream canvas as the default surface, deep-navy "moments" for emphasis (hero, CTAs, the Pro plan, empty states), a soft teal/coral **aurora** as the signature texture, coral as the one action color, generous whitespace, **noticeably less text than the old app**, and cohesive scroll-linked motion.
+Premium warm-editorial. Warm-cream canvas on public pages and a pale blue-grey workspace canvas in the authenticated product, deep-navy "moments" for emphasis (hero, CTAs, the Pro plan, empty states), a soft teal/coral **aurora** as the signature texture, brand blue for product actions, coral for public conversion and rare warm accents, generous whitespace, **noticeably less text than the old app**, and cohesive scroll-linked motion.
 
 Feel targets: fromanother.love (palette), midu.design (motion + typography), raycast/xtract (polish).
 
@@ -87,7 +89,7 @@ Use these to make app screens feel like the landing without copying it literally
 3. **Tinted feature cards** to differentiate two-of-a-kind content: teal (`bg-surface-mint`) vs coral (`bg-primary-soft`), each with a status chip + `→` affordance (see landing "Two tracks").
 4. **Borderless dimmed cards** with `shadow-soft`, hover-lift (`hover:-translate-y-1.5 hover:shadow-lifted`).
 5. **Modal detail** (`ExpandableCard` pattern) instead of inline expand for "learn more."
-6. **Coral is the only primary.** Teal/coral/pale-blue are accents (e.g., numbered items `01/02/03`). Amber (`--yellow` legacy = `#F4B740`) only if you truly need a 4th accent.
+6. **Primary depends on surface.** Coral remains primary on marketing/public pages; brand blue is primary inside `.product-ui`. Teal means completion/software, navy means dark moments/research, and coral becomes a rare warm accent in authenticated screens. Amber (`--yellow` legacy = `#F4B740`) only if you truly need another semantic accent.
 7. **Restraint:** aurora and word-reveal are seasoning. One hero moment per screen, not five.
 
 ---

@@ -3,20 +3,29 @@ import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
   eyebrow?: string;
+  breadcrumbs?: ReactNode;
+  metadata?: ReactNode;
   title: string;
   description?: string;
   actions?: ReactNode;
   className?: string;
 }
 
-export function PageHeader({ eyebrow, title, description, actions, className }: PageHeaderProps) {
+export function PageHeader({ eyebrow, breadcrumbs, metadata, title, description, actions, className }: PageHeaderProps) {
   return (
     <div className={cn("flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between", className)}>
-      <div className="max-w-3xl space-y-3">
-        {eyebrow ? <p className="editorial-kicker">{eyebrow}</p> : null}
-        <div className="space-y-3">
-          <h1 className="font-display text-4xl leading-none text-ink sm:text-5xl">{title}</h1>
-          {description ? <p className="max-w-2xl text-base leading-7 text-ink-soft">{description}</p> : null}
+      <div className="max-w-3xl space-y-2.5">
+        {breadcrumbs}
+        {eyebrow ? (
+          <p className="flex items-center gap-2 font-serif text-lg italic text-ink-soft">
+            <span className="h-1.5 w-1.5 rounded-full bg-coral" aria-hidden="true" />
+            {eyebrow}
+          </p>
+        ) : null}
+        <div className="space-y-2.5">
+          <h1 className="font-display text-3xl font-semibold leading-[1.08] tracking-tight text-ink sm:text-[2.1rem]">{title}</h1>
+          {description ? <p className="max-w-2xl text-[15px] leading-6 text-ink-soft">{description}</p> : null}
+          {metadata ? <div className="flex flex-wrap items-center gap-2 text-xs text-ink-muted">{metadata}</div> : null}
         </div>
       </div>
       {actions ? <div className="shrink-0">{actions}</div> : null}
