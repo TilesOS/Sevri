@@ -98,12 +98,12 @@ const CONFIDENCE_LABEL: Record<string, string> = {
 type EvaluationHeadline = "Done" | "Drifted" | "Gap";
 
 function getEvaluationHeadline(evaluation: WorkEvaluation): EvaluationHeadline {
-  if (evaluation.ready_to_mark_complete) {
-    return "Done";
-  }
-
   if (evaluation.scope_assessment?.drifted) {
     return "Drifted";
+  }
+
+  if (evaluation.ready_to_mark_complete) {
+    return "Done";
   }
 
   return "Gap";
