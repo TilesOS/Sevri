@@ -297,13 +297,13 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
       : {};
   const milestones = normalizeMilestones(workspace.milestones ?? [], scheduleTimezone, roadmapPayload);
   const completedCount = milestones.filter((milestone) => milestone.completed).length;
-  const completionPercent = milestones.length === 0 ? 0 : Math.round((completedCount / milestones.length) * 100);
   const progress = getProjectProgressSummary({
     hasRoadmap: Boolean(workspace.roadmap),
     completedCount,
     totalMilestones: milestones.length,
     projectStatus: workspace.project.status,
   });
+  const completionPercent = progress.percent;
   const scheduledStartDate = workspace.roadmap?.scheduled_start_date ?? null;
   const scheduledEndDate = workspace.roadmap?.scheduled_end_date ?? null;
   const scheduleReady =

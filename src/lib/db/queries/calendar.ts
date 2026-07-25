@@ -44,8 +44,13 @@ export interface CalendarProjectView extends ProjectScheduleState {
 }
 
 export interface CalendarPageView {
+  /**
+   * The date the calendar opens on. The client re-derives this from the
+   * browser's own time zone on mount, so a UTC-side rollover never highlights
+   * tomorrow. There is no separate "default month": the calendar always opens
+   * on the month containing today.
+   */
   today: string;
-  defaultMonth: string;
   visibleProjectIds: string[];
   projects: CalendarProjectView[];
 }
@@ -208,10 +213,8 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
 
   const projectIds = (projects ?? []).map((project) => project.id);
   if (projectIds.length === 0) {
-    const today = getTodayDateString("UTC");
     return {
-      today,
-      defaultMonth: today,
+      today: getTodayDateString("UTC"),
       visibleProjectIds: [],
       projects: [],
     };
@@ -308,15 +311,10 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
       } satisfies CalendarProjectView;
     });
 
-  const fallbackToday = getTodayDateString("UTC");
-  const defaultMonth =
-    calendarProjects.find((project) => project.scheduleReady)?.scheduledStartDate ??
-    calendarProjects[0]?.selectedAt?.slice(0, 10) ??
-    fallbackToday;
-
+  // The calendar opens on the current month, not on whichever project happens to
+  // start first — a student arriving in July should see July, with today marked.
   return {
-    today: fallbackToday,
-    defaultMonth,
+    today: getTodayDateString("UTC"),
     visibleProjectIds: getVisibleProjectIds(calendarProjects),
     projects: calendarProjects,
   };

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { buildGenerationContext } from "@/lib/ai/generation-context";
 import { captureServerError } from "@/lib/sentry/server";
 import { getLatestProjectTrack } from "@/lib/db/queries/recommendations";
@@ -54,7 +55,7 @@ export async function POST(request: Request) {
 
       if (!rateLimit.allowed) {
         return NextResponse.json(
-          { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
+          { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
           { status: 429 },
         );
       }

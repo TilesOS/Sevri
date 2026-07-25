@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { toUserFacingError } from "@/lib/errors/user-messages";
 import type { ProjectGithubLinkView } from "@/lib/projects/workspace";
 import type { UserIntegrationPublicRow } from "@/lib/db/queries/github";
 import type { Plan } from "@/types/domain";
@@ -107,7 +108,7 @@ export function GithubOverviewCard({
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { code?: string; message?: string; error?: string };
-        setError(body.message ?? body.error ?? "Could not link repository.");
+        setError(toUserFacingError(body.message ?? body.error, "We couldn't link that repository."));
         return;
       }
       startTransition(() => router.refresh());

@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { toUserFacingError } from "@/lib/errors/user-messages";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -47,7 +48,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     });
 
     if (oauthError) {
-      setError(oauthError.message);
+      setError(toUserFacingError(oauthError.message, "We couldn't start that sign-in. Try again."));
       setIsLoading(false);
       setOauthProvider(null);
     }
@@ -64,7 +65,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     if (mode === "sign-in") {
       const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
       if (signInError) {
-        setError(signInError.message);
+        setError(toUserFacingError(signInError.message, "We couldn't sign you in. Try again."));
         setIsLoading(false);
         return;
       }
@@ -99,7 +100,7 @@ export function AuthForm({ mode }: AuthFormProps) {
     });
 
     if (signUpError) {
-      setError(signUpError.message);
+      setError(toUserFacingError(signUpError.message, "We couldn't create your account. Try again."));
       setIsLoading(false);
       return;
     }

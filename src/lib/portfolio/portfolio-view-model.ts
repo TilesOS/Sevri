@@ -16,6 +16,7 @@ import type {
   PortfolioStatusOverride,
   PortfolioSubmissionRow,
 } from "@/lib/db/queries/portfolio";
+import { getProjectProgressPercent } from "../projects/progress.ts";
 import { stripZeroWidth } from "../text/prose.ts";
 import type { ProjectTrack } from "@/types/domain";
 
@@ -218,13 +219,19 @@ function summarizePortfolioEntry(input: {
   };
 }
 
+/**
+ * Portfolio reports the same number as every other surface: it defers to the
+ * shared step-completion calculator rather than deriving its own percentage.
+ */
 function summarizeProgress(milestones: PortfolioMilestoneRow[]) {
   const totalMilestones = milestones.length;
   const completedMilestones = milestones.filter((milestone) => milestone.completed).length;
-  const completionPercent =
-    totalMilestones === 0 ? 0 : Math.round((completedMilestones / totalMilestones) * 100);
 
-  return { completedMilestones, totalMilestones, completionPercent };
+  return {
+    completedMilestones,
+    totalMilestones,
+    completionPercent: getProjectProgressPercent(completedMilestones, totalMilestones),
+  };
 }
 
 function mapByProjectId<T extends { project_id: string }>(rows: T[]) {

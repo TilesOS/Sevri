@@ -3,7 +3,7 @@ import { ArrowRight, Code2, FileText, Lightbulb, Sparkles } from "lucide-react";
 import { getRequiredUser } from "@/lib/auth/guard";
 import { resolveDisplayName } from "@/lib/auth/names";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getProjectsForDashboard } from "@/lib/db/queries/projects";
+import { getArchivedProjectsForDashboard, getProjectsForDashboard } from "@/lib/db/queries/projects";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getRecommendationGenerationCount, getTrackAvailability } from "@/lib/db/queries/recommendations";
 import { PLAN_LIMITS } from "@/lib/usage/limits";
@@ -14,12 +14,14 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
+import { ProjectArchiveActions } from "@/components/project/project-archive-actions";
 
 export default async function DashboardPage() {
   const user = await getRequiredUser();
   const supabase = await createServerSupabaseClient();
-  const [projects, plan, recommendationGenerations, trackAvailability, { data: profile }] = await Promise.all([
+  const [projects, archivedProjects, plan, recommendationGenerations, trackAvailability, { data: profile }] = await Promise.all([
     getProjectsForDashboard(user.id),
+    getArchivedProjectsForDashboard(user.id),
     getUserPlan(user.id),
     getRecommendationGenerationCount(user.id),
     getTrackAvailability(user.id),
@@ -143,6 +145,7 @@ export default async function DashboardPage() {
 
       <ProjectsSection
         projects={projects}
+        archivedProjects={archivedProjects}
         trackAvailability={trackAvailability}
       />
     </div>
@@ -160,12 +163,15 @@ function Metric({ label, value, detail, icon }: { label: string; value: string; 
 }
 
 type DashboardProject = Awaited<ReturnType<typeof getProjectsForDashboard>>[number];
+type ArchivedProject = Awaited<ReturnType<typeof getArchivedProjectsForDashboard>>[number];
 
 function ProjectsSection({
   projects,
+  archivedProjects,
   trackAvailability,
 }: {
   projects: DashboardProject[];
+  archivedProjects: ArchivedProject[];
   trackAvailability: {
     software: { hasIntake: boolean; recommendationCount: number };
     research: { hasIntake: boolean; recommendationCount: number };
@@ -206,7 +212,10 @@ function ProjectsSection({
                   </div>
                   <ProgressBar value={project.progress.percent} ariaLabel={`${project.title} progress`} />
                 </div>
-                <Button href={`/project/${project.id}`} variant="ghost" size="sm" trailingIcon={<ArrowRight className="h-4 w-4" />}>Open</Button>
+                <div className="flex flex-wrap items-center gap-1">
+                  <Button href={`/project/${project.id}`} variant="ghost" size="sm" trailingIcon={<ArrowRight className="h-4 w-4" />}>Open</Button>
+                  <ProjectArchiveActions projectId={project.id} projectTitle={project.title} archived={false} />
+                </div>
               </div>
             );
           })}
@@ -238,6 +247,41 @@ function ProjectsSection({
           })}
         </div>
       )}
+
+      {archivedProjects.length ? (
+        <details className="group border-t border-line/80">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-4 text-sm font-semibold text-ink-soft hover:text-ink sm:px-6 [&::-webkit-details-marker]:hidden">
+            <span>
+              Archived ({archivedProjects.length}) — hidden from your dashboard and calendar, nothing deleted
+            </span>
+            <span aria-hidden="true" className="text-xs text-ink-muted transition group-open:rotate-180">▾</span>
+          </summary>
+          <div className="divide-y divide-line/75 border-t border-line/80">
+            {archivedProjects.map((project) => {
+              const track = project.project_track === "research" ? "research" : "software";
+              return (
+                <div
+                  key={project.id}
+                  className="flex flex-wrap items-center justify-between gap-3 px-5 py-4 sm:px-6"
+                >
+                  <div className="flex min-w-0 items-center gap-3">
+                    <span className="text-sm font-medium text-ink-soft">{project.title}</span>
+                    <Badge tone="neutral">{getTrackLabel(track)}</Badge>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button href={`/project/${project.id}`} variant="ghost" size="sm">Open</Button>
+                    <ProjectArchiveActions
+                      projectId={project.id}
+                      projectTitle={project.title}
+                      archived
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </details>
+      ) : null}
     </Card>
   );
 }

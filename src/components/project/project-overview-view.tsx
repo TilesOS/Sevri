@@ -101,7 +101,7 @@ export function ProjectOverviewView({
 
       {/* Stat cards */}
       <div className="grid overflow-hidden rounded-xl border border-line bg-paper md:grid-cols-3">
-        <ProjectMetric label="Roadmap" value={`${workspace.milestones.length} milestones`} detail="Designed to keep momentum visible." />
+        <ProjectMetric label="Roadmap" value={`${workspace.milestones.length} steps`} detail="Designed to keep momentum visible." />
         <ProjectMetric label="Completed" value={`${workspace.completedCount}`} detail="Every completed step protects the finishable version." />
         <ProjectMetric label="Pacing" value={totalEstimatedRange(workspace.milestones)} detail="One concrete deliverable per step." />
       </div>

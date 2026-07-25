@@ -23,6 +23,7 @@ import { Input } from "@/components/ui/input";
 import { ReviewerFeedbackPanel } from "@/components/reviewer/reviewer-feedback-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { isRateLimited, toUserFacingError } from "@/lib/errors/user-messages";
 import { trackThemes } from "@/components/theme/theme-utils";
 import { hasStepGuidanceAccess } from "@/lib/usage/limits";
 import { safeRenderText } from "@/lib/ai/content-quality";
@@ -46,7 +47,7 @@ import type {
 
 interface RouteErrorBody {
   error?: string;
-  code?: "upgrade_required" | "previous_step_incomplete";
+  code?: "upgrade_required" | "previous_step_incomplete" | "rate_limited";
   feature?: "step_guidance";
   upgrade_url?: string;
   previous_step_number?: number;
@@ -225,6 +226,8 @@ export function ProjectStepWorkspace({
   const trackTheme = trackThemes[workspace.projectTrack];
   const [guidanceSlot, setGuidanceSlot] = useState<GuidanceSlot | null>(null);
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
+  /** Non-blocking note (e.g. a throttled refresh) shown above content that stays visible. */
+  const [guidanceNotice, setGuidanceNotice] = useState<string | null>(null);
   const [guidanceLock, setGuidanceLock] = useState<GuidanceLockState | null>(
     milestone.guidanceLocked ? { previousStepNumber: milestone.previousStepNumber } : null,
   );
@@ -251,6 +254,7 @@ export function ProjectStepWorkspace({
   useEffect(() => {
     setGuidanceSlot(null);
     setGuidanceError(null);
+    setGuidanceNotice(null);
     setGuidanceLock(milestone.guidanceLocked ? { previousStepNumber: milestone.previousStepNumber } : null);
     setSubmissionSlot({ status: "unloaded" });
     setEvaluationError(null);
@@ -355,7 +359,7 @@ export function ProjectStepWorkspace({
 
     if (!response.ok) {
       const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      setToggleError(body?.error ?? "Failed to update milestone.");
+      setToggleError(toUserFacingError(body?.error, "We couldn't save that change. Try again in a moment."));
       setIsCompletionPending(false);
       return;
     }
@@ -377,20 +381,32 @@ export function ProjectStepWorkspace({
 
     setIsGuidancePending(true);
     setGuidanceError(null);
+    setGuidanceNotice(null);
 
-    const response = await fetch(`/api/ai/milestones/${milestone.id}/guidance`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ refresh }),
-    });
+    type GuidanceResponseBody = {
+      guidance?: StepGuidance;
+      milestone_guidance_id?: string;
+      checklist_state?: Record<string, boolean>;
+      rate_limited?: boolean;
+      notice?: string;
+    } & RouteErrorBody;
 
-    const body = (await response.json().catch(() => null)) as
-      | ({
-          guidance?: StepGuidance;
-          milestone_guidance_id?: string;
-          checklist_state?: Record<string, boolean>;
-        } & RouteErrorBody)
-      | null;
+    let result: { response: Response; body: GuidanceResponseBody | null } | null = null;
+
+    try {
+      const response = await fetch(`/api/ai/milestones/${milestone.id}/guidance`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh }),
+      });
+      result = { response, body: await response.json().catch(() => null) };
+    } catch {
+      setGuidanceError("We couldn't reach Sevri. Check your connection and try again.");
+      setIsGuidancePending(false);
+      return;
+    }
+
+    const { response, body } = result;
 
     if (body?.code === "previous_step_incomplete") {
       setGuidanceSlot(null);
@@ -402,7 +418,13 @@ export function ProjectStepWorkspace({
 
     if (!response.ok || !body?.guidance || !body.milestone_guidance_id) {
       setGuidanceLock(null);
-      setGuidanceError(body?.error ?? "Failed to load step guidance.");
+      // A throttled request is not a failure — it is a "not right now". It never
+      // replaces stored coaching that is already on screen.
+      if (isRateLimited(response.status, body?.code)) {
+        setGuidanceNotice(toUserFacingError(body?.error, "You're moving fast — try again in about a minute."));
+      } else {
+        setGuidanceError(toUserFacingError(body?.error, "We couldn't load the coaching for this step."));
+      }
       setIsGuidancePending(false);
       return;
     }
@@ -413,6 +435,9 @@ export function ProjectStepWorkspace({
       guidanceId: body.milestone_guidance_id,
       checklistState: body.checklist_state ?? {},
     });
+    // Stored coaching served in place of a throttled refresh: the content below
+    // is real and stays visible; only the "this is not newly generated" note is new.
+    setGuidanceNotice(body.rate_limited ? body.notice ?? null : null);
     setIsGuidancePending(false);
   }
 
@@ -421,7 +446,7 @@ export function ProjectStepWorkspace({
     const body = (await response.json().catch(() => null)) as (MilestoneEvaluationResponse & RouteErrorBody) | null;
 
     if (!response.ok || !body) {
-      throw new Error(body?.error ?? "Failed to load saved evaluation.");
+      throw new Error(toUserFacingError(body?.error, "We couldn't load your saved feedback."));
     }
 
     return body;
@@ -434,9 +459,11 @@ export function ProjectStepWorkspace({
     try {
       const body = await fetchSubmissionState();
       setSubmissionSlot(buildSubmissionSlot(body));
-    } catch {
+    } catch (loadError) {
       setSubmissionSlot({ status: "empty" });
-      setEvaluationError("Network error. Failed to load saved evaluation.");
+      setEvaluationError(
+        toUserFacingError(loadError, "We couldn't load your saved feedback. Your work is still saved."),
+      );
     }
   }
 
@@ -461,7 +488,11 @@ export function ProjectStepWorkspace({
       const body = (await response.json().catch(() => null)) as (MilestoneEvaluationResponse & RouteErrorBody) | null;
 
       if (!response.ok || !body) {
-        setEvaluationError(body?.error ?? "Failed to save your submission.");
+        setEvaluationError(
+          isRateLimited(response.status, body?.code)
+            ? toUserFacingError(body?.error, "You're moving fast — try again in about a minute.")
+            : toUserFacingError(body?.error, "We couldn't save your submission. Try again in a moment."),
+        );
         try {
           const recovered = await fetchSubmissionState();
           setSubmissionSlot(buildSubmissionSlot(recovered));
@@ -483,7 +514,9 @@ export function ProjectStepWorkspace({
         setIsComposerOpen(false);
         setIsResubmitMode(false);
       } catch {
-        setEvaluationError("Network error. Your submission may have been saved - refresh and try again.");
+        setEvaluationError(
+          "We couldn't reach Sevri. Your submission may already be saved — refresh the page to check.",
+        );
       }
     }
 
@@ -592,6 +625,7 @@ export function ProjectStepWorkspace({
       ) : (
         <>
           {!isGuidanceLocked && guidanceError ? <Alert tone="danger">{guidanceError}</Alert> : null}
+          {!isGuidanceLocked && guidanceNotice ? <Alert tone="warning">{guidanceNotice}</Alert> : null}
 
           <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_21rem] xl:items-start">
           <Card padding="lg" elevation="soft" className="space-y-6">
@@ -720,7 +754,23 @@ export function ProjectStepWorkspace({
                   <div className="h-20 animate-pulse rounded-2xl bg-surface motion-reduce:animate-none" />
                 </div>
               ) : (
-                <p className="text-sm leading-6 text-ink-soft">Open guidance to load the current coaching for this step.</p>
+                <div className="space-y-3">
+                  <p className="text-sm leading-6 text-ink-soft">
+                    {guidanceError || guidanceNotice
+                      ? "The coaching for this step isn't on screen yet. Nothing you've saved is affected."
+                      : "This step doesn't have coaching yet. Load it to get a checklist and done-when criteria."}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    leadingIcon={<RefreshCw className="h-3.5 w-3.5" />}
+                    onClick={() => void fetchGuidance()}
+                    disabled={isGuidancePending}
+                  >
+                    {guidanceError || guidanceNotice ? "Try again" : "Load coaching"}
+                  </Button>
+                </div>
               )
             )}
           </Card>

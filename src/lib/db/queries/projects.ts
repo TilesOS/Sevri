@@ -24,6 +24,30 @@ export async function getActiveProject(userId: string) {
   return data;
 }
 
+/**
+ * Archived projects, for the restore list. They are deliberately excluded from
+ * every other dashboard and calendar query — archiving hides a project without
+ * deleting anything, so this is the only place they surface.
+ */
+export async function getArchivedProjectsForDashboard(userId: string) {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, title, project_track, selected_at")
+    .eq("user_id", userId)
+    .eq("status", "archived")
+    .order("selected_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch archived projects: ${error.message}`);
+  }
+
+  return (data ?? []).map((project) => ({
+    ...project,
+    project_track: project.project_track === "research" ? "research" : "software",
+  }));
+}
+
 export async function getProjectsForDashboard(userId: string) {
   const supabase = await createServerSupabaseClient();
   const { data: projects, error: projectError } = await supabase

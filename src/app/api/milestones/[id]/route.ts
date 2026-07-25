@@ -30,7 +30,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       .single();
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json(
+        { error: "We couldn't save that step change. Try again in a moment." },
+        { status: 400 },
+      );
     }
 
     const [{ data: project, error: projectError }, { data: milestones, error: milestonesError }] = await Promise.all([
@@ -39,7 +42,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
     ]);
 
     if (projectError || milestonesError) {
-      return NextResponse.json({ error: projectError?.message ?? milestonesError?.message }, { status: 400 });
+      return NextResponse.json(
+        { error: "We couldn't load this project. Try again in a moment." },
+        { status: 400 },
+      );
     }
 
     const allMilestonesComplete = (milestones ?? []).length > 0 && (milestones ?? []).every((milestone) => milestone.completed);
@@ -54,7 +60,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         .single();
 
       if (updateProjectError) {
-        return NextResponse.json({ error: updateProjectError.message }, { status: 400 });
+        return NextResponse.json(
+          { error: "We couldn't update the project status. Try again in a moment." },
+          { status: 400 },
+        );
       }
 
       projectStatus = updatedProject.status;
@@ -67,7 +76,10 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
         .single();
 
       if (updateProjectError) {
-        return NextResponse.json({ error: updateProjectError.message }, { status: 400 });
+        return NextResponse.json(
+          { error: "We couldn't update the project status. Try again in a moment." },
+          { status: 400 },
+        );
       }
 
       projectStatus = updatedProject.status;
@@ -75,6 +87,9 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
 
     return NextResponse.json({ ...data, project_status: projectStatus }, { status: 200 });
   } catch {
-    return NextResponse.json({ error: "Failed to update milestone" }, { status: 400 });
+    return NextResponse.json(
+      { error: "We couldn't save that step change. Try again in a moment." },
+      { status: 400 },
+    );
   }
 }

@@ -4,6 +4,7 @@ import { requireApiUser } from "@/lib/auth/api";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/feature-access";
 import { runWorkEvaluation, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
 import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
@@ -259,7 +260,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
       if (!rateLimit.allowed) {
         return NextResponse.json(
-          { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
+          { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
           { status: 429 },
         );
       }

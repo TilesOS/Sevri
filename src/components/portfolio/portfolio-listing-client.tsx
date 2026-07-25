@@ -179,8 +179,8 @@ function PortfolioEntryCard({ entry }: { entry: PortfolioListingEntryView }) {
 
       <ProgressBar
         value={entry.completionPercent}
-        label="Milestone progress"
-        helperText={`${entry.completedMilestones} of ${entry.totalMilestones} milestones complete`}
+        label="Project progress"
+        helperText={`${entry.completedMilestones} of ${entry.totalMilestones} project steps complete`}
       />
 
       <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-2">

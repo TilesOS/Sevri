@@ -12,6 +12,7 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getPlanLabel, getTrackLabel } from "@/components/theme/theme-utils";
 import { trackClientEvent } from "@/lib/analytics/events";
+import { RATE_LIMITED_MESSAGE, toUserFacingError } from "@/lib/errors/user-messages";
 import {
   getPortfolioCurationState,
   type PortfolioCurationState,
@@ -74,10 +75,10 @@ function responseMessage(body: ApiErrorBody | null, fallback: string) {
       .map((finding) => finding.message ?? finding.kind ?? "Review the public text.")
       .join(" ")}`;
   }
-  if (body?.code === "rate_limited" && body.resetAt) {
-    return `Rate limited. Try again after ${formatDate(body.resetAt)}.`;
+  if (body?.code === "rate_limited") {
+    return RATE_LIMITED_MESSAGE;
   }
-  return body?.error ?? fallback;
+  return toUserFacingError(body?.error, fallback);
 }
 
 function isLivePublicPage(publicPage: PortfolioEntryDetailView["publicPage"]) {
@@ -341,8 +342,8 @@ export function PortfolioDetailClient({
           />
           <ProgressBar
             value={view.completionPercent}
-            label="Milestone progress"
-            helperText={`${view.completedMilestones} of ${view.totalMilestones} milestones complete`}
+            label="Project progress"
+            helperText={`${view.completedMilestones} of ${view.totalMilestones} project steps complete`}
             className="[&_.text-ink]:text-paper [&_.text-ink-muted]:text-paper/55"
           />
         </div>

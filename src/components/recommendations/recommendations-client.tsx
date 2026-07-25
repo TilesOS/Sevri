@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { canGenerateRecommendations, getGenerationLimit, hasUnlimitedGenerations } from "@/lib/usage/limits";
@@ -9,6 +9,7 @@ import {
   RECOMMENDATION_CARD_PROSE_SPEC,
   RECOMMENDATION_CARD_TITLE_SPEC,
 } from "@/lib/ai/content-quality-specs";
+import { toUserFacingError } from "@/lib/errors/user-messages";
 import { asSentence } from "@/lib/text/prose";
 import { toStudentVoice } from "@/lib/text/student-voice";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
@@ -78,6 +79,21 @@ const difficultyLabel: Record<string, string> = {
   advanced: "Advanced",
 };
 
+interface SelectResponseBody {
+  project_id?: string;
+  project_title?: string;
+  project_track?: string;
+  code?: "duplicate_project";
+  error?: string;
+}
+
+/** An existing project for the option the student just picked again. */
+interface DuplicatePrompt {
+  recommendationId: string;
+  projectId: string;
+  projectTitle: string;
+}
+
 interface BoardState {
   track: ProjectTrack;
   items: RecommendationItem[];
@@ -112,6 +128,8 @@ export function RecommendationsClient({
   const [isSelectingId, setIsSelectingId] = useState<string | null>(null);
   const [pendingTrack, setPendingTrack] = useState<ProjectTrack | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [duplicatePrompt, setDuplicatePrompt] = useState<DuplicatePrompt | null>(null);
+  const selectionInFlightRef = useRef(false);
 
   // Adopt server data during render rather than in an effect, so a track switch
   // never commits a frame where the board and the header disagree. A locally
@@ -167,7 +185,9 @@ export function RecommendationsClient({
       if (typeof body?.generations_used === "number") {
         setLocalGenerationsUsed(body.generations_used);
       }
-      setError(body?.error ?? body?.details ?? "Failed to generate recommendations.");
+      setError(
+        toUserFacingError(body?.error ?? body?.details, "We couldn't generate an idea board. Try again in a moment."),
+      );
       setIsGenerating(false);
       return;
     }
@@ -181,24 +201,67 @@ export function RecommendationsClient({
     router.refresh();
   }
 
-  async function handleSelect(recommendationId: string) {
+  async function handleSelect(recommendationId: string, allowDuplicate = false) {
+    // A ref, not the state flag: two clicks inside one render pass would both
+    // read the pre-update state and fire two inserts.
+    if (selectionInFlightRef.current) {
+      return;
+    }
+    selectionInFlightRef.current = true;
+
     setError(null);
+    // Confirming a second copy keeps the prompt on screen so the button can show
+    // its pending state; a fresh pick clears whatever prompt was showing.
+    if (!allowDuplicate) {
+      setDuplicatePrompt(null);
+    }
     setIsSelectingId(recommendationId);
 
-    const response = await fetch("/api/recommendations/select", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ recommendation_id: recommendationId }),
-    });
-
-    const body = (await response.json().catch(() => null)) as { project_id?: string; error?: string } | null;
-
-    if (!response.ok || !body?.project_id) {
-      setError(body?.error ?? "Failed to select recommendation.");
+    function release() {
+      selectionInFlightRef.current = false;
       setIsSelectingId(null);
+    }
+
+    let result: { response: Response; body: SelectResponseBody | null } | null = null;
+
+    try {
+      const response = await fetch("/api/recommendations/select", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recommendation_id: recommendationId,
+          ...(allowDuplicate ? { allow_duplicate: true } : {}),
+        }),
+      });
+      result = { response, body: await response.json().catch(() => null) };
+    } catch {
+      setError("We couldn't reach Sevri. Check your connection and try again.");
+      release();
       return;
     }
 
+    const { response, body } = result;
+
+    // This idea already has a project. Starting a second copy is a real choice,
+    // so it is asked for explicitly rather than done silently.
+    if (response.status === 409 && body?.code === "duplicate_project" && body.project_id) {
+      setDuplicatePrompt({
+        recommendationId,
+        projectId: body.project_id,
+        projectTitle: body.project_title ?? "your existing project",
+      });
+      release();
+      return;
+    }
+
+    if (!response.ok || !body?.project_id) {
+      setError(toUserFacingError(body?.error, "We couldn't start that project. Try again in a moment."));
+      release();
+      return;
+    }
+
+    // The guard is deliberately left engaged here: the buttons stay disabled
+    // while the router navigates to the project that was just created.
     router.push(`/project/${body.project_id}`);
     router.refresh();
   }
@@ -206,6 +269,7 @@ export function RecommendationsClient({
   function switchTrack(track: ProjectTrack) {
     if (track === activeTrack) return;
     setError(null);
+    setDuplicatePrompt(null);
     setPendingTrack(track);
     startTrackTransition(() => {
       router.push(`/recommendations?track=${track}`);
@@ -225,7 +289,9 @@ export function RecommendationsClient({
     <div className="space-y-8">
       <div aria-live="polite" className="sr-only">
         {error ??
-          (isSwitchingTrack
+          (duplicatePrompt
+            ? `You already started this idea as ${duplicatePrompt.projectTitle}. Choose whether to open it or start another copy.`
+            : isSwitchingTrack
             ? `Loading the ${displayedTrack === "research" ? "research" : "software"} idea board.`
             : isGenerating
               ? "Generating recommendations."
@@ -298,6 +364,30 @@ export function RecommendationsClient({
       ) : null}
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
+
+      {duplicatePrompt ? (
+        <Alert tone="warning" heading="You already started this idea">
+          <div className="space-y-4">
+            <p>
+              &ldquo;{duplicatePrompt.projectTitle}&rdquo; came from this option. Opening it keeps your roadmap,
+              steps, and submitted work. Starting another copy gives you a second, separate project.
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <Button href={`/project/${duplicatePrompt.projectId}`}>Open the existing project</Button>
+              <Button
+                variant="outline"
+                onClick={() => handleSelect(duplicatePrompt.recommendationId, true)}
+                disabled={Boolean(isSelectingId)}
+              >
+                {isSelectingId === duplicatePrompt.recommendationId ? "Starting..." : "Start another copy"}
+              </Button>
+              <Button variant="ghost" onClick={() => setDuplicatePrompt(null)} disabled={Boolean(isSelectingId)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </Alert>
+      ) : null}
 
       {isSwitchingTrack ? null : !hasTrackIntake ? (
         <Card className="space-y-4" elevation="none">

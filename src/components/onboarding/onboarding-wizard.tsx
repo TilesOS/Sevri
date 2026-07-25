@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type FieldErrors } from "react-hook-form";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -16,26 +16,41 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { trackClientEvent } from "@/lib/analytics/events";
+import { toUserFacingError } from "@/lib/errors/user-messages";
 import { cn, toList } from "@/lib/utils";
 import { onboardingInputSchema, type OnboardingInput } from "@/lib/validators/onboarding";
 import type { LatestOnboardingAnswers } from "@/lib/db/queries/onboarding";
 import { studentStageOptions, targetOutcomeOptions } from "@/lib/validators/settings";
 
-const requiredTrackTextIssue = {
-  code: z.ZodIssueCode.too_small,
-  minimum: 2,
-  type: "string",
-  inclusive: true,
-  message: "String must contain at least 2 character(s)",
-} as const;
+function requiredTrackTextIssue(message: string) {
+  return {
+    code: z.ZodIssueCode.too_small,
+    minimum: 2,
+    type: "string",
+    inclusive: true,
+    message,
+  } as const;
+}
+
+/**
+ * Every required free-text answer is measured after trimming, so a field
+ * containing only spaces blocks Continue with a visible message instead of
+ * passing the client check and failing on the server. The server schema in
+ * src/lib/validators/onboarding.ts enforces the same rule independently.
+ */
+const requiredText = (message: string) => z.string().trim().min(2, message);
 
 const wizardSchema = z.object({
   project_track: z.enum(["software", "research"]),
-  student_stage: z.string().min(2),
+  student_stage: requiredText("Choose your student stage."),
   target_outcome: z.enum(["college_apps", "internship", "portfolio", "learning"]),
-  interests: z.string().min(2),
-  favorite_subjects: z.string().min(2),
-  weekly_time_available: z.coerce.number().int().min(1).max(80),
+  interests: requiredText("Add at least one interest — spaces alone won't work."),
+  favorite_subjects: requiredText("Add at least one subject — spaces alone won't work."),
+  weekly_time_available: z.coerce
+    .number({ invalid_type_error: "Enter how many hours a week you have." })
+    .int("Enter a whole number of hours.")
+    .min(1, "Enter at least 1 hour a week.")
+    .max(80, "Enter 80 hours a week or fewer."),
 
   coding_experience: z.enum(["beginner", "intermediate", "advanced"]),
   preferred_project_style: z.string(),
@@ -56,16 +71,18 @@ const wizardSchema = z.object({
   constraints: z.string().optional(),
   additional_context: z.string().optional(),
 }).superRefine((values, context) => {
-  if (values.project_track === "software" && values.preferred_project_style.length < 2) {
+  // Track-specific fields are only required for the track actually chosen, so
+  // they are validated here rather than on the field itself.
+  if (values.project_track === "software" && values.preferred_project_style.trim().length < 2) {
     context.addIssue({
-      ...requiredTrackTextIssue,
+      ...requiredTrackTextIssue("Describe the kind of software work you want to do."),
       path: ["preferred_project_style"],
     });
   }
 
-  if (values.project_track === "research" && values.preferred_research_domain.length < 2) {
+  if (values.project_track === "research" && values.preferred_research_domain.trim().length < 2) {
     context.addIssue({
-      ...requiredTrackTextIssue,
+      ...requiredTrackTextIssue("Name the research domain you want to work in."),
       path: ["preferred_research_domain"],
     });
   }
@@ -289,6 +306,7 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
   async function nextStep() {
     const isValid = await form.trigger(currentStep.fields);
     if (isValid) {
+      setError(null);
       setStep((current) => Math.min(current + 1, steps.length - 1));
     }
   }
@@ -353,7 +371,7 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
 
       if (!response.ok) {
         const body = (await response.json().catch(() => null)) as { error?: string; details?: string } | null;
-        setError(body?.details ?? body?.error ?? "Failed to save onboarding.");
+        setError(toUserFacingError(body?.error, "We couldn't save your answers. Try again in a moment."));
         setIsSubmitting(false);
         return;
       }
@@ -361,14 +379,31 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
       router.push(`/recommendations?track=${values.project_track}`);
       router.refresh();
     } catch (submitError) {
-      const message =
-        submitError instanceof Error ? submitError.message : "Failed to validate onboarding answers.";
-      setError(message);
+      setError(
+        toUserFacingError(submitError, "We couldn't check your answers. Review the form and try again."),
+      );
       setIsSubmitting(false);
     }
   }
 
-  const submitFinalStep = form.handleSubmit(onSubmit);
+  /**
+   * A required answer can only fail on a step the user has already left (they
+   * cleared it, or arrived with stored answers). Send them back to the step that
+   * owns the first offending field so the inline message is actually on screen.
+   */
+  function onInvalid(errors: FieldErrors<WizardValues>) {
+    const firstInvalidStep = steps.findIndex((stepItem) =>
+      stepItem.fields.some((field) => errors[field]),
+    );
+
+    if (firstInvalidStep >= 0 && firstInvalidStep !== step) {
+      setStep(firstInvalidStep);
+    }
+
+    setError("Some answers still need attention. Check the highlighted fields above.");
+  }
+
+  const submitFinalStep = form.handleSubmit(onSubmit, onInvalid);
   const progressValue = step + 1;
   const interestPreview = interests ? toList(interests).slice(0, 3).join(", ") : "Not set yet";
   const subjectPreview = favoriteSubjects ? toList(favoriteSubjects).slice(0, 3).join(", ") : "Not set yet";
