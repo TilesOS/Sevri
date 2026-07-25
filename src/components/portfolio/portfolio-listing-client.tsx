@@ -47,7 +47,9 @@ function matchesSearch(entry: PortfolioListingEntryView, query: string) {
 }
 
 export function PortfolioListingClient({ entries }: { entries: PortfolioListingEntryView[] }) {
-  const [activeTab, setActiveTab] = useState<PortfolioTab>("completed");
+  // "All" — a portfolio's first impression should be the work that exists, not
+  // an empty Completed tab beside a stat card counting nine projects.
+  const [activeTab, setActiveTab] = useState<PortfolioTab>("all");
   const [query, setQuery] = useState("");
 
   const counts = useMemo(() => {

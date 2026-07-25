@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { AuthForm } from "@/components/shared/auth-form";
+
+export const metadata: Metadata = {
+  title: "Create your account",
+  description: "Create a free Sevri account and start comparing project directions.",
+};
 
 export default function SignUpPage() {
   return (

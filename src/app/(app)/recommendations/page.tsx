@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getRequiredUser } from "@/lib/auth/guard";
 import {
   getLatestProjectTrack,
@@ -8,6 +9,10 @@ import {
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { RecommendationsClient } from "@/components/recommendations/recommendations-client";
 import type { ProjectTrack } from "@/types/domain";
+
+export const metadata: Metadata = {
+  title: "Project ideas",
+};
 
 function asProjectTrack(value: unknown): ProjectTrack {
   return value === "research" ? "research" : "software";

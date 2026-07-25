@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { SettingsForm } from "@/components/settings/settings-form";
 import { SettingsNav } from "@/components/settings/settings-nav";
@@ -7,6 +8,10 @@ import { getRequiredUser } from "@/lib/auth/guard";
 import { resolveStoredFullName } from "@/lib/auth/names";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { settingsProfileSchema, type SettingsProfileInput } from "@/lib/validators/settings";
+
+export const metadata: Metadata = {
+  title: "Settings",
+};
 
 export default async function SettingsPage() {
   const user = await getRequiredUser();

@@ -1,9 +1,34 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { PortfolioDetailClient } from "@/components/portfolio/portfolio-detail-client";
 import { trackEvent } from "@/lib/analytics/track";
-import { getRequiredStudentUser } from "@/lib/auth/guard";
+import { getAuthenticatedUser, getRequiredStudentUser } from "@/lib/auth/guard";
+import { WORKSPACE_LABELS } from "@/lib/copy/glossary";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getPortfolioEntryDetailView } from "@/lib/portfolio/portfolio-view";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ projectId: string }>;
+}): Promise<Metadata> {
+  const { projectId } = await params;
+  const fallback: Metadata = { title: WORKSPACE_LABELS.portfolio };
+
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return fallback;
+    }
+
+    const view = await getPortfolioEntryDetailView(projectId, user.id);
+    const title = view?.project.title?.trim();
+
+    return title ? { title: `${title} · ${WORKSPACE_LABELS.portfolio}` } : fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 async function trackPortfolioProjectOpened(input: {
   userId: string;

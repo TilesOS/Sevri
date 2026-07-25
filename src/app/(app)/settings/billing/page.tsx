@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { BillingActions } from "@/components/billing/billing-actions";
 import { BillingReturnSync } from "@/components/billing/billing-return-sync";
 import { BillingStaleSync } from "@/components/billing/billing-stale-sync";
@@ -11,6 +12,10 @@ import { hasVerifiedPlanAccess } from "@/lib/billing/entitlements";
 import { getBillingPeriodState, getSubscriptionStatusLabel } from "@/lib/billing/period";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { PLAN_LIMITS } from "@/lib/usage/limits";
+
+export const metadata: Metadata = {
+  title: "Billing",
+};
 
 function getCheckoutState(value: string | undefined) {
   if (value === "success" || value === "cancel") {

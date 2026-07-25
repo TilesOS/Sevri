@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 import { Container } from "@/components/shared/container";
+import { MAIN_CONTENT_ID, SkipToContent } from "@/components/shared/skip-to-content";
 import { Button } from "@/components/ui/button";
 
 interface ReviewerShellProps {
@@ -14,6 +15,7 @@ export function ReviewerShell({ children, displayName, email }: ReviewerShellPro
 
   return (
     <div className="product-ui flex min-h-screen flex-col">
+      <SkipToContent />
       <header className="sticky top-0 z-30 border-b border-line bg-paper/94 backdrop-blur">
         <Container className="flex h-16 items-center justify-between gap-4">
           <Link href="/reviewer" className="font-display text-2xl leading-none text-ink">
@@ -38,7 +40,7 @@ export function ReviewerShell({ children, displayName, email }: ReviewerShellPro
         </Container>
       </header>
 
-      <main className="flex-1 py-10 sm:py-14">
+      <main id={MAIN_CONTENT_ID} className="flex-1 py-10 sm:py-14">
         <Container>{children}</Container>
       </main>
 

@@ -87,7 +87,11 @@ export function SettingsForm({ email, initialValues }: SettingsFormProps) {
             <Input {...register("full_name")} placeholder="Alex Johnson" autoComplete="name" />
           </FormField>
 
-          <FormField label="Student stage" error={errors.student_stage?.message}>
+          <FormField
+            label="Student stage"
+            error={errors.student_stage?.message}
+            hint="Used by every track. Changing it here changes it everywhere Sevri describes you."
+          >
             <Select {...register("student_stage")} hasError={Boolean(errors.student_stage?.message)}>
               {studentStageOptions.map((option) => (
                 <option key={option.value} value={option.value}>

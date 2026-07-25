@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 
 interface ExpandableCardProps {
@@ -15,27 +15,79 @@ const EASE = [0.22, 1, 0.36, 1] as [number, number, number, number];
 
 export function ExpandableCard({ num, numColor, title, body, more }: ExpandableCardProps) {
   const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const headingId = useId();
+
+  const close = useCallback(() => setOpen(false), []);
 
   useEffect(() => {
     if (!open) return;
+
+    const panel = panelRef.current;
+    // Captured now so the cleanup restores focus to the card that was open, not
+    // to whatever the ref happens to hold when the cleanup runs.
+    const trigger = triggerRef.current;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+
+    // Focus moves into the dialog. Previously it stayed on the card behind the
+    // overlay, so a keyboard or screen-reader user was tabbing through a page
+    // they could no longer see.
+    //
+    // Focused directly rather than inside requestAnimationFrame: the node is
+    // already in the DOM by the time this effect runs, and rAF does not fire at
+    // all while the document is hidden — focus must not wait on a paint frame.
+    panel?.focus();
+
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        close();
+        return;
+      }
+
+      if (event.key !== "Tab" || !panel) return;
+
+      // Keep Tab inside the dialog while it owns the screen.
+      const focusable = panel.querySelectorAll<HTMLElement>(
+        'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (!first || !last) {
+        event.preventDefault();
+        panel.focus();
+        return;
+      }
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
     window.addEventListener("keydown", onKey);
+
     return () => {
       document.body.style.overflow = "";
       window.removeEventListener("keydown", onKey);
+      // Back to the card that opened it, so the reading position is not lost.
+      trigger?.focus();
     };
-  }, [open]);
-
-  const placeholderBg = `radial-gradient(120% 120% at 28% 24%, ${numColor}, transparent 62%), radial-gradient(120% 120% at 82% 84%, rgba(255,107,76,0.55), transparent 60%), #0B1E4D`;
+  }, [close, open]);
 
   return (
     <>
       {/* Trigger tile */}
       <motion.button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen(true)}
         aria-haspopup="dialog"
+        aria-expanded={open}
         whileHover={{ y: -6 }}
         whileTap={{ scale: 0.985 }}
         transition={{ type: "spring", stiffness: 320, damping: 26 }}
@@ -67,52 +119,61 @@ export function ExpandableCard({ num, numColor, title, body, more }: ExpandableC
             <button
               type="button"
               aria-label="Close"
-              onClick={() => setOpen(false)}
+              tabIndex={-1}
+              onClick={close}
               className="absolute inset-0 cursor-default bg-navy-deep/50 backdrop-blur-md"
             />
 
-            <motion.div
+            {/* The dialog semantics and the focus target live on a plain element:
+                the animated wrapper is an implementation detail, and focus
+                management must not depend on a library forwarding a ref. */}
+            <div
+              ref={panelRef}
               role="dialog"
               aria-modal="true"
-              aria-label={title}
-              initial={{ opacity: 0, scale: 0.96, y: 14 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.97, y: 8 }}
-              transition={{ duration: 0.38, ease: EASE }}
-              className="relative z-10 grid w-full max-w-4xl overflow-hidden rounded-3xl bg-paper shadow-lifted md:grid-cols-2"
+              aria-labelledby={headingId}
+              tabIndex={-1}
+              className="relative z-10 w-full max-w-xl focus-visible:outline-none"
             >
-              {/* Image placeholder — left */}
-              <div className="relative min-h-[200px] md:min-h-[440px]" style={{ background: placeholderBg }}>
-                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-cream/70">
-                  <ImageIcon />
-                  <span className="text-xs font-semibold uppercase tracking-[0.2em]">Visual placeholder</span>
-                </div>
-              </div>
+              <motion.div
+                initial={{ opacity: 0, scale: 0.96, y: 14 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: 8 }}
+                transition={{ duration: 0.38, ease: EASE }}
+                className="overflow-hidden rounded-3xl bg-paper shadow-lifted"
+              >
+                {/* A single accent rule instead of the old image pane. There is no
+                    product screenshot to show here yet, and shipping the words
+                    "VISUAL PLACEHOLDER" on the page that explains the product was
+                    worse than showing nothing. */}
+                <div className="h-1.5 w-full" style={{ background: numColor }} aria-hidden="true" />
 
-              {/* Text — right */}
-              <div className="flex flex-col p-8 sm:p-10">
-                <span className="font-display text-5xl leading-none" style={{ color: numColor }}>
-                  {num}
-                </span>
-                <h3 className="mt-4 font-display text-3xl leading-tight tracking-tight text-ink sm:text-4xl">
-                  {title}
-                </h3>
-                <div className="my-6 h-px w-full bg-line" />
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ink-muted">Info</p>
-                <p className="mt-3 text-base leading-7 text-ink-soft">
-                  {body} {more}
-                </p>
-              </div>
+                <div className="flex flex-col p-8 pr-14 sm:p-10 sm:pr-16">
+                  <span className="font-display text-5xl leading-none" style={{ color: numColor }}>
+                    {num}
+                  </span>
+                  <h3
+                    id={headingId}
+                    className="mt-4 font-display text-3xl leading-tight tracking-tight text-ink sm:text-4xl"
+                  >
+                    {title}
+                  </h3>
+                  <div className="my-6 h-px w-full bg-line" />
+                  <p className="text-base leading-7 text-ink-soft">
+                    {body} {more}
+                  </p>
+                </div>
+              </motion.div>
 
               <button
                 type="button"
                 aria-label="Close"
-                onClick={() => setOpen(false)}
-                className="absolute right-4 top-4 flex h-9 w-9 items-center justify-center rounded-full bg-ink/5 text-ink transition hover:bg-ink/10"
+                onClick={close}
+                className="absolute right-4 top-6 flex h-9 w-9 items-center justify-center rounded-full bg-ink/5 text-ink transition hover:bg-ink/10"
               >
                 <CloseIcon />
               </button>
-            </motion.div>
+            </div>
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -134,16 +195,6 @@ function CloseIcon() {
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
       <path d="M18 6 6 18" />
       <path d="m6 6 12 12" />
-    </svg>
-  );
-}
-
-function ImageIcon() {
-  return (
-    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <rect x="3" y="3" width="18" height="18" rx="2" />
-      <circle cx="9" cy="9" r="2" />
-      <path d="m21 15-4.5-4.5L6 21" />
     </svg>
   );
 }

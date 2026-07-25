@@ -21,9 +21,17 @@ const GRADIENTS = [
 
 export function ScopeMarquee({ items }: { items: ScopeCard[] }) {
   const reduce = useReducedMotion();
-  const numbered = items.map((it, i) => ({ ...it, n: i + 1, grad: GRADIENTS[i % GRADIENTS.length] }));
-  const ordered = [...numbered].reverse(); // 1 on the right, 5 on the left
-  const loop = [...ordered, ...ordered]; // duplicated for a seamless wrap
+  // Cards are numbered by their position in the strip, which is also their
+  // reading order. The previous version numbered them before reversing, so the
+  // row read 05 → 01 from left to right.
+  const ordered = items.map((it, i) => ({ ...it, grad: GRADIENTS[i % GRADIENTS.length] }));
+  // The second pass exists only so the scroll can wrap seamlessly. It is the
+  // same five cards, so assistive tech is told to ignore it rather than
+  // announcing ten value propositions.
+  const passes = [
+    { key: "primary", hidden: false },
+    { key: "clone", hidden: true },
+  ] as const;
 
   return (
     <div className="relative overflow-hidden">
@@ -32,19 +40,25 @@ export function ScopeMarquee({ items }: { items: ScopeCard[] }) {
         animate={reduce ? undefined : { x: ["-50%", "0%"] }}
         transition={{ duration: 34, ease: "linear", repeat: Infinity }}
       >
-        {loop.map((item, i) => (
-          <article
-            key={i}
-            className="relative mr-6 flex h-64 w-[78vw] shrink-0 flex-col justify-end overflow-hidden rounded-2xl p-7 ring-1 ring-inset ring-white/[0.08] sm:h-72 sm:w-[360px]"
-            style={{ background: item.grad }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/75 via-navy-deep/10 to-transparent" />
-            <div className="relative">
-              <span className="font-mono text-xs font-semibold text-cream/75">0{item.n}</span>
-              <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-cream/60">{item.k}</p>
-              <p className="mt-2 text-lg font-medium leading-7 text-cream">{item.v}</p>
-            </div>
-          </article>
+        {passes.map((pass) => (
+          <div key={pass.key} className="flex" aria-hidden={pass.hidden || undefined}>
+            {ordered.map((item, index) => (
+              <article
+                key={`${pass.key}-${item.k}`}
+                className="relative mr-6 flex h-64 w-[78vw] shrink-0 flex-col justify-end overflow-hidden rounded-2xl p-7 ring-1 ring-inset ring-white/[0.08] sm:h-72 sm:w-[360px]"
+                style={{ background: item.grad }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-t from-navy-deep/75 via-navy-deep/10 to-transparent" />
+                <div className="relative">
+                  <span className="font-mono text-xs font-semibold text-cream/75">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-cream/60">{item.k}</p>
+                  <p className="mt-2 text-lg font-medium leading-7 text-cream">{item.v}</p>
+                </div>
+              </article>
+            ))}
+          </div>
         ))}
       </motion.div>
     </div>

@@ -1,6 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getRequiredReviewerUser } from "@/lib/auth/guard";
+import { getAuthenticatedUser, getRequiredReviewerUser } from "@/lib/auth/guard";
 import {
   getMilestoneForReviewer,
   listMilestoneReviews,
@@ -11,8 +12,35 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { LeaveReviewPanel } from "@/components/reviewer/leave-review-panel";
+import { stepLabel } from "@/lib/copy/glossary";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; milestoneId: string }>;
+}): Promise<Metadata> {
+  const { milestoneId } = await params;
+
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return { title: "Step review" };
+    }
+
+    const data = await getMilestoneForReviewer(milestoneId, user.id);
+    if (!data) {
+      return { title: "Step review" };
+    }
+
+    return {
+      title: `${stepLabel(data.milestone.order_index + 1)} review · ${data.project.title}`,
+    };
+  } catch {
+    return { title: "Step review" };
+  }
+}
 
 function formatDate(value: string) {
   const date = new Date(value);

@@ -19,6 +19,8 @@ import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-form";
 import { GithubStepCommits } from "@/components/project/github-step-commits";
+import { useDockAutoCollapse, useDockClearance } from "@/components/project/submission-dock-chrome";
+import { Disclosure } from "@/components/ui/disclosure";
 import { Input } from "@/components/ui/input";
 import { ReviewerFeedbackPanel } from "@/components/reviewer/reviewer-feedback-panel";
 import { Textarea } from "@/components/ui/textarea";
@@ -248,6 +250,9 @@ export function ProjectStepWorkspace({
     pending: Record<number, boolean> | null;
   }>({ inFlight: false, pending: null });
   const isGuidanceLocked = guidanceLock !== null;
+  const { dockRef, clearance: dockClearance } = useDockClearance<HTMLDivElement>();
+  // Never gets out of the way mid-submission — the composer is the dock.
+  const { isCollapsed: isDockCollapsed, expand: expandDock } = useDockAutoCollapse(isComposerOpen);
   const guidanceLockMessage = getGuidanceLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
   const submissionLockMessage = getSubmissionLockMessage(guidanceLock?.previousStepNumber ?? milestone.previousStepNumber);
 
@@ -536,7 +541,13 @@ export function ProjectStepWorkspace({
     guidanceSlot?.guidance.checklist.findIndex((_item, index) => !checkedItems[index]) ?? -1;
 
   return (
-    <div className="space-y-7 pb-36">
+    // pb-36 is the pre-measurement floor; once the dock reports its real height
+    // the padding matches it exactly, so the bar can never sit over content at
+    // any zoom level or viewport height.
+    <div
+      className="space-y-7 pb-36"
+      style={dockClearance !== null ? { paddingBottom: dockClearance } : undefined}
+    >
       {currentFocus ? (
         <div className="sticky top-[4.25rem] z-30 flex items-start gap-3 rounded-2xl border border-primary/20 bg-primary-soft px-4 py-3 shadow-soft backdrop-blur-xl">
           <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-lg bg-primary text-primary-foreground">
@@ -562,7 +573,7 @@ export function ProjectStepWorkspace({
         }
         actions={
           <Button
-            href={`/projects/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}
+            href={`/project/${workspace.project.id}/focus?milestone=${encodeURIComponent(milestone.id)}`}
             leadingIcon={<Crosshair className="h-4 w-4" />}
           >
             Start focus block
@@ -714,12 +725,10 @@ export function ProjectStepWorkspace({
                   </ol>
                 </div>
 
-                <details className="group rounded-xl border border-line bg-paper px-4 py-3">
-                  <summary className="flex cursor-pointer list-none items-center justify-between gap-3 py-0.5 text-sm font-semibold text-ink [&::-webkit-details-marker]:hidden">
-                    Show step detail
-                    <span className="text-xs text-ink-muted transition group-open:rotate-180">▾</span>
-                  </summary>
-                  <div className="mt-5 space-y-5 border-t border-line pt-5">
+                {/* Shared Disclosure: it owns the Show/Hide label swap and the
+                    aria-controls wiring, so this page cannot drift from the rest. */}
+                <Disclosure title="Show step detail">
+                  <div className="space-y-5">
                     <div>
                       <p className="text-xs font-medium text-ink-muted">Coaching note</p>
                       <p className="mt-2 text-sm leading-6 text-ink-soft">
@@ -742,7 +751,7 @@ export function ProjectStepWorkspace({
                       description="Optional. Share what feels useful, too heavy, or missing."
                     />
                   </div>
-                </details>
+                </Disclosure>
               </>
             ) : (
               isGuidancePending ? (
@@ -851,6 +860,9 @@ export function ProjectStepWorkspace({
           </div>
 
           <SubmissionDock
+            dockRef={dockRef}
+            isCollapsed={isDockCollapsed}
+            onRequestExpand={expandDock}
             slot={submissionSlot}
             isOpen={isComposerOpen}
             isPending={isEvaluationPending}
@@ -992,6 +1004,9 @@ function SubmissionSummary({
 }
 
 function SubmissionDock({
+  dockRef,
+  isCollapsed,
+  onRequestExpand,
   slot,
   isOpen,
   isPending,
@@ -1008,6 +1023,9 @@ function SubmissionDock({
   githubImportEnabled,
   autoImportFromGithub,
 }: {
+  dockRef: (node: HTMLDivElement | null) => void;
+  isCollapsed: boolean;
+  onRequestExpand: () => void;
   slot: SubmissionSlot;
   isOpen: boolean;
   isPending: boolean;
@@ -1027,7 +1045,17 @@ function SubmissionDock({
   const summary = getSubmissionDockSummary(slot, isPending, actionsDisabled, lockedMessage);
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(44rem,calc(100vw-18rem))] lg:right-8">
+    <div
+      ref={dockRef}
+      onFocusCapture={isCollapsed ? onRequestExpand : undefined}
+      className={cn(
+        "fixed bottom-4 left-4 right-4 z-40 lg:left-auto lg:w-[min(44rem,calc(100vw-18rem))] lg:right-8",
+        // Narrow screens only: the dock steps aside while you read downward and
+        // comes back the moment you scroll up. Desktop has room and keeps it put.
+        "motion-safe:transition-transform motion-safe:duration-200 lg:translate-y-0",
+        isCollapsed && "translate-y-[calc(100%+1rem)] lg:translate-y-0",
+      )}
+    >
       {isOpen && !actionsDisabled ? (
         <Card padding="lg" elevation="lifted" className="mb-3 space-y-4 border-line bg-paper/95 backdrop-blur-xl">
           <div className="flex items-start justify-between gap-3">

@@ -39,6 +39,9 @@ import type { Plan, ProjectTrack } from "@/types/domain";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
+/** Chips a day cell shows before collapsing the rest behind a "+N more" control. */
+const VISIBLE_CHIPS_PER_DAY = 3;
+
 interface CalendarPageClientProps {
   initialData: CalendarPageView;
   plan: Plan;
@@ -395,8 +398,13 @@ function DayCell({
   return (
     <div
       className={cn(
-        "relative grid min-h-[4.75rem] grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2 border-b border-line px-3 py-2.5 text-left transition",
-        "sm:flex sm:min-h-[7.5rem] sm:flex-col sm:gap-2 sm:border-b-0 sm:border-r sm:border-t sm:px-2.5 sm:py-2.5 lg:min-h-[8rem]",
+        // overflow-hidden is the hard guarantee that nothing in this cell can be
+        // drawn over a neighbouring day, whatever a chip's label turns out to be.
+        "relative grid min-h-[4.75rem] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2 overflow-hidden border-b border-line px-3 py-2.5 text-left transition",
+        // sm:items-stretch matters: with the inherited `items-start` a column
+        // flex container sizes children to their content, so a long chip made the
+        // list wider than the cell and it spilled into the next day.
+        "sm:flex sm:min-h-[7.5rem] sm:flex-col sm:items-stretch sm:gap-2 sm:border-b-0 sm:border-r sm:border-t sm:px-2.5 sm:py-2.5 lg:min-h-[8rem]",
         isCurrentMonth ? "bg-paper" : "hidden bg-surface/45 text-ink-muted sm:flex",
         selected && "bg-primary-soft ring-1 ring-inset ring-primary/40",
         dropActive && "bg-teal/10 ring-1 ring-inset ring-teal-deep/30",
@@ -436,8 +444,8 @@ function DayCell({
         ) : null}
       </button>
 
-      <div className="min-w-0 space-y-1.5">
-        {items.slice(0, 3).map((item) => (
+      <div className="w-full min-w-0 space-y-1.5">
+        {items.slice(0, VISIBLE_CHIPS_PER_DAY).map((item) => (
           <button
             key={item.id}
             type="button"
@@ -457,7 +465,7 @@ function DayCell({
               onSelect(date);
             }}
             className={cn(
-              "w-full rounded-md border px-2 py-1.5 text-left text-[11px] font-medium leading-4 transition hover:border-line-strong",
+              "block w-full min-w-0 max-w-full overflow-hidden rounded-md border px-2 py-1.5 text-left text-[11px] font-medium leading-4 transition hover:border-line-strong",
               getStatusSurfaceClassName(item.status),
               item.itemType === "work_session" && item.completedAt && "opacity-60",
             )}
@@ -474,8 +482,16 @@ function DayCell({
             </p>
           </button>
         ))}
-        {items.length > 3 ? (
-          <p className="px-1 text-[10px] font-medium text-ink-muted">+{items.length - 3} more</p>
+        {items.length > VISIBLE_CHIPS_PER_DAY ? (
+          // Actionable rather than decorative: selecting the day opens the panel
+          // that lists every item, so nothing clipped here is unreachable.
+          <button
+            type="button"
+            onClick={() => onSelect(date)}
+            className="block w-full truncate rounded-md px-1 py-0.5 text-left text-[10px] font-medium text-ink-muted transition hover:text-ink"
+          >
+            +{items.length - VISIBLE_CHIPS_PER_DAY} more
+          </button>
         ) : null}
       </div>
     </div>
@@ -854,7 +870,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
       <PageHeader
         eyebrow="Project calendar"
         title="Turn your roadmap into a workable month."
-        description="Keep milestones, completion targets, and focused work blocks in one calm planning view. Moving a date here updates it everywhere without changing the estimate behind the step."
+        description="Keep steps, completion targets, and focused work blocks in one calm planning view. Moving a date here updates it everywhere without changing the estimate behind the step."
         metadata={
           <>
             <Badge tone="neutral">{getPlanLabel(plan)}</Badge>
@@ -1265,7 +1281,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                       <div className="mt-4 flex flex-wrap gap-3">
                         {item.itemType === "work_session" && !item.completedAt ? (
                           <Button
-                            href={`/projects/${item.projectId}/focus?session=${encodeURIComponent(item.id)}`}
+                            href={`/project/${item.projectId}/focus?session=${encodeURIComponent(item.id)}`}
                             size="sm"
                             className="rounded-lg"
                           >

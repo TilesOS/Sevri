@@ -9,6 +9,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 
 type AuthMode = "sign-in" | "sign-up";
 type OAuthProvider = "google" | "github";
@@ -17,14 +18,21 @@ interface AuthFormProps {
   mode: AuthMode;
 }
 
+/** Reasons /auth/callback can bounce someone here, in copy they can act on. */
+const CALLBACK_ERRORS: Record<string, string> = {
+  link_invalid: "That link isn't valid anymore. Sign in below, or request a new password reset link.",
+  link_missing: "That link was incomplete. Sign in below, or request a new password reset link.",
+};
+
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const callbackError = CALLBACK_ERRORS[searchParams.get("error") ?? ""] ?? null;
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [ageConsent, setAgeConsent] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(callbackError);
   const [isLoading, setIsLoading] = useState(false);
   const [oauthProvider, setOauthProvider] = useState<OAuthProvider | null>(null);
 
@@ -119,6 +127,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         <label className="flex items-start gap-3 text-sm leading-6 text-ink-soft">
           <input
             type="checkbox"
+            name="age_consent"
             checked={ageConsent}
             onChange={(event) => setAgeConsent(event.target.checked)}
             disabled={isLoading}
@@ -177,6 +186,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         <FormField label="Name" htmlFor="full_name" required>
           <Input
             id="full_name"
+            name="full_name"
             type="text"
             value={fullName}
             onChange={(event) => setFullName(event.target.value)}
@@ -190,25 +200,36 @@ export function AuthForm({ mode }: AuthFormProps) {
       <FormField label="Email" htmlFor="email" required>
         <Input
           id="email"
+          name="email"
           type="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
           placeholder="you@student.edu"
+          autoComplete="email"
           required
         />
       </FormField>
 
       <FormField label="Password" htmlFor="password" required>
-        <Input
+        <PasswordInput
           id="password"
-          type="password"
+          name="password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}
           placeholder="At least 8 characters"
+          autoComplete={mode === "sign-in" ? "current-password" : "new-password"}
           minLength={8}
           required
         />
       </FormField>
+
+      {mode === "sign-in" ? (
+        <p className="-mt-2 text-sm">
+          <Link href="/forgot-password" className="font-semibold text-coral hover:opacity-80">
+            Forgot your password?
+          </Link>
+        </p>
+      ) : null}
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 

@@ -79,6 +79,42 @@ const difficultyLabel: Record<string, string> = {
   advanced: "Advanced",
 };
 
+/**
+ * The four numbers every option is compared on, defined once so the card labels
+ * and the legend below the board can never describe them differently.
+ */
+const IDEA_METRICS: Array<{
+  key: string;
+  label: string;
+  explanation: string;
+  getValue: (item: RecommendationItem) => string;
+}> = [
+  {
+    key: "timeline",
+    label: "Timeline",
+    explanation: "Calendar weeks from first step to a finished first version.",
+    getValue: (item) => `${item.estimated_weeks} wks`,
+  },
+  {
+    key: "weekly",
+    label: "Weekly",
+    explanation: "Hours a week this pace assumes, based on the time you said you have.",
+    getValue: (item) => (item.weekly_hours ? `${item.weekly_hours} hrs` : "Flexible"),
+  },
+  {
+    key: "finishability",
+    label: "Finishability",
+    explanation: "How likely you are to finish this one, out of 10. Higher means safer scope.",
+    getValue: (item) => formatScore(item.finishability_score),
+  },
+  {
+    key: "impressiveness",
+    label: "Impressiveness",
+    explanation: "How much the finished work says about your judgment, out of 10.",
+    getValue: (item) => formatScore(item.impressiveness_score),
+  },
+];
+
 interface SelectResponseBody {
   project_id?: string;
   project_title?: string;
@@ -317,8 +353,17 @@ export function RecommendationsClient({
             </p>
           </div>
           <div className="p-4">
-            <p className="text-xs font-medium text-ink-muted">Track readiness</p>
-            <p className="mt-2 text-xl font-semibold text-ink">{hasTrackIntake ? "Ready to compare" : "Setup needed"}</p>
+            <p className="text-xs font-medium text-ink-muted">
+              {displayedTrack === "research" ? "Research onboarding" : "Software onboarding"}
+            </p>
+            {/* "Ready to compare" told students nothing about what was ready.
+                This says what the state is and, when it isn't done, what to do. */}
+            <p className="mt-2 text-xl font-semibold text-ink">{hasTrackIntake ? "Complete" : "Not done yet"}</p>
+            <p className="mt-1 text-xs leading-5 text-ink-muted">
+              {hasTrackIntake
+                ? "Your answers are saved, so boards for this track use them."
+                : "Answer this track's questions to generate a board."}
+            </p>
           </div>
       </div>
 
@@ -470,24 +515,18 @@ export function RecommendationsClient({
                     </p>
                   </div>
 
-                  {/* Metrics grid */}
+                  {/* Metrics grid. Labels are the whole word — "FINISH 8/10"
+                      and "WOW 6/10" left students guessing at the two numbers
+                      the comparison actually turns on. */}
                   <div className="meta-grid">
-                    <div>
-                      <div className="k">Timeline</div>
-                      <div className="v">{item.estimated_weeks} wks</div>
-                    </div>
-                    <div>
-                      <div className="k">Weekly</div>
-                      <div className="v">{item.weekly_hours ? `${item.weekly_hours} hrs` : "Flexible"}</div>
-                    </div>
-                    <div>
-                      <div className="k">Finish</div>
-                      <div className="v">{formatScore(item.finishability_score)}</div>
-                    </div>
-                    <div>
-                      <div className="k">Wow</div>
-                      <div className="v">{formatScore(item.impressiveness_score)}</div>
-                    </div>
+                    {IDEA_METRICS.map((metric) => (
+                      <div key={metric.key}>
+                        <div className="k" title={metric.explanation}>
+                          {metric.label}
+                        </div>
+                        <div className="v">{metric.getValue(item)}</div>
+                      </div>
+                    ))}
                   </div>
 
                   <Disclosure title="View full details" className="border-line bg-surface/40">
@@ -544,6 +583,8 @@ export function RecommendationsClient({
         </motion.div>
       )}
 
+      {!isSwitchingTrack && recommendations.length > 0 ? <IdeaMetricLegend /> : null}
+
       {!isSwitchingTrack && recommendations.length > 0 && recommendations[0]?.normalized_profile_id ? (
         <GenerationFeedbackForm
           stage="recommendations"
@@ -561,6 +602,32 @@ export function RecommendationsClient({
 function formatScore(value?: number) {
   if (typeof value !== "number") return "—";
   return `${value}/10`;
+}
+
+/**
+ * Spells out the four numbers on every card. The tooltips on the cards help a
+ * mouse user; this is the version everyone else gets, including on touch.
+ */
+function IdeaMetricLegend() {
+  return (
+    <Card tone="subtle" className="space-y-4" elevation="none">
+      <div className="space-y-1">
+        <p className="editorial-kicker">How to read these numbers</p>
+        <p className="text-sm leading-6 text-ink-soft">
+          Every option is scored the same four ways, so the trade-off between finishing and reaching is visible
+          before you commit.
+        </p>
+      </div>
+      <dl className="grid gap-4 sm:grid-cols-2">
+        {IDEA_METRICS.map((metric) => (
+          <div key={metric.key} className="space-y-1">
+            <dt className="text-sm font-semibold text-ink">{metric.label}</dt>
+            <dd className="text-sm leading-6 text-ink-soft">{metric.explanation}</dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
+  );
 }
 
 function getSoftwareDetails(payload?: Record<string, unknown>) {

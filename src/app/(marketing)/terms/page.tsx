@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
+
+export const metadata: Metadata = {
+  title: "Terms of Service",
+  description: "The agreement that governs your use of Sevri.",
+  openGraph: {
+    title: "Terms of Service — Sevri",
+    description: "The agreement that governs your use of Sevri.",
+  },
+};
 
 export default function TermsPage() {
   return (

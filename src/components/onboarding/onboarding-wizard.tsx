@@ -145,17 +145,26 @@ const targetOutcomeLabels = Object.fromEntries(
 const emptyInitialAnswers: LatestOnboardingAnswers = {
   answersByTrack: {},
   initialProjectTrack: "software",
+  profileStudentStage: null,
 };
 
 function listToFieldValue(items: string[] | undefined) {
   return items?.join(", ") ?? "";
 }
 
-function getWizardValuesFromStoredAnswers(answers: OnboardingInput): WizardValues {
+/**
+ * Stage is an identity fact, so the profile wins over whatever this track's
+ * intake happened to store. Without this, switching tracks silently changed the
+ * student's stage and the two tracks generated content about different people.
+ */
+function getWizardValuesFromStoredAnswers(
+  answers: OnboardingInput,
+  profileStudentStage: string | null,
+): WizardValues {
   const values: WizardValues = {
     ...sharedDefaults,
     project_track: answers.project_track,
-    student_stage: answers.student_stage,
+    student_stage: profileStudentStage ?? answers.student_stage,
     target_outcome: answers.target_outcome,
     interests: listToFieldValue(answers.interests),
     favorite_subjects: listToFieldValue(answers.favorite_subjects),
@@ -191,12 +200,13 @@ function getInitialWizardValues(initialAnswers: LatestOnboardingAnswers): Wizard
     initialAnswers.answersByTrack.research;
 
   if (storedAnswers) {
-    return getWizardValuesFromStoredAnswers(storedAnswers);
+    return getWizardValuesFromStoredAnswers(storedAnswers, initialAnswers.profileStudentStage);
   }
 
   return {
     ...sharedDefaults,
     project_track: preferredTrack,
+    student_stage: initialAnswers.profileStudentStage ?? sharedDefaults.student_stage,
   };
 }
 
@@ -274,10 +284,16 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
   const savedAnswerValues = useMemo(
     () => ({
       software: initialAnswers.answersByTrack.software
-        ? getWizardValuesFromStoredAnswers(initialAnswers.answersByTrack.software)
+        ? getWizardValuesFromStoredAnswers(
+            initialAnswers.answersByTrack.software,
+            initialAnswers.profileStudentStage,
+          )
         : null,
       research: initialAnswers.answersByTrack.research
-        ? getWizardValuesFromStoredAnswers(initialAnswers.answersByTrack.research)
+        ? getWizardValuesFromStoredAnswers(
+            initialAnswers.answersByTrack.research,
+            initialAnswers.profileStudentStage,
+          )
         : null,
     }),
     [initialAnswers],
@@ -317,13 +333,19 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
       return;
     }
 
-    form.reset(
-      savedAnswerValues[nextProjectTrack] ?? {
-        ...sharedDefaults,
-        ...currentValues,
-        project_track: nextProjectTrack,
-      },
-    );
+    const nextValues = savedAnswerValues[nextProjectTrack] ?? {
+      ...sharedDefaults,
+      ...currentValues,
+      project_track: nextProjectTrack,
+    };
+
+    form.reset({
+      ...nextValues,
+      // Track-specific answers are swapped; the student's stage is not one of
+      // them. Carrying it across keeps the answer on screen consistent with the
+      // profile that both tracks read from.
+      student_stage: currentValues.student_stage,
+    });
     setError(null);
     setStep(0);
   }
@@ -522,7 +544,11 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
 
               {currentStep.key === "profile" ? (
                 <>
-                  <FormField label="Student stage" required>
+                  <FormField
+                    label="Student stage"
+                    hint="This one lives on your profile, so it stays the same on both tracks. You can change it any time in Settings."
+                    required
+                  >
                     <Select {...form.register("student_stage")}>
                       {studentStageOptions.map((option) => (
                         <option key={option.value} value={option.value}>

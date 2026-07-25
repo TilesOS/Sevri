@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { PortfolioListingClient } from "@/components/portfolio/portfolio-listing-client";
 import { trackEvent } from "@/lib/analytics/track";
 import { getRequiredStudentUser } from "@/lib/auth/guard";
 import { getPortfolioView } from "@/lib/portfolio/portfolio-view";
+
+export const metadata: Metadata = {
+  title: "Portfolio",
+};
 
 async function trackPortfolioViewed(userId: string, entryCount: number, completedCount: number) {
   try {

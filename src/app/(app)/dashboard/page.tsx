@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { ArrowRight, Code2, FileText, Lightbulb, Sparkles } from "lucide-react";
 import { getRequiredUser } from "@/lib/auth/guard";
@@ -15,6 +16,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
 import { ProjectArchiveActions } from "@/components/project/project-archive-actions";
+
+export const metadata: Metadata = {
+  title: "Dashboard",
+};
 
 export default async function DashboardPage() {
   const user = await getRequiredUser();

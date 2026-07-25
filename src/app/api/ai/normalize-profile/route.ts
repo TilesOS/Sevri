@@ -5,7 +5,9 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { buildGenerationContext } from "@/lib/ai/generation-context";
+import { withProfileIdentity } from "@/lib/ai/intake-identity";
 import { captureServerError } from "@/lib/sentry/server";
+import { getProfileIdentity } from "@/lib/db/queries/profile";
 import { getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getGenerationVersion } from "@/lib/ai/client";
 import type { ProjectTrack } from "@/lib/validators/onboarding";
@@ -89,10 +91,15 @@ export async function POST(request: Request) {
 
     const projectTrack = asProjectTrack(intake.project_track);
 
+    stage = "resolve-profile-identity";
+    // Stage comes from the profile, not from this track's saved intake, so both
+    // tracks describe the same student.
+    const identity = await getProfileIdentity(user.id).catch(() => ({ studentStage: null }));
+
     stage = "build-context";
     const normalized = buildGenerationContext({
       projectTrack,
-      rawIntake: (intake.raw_answers_json as Record<string, unknown>) ?? {},
+      rawIntake: withProfileIdentity((intake.raw_answers_json as Record<string, unknown>) ?? {}, identity),
     });
 
     stage = "insert-context";

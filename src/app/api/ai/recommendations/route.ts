@@ -6,6 +6,8 @@ import { enforceRateLimit } from "@/lib/usage/rate-limit";
 import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { getRouteGenerationMetadata, getWeeklyHoursForStorage, runOptionsGeneration, runProfileNormalization } from "@/lib/ai/pipelines";
 import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
+import { withProfileIdentity } from "@/lib/ai/intake-identity";
+import { getProfileIdentity } from "@/lib/db/queries/profile";
 import { getRecommendationGenerationCount, getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getRecommendationFeedback } from "@/lib/db/queries/generation-feedback";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
@@ -115,10 +117,15 @@ export async function POST(request: Request) {
     stage = "load-feedback";
     const feedback = await getRecommendationFeedback(user.id, activeTrack);
 
+    stage = "resolve-profile-identity";
+    // Stage comes from the profile, not from this track's saved intake, so both
+    // tracks describe the same student.
+    const identity = await getProfileIdentity(user.id).catch(() => ({ studentStage: null }));
+
     stage = "normalize-context";
     const normalized = await runProfileNormalization({
       projectTrack: intake.project_track === "research" ? "research" : "software",
-      rawIntake: (intake.raw_answers_json as Record<string, unknown>) ?? {},
+      rawIntake: withProfileIdentity((intake.raw_answers_json as Record<string, unknown>) ?? {}, identity),
       feedback,
     });
     const context = normalized.parsed;

@@ -1,6 +1,7 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getRequiredReviewerUser } from "@/lib/auth/guard";
+import { getAuthenticatedUser, getRequiredReviewerUser } from "@/lib/auth/guard";
 import { getReviewerProjectWorkspace } from "@/lib/db/queries/reviewers";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -9,6 +10,28 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { getProjectProgressPercent } from "@/lib/projects/progress";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return { title: "Project review" };
+    }
+
+    const workspace = await getReviewerProjectWorkspace(id, user.id);
+    const title = workspace?.project?.title;
+
+    return { title: typeof title === "string" && title.trim() ? `Review · ${title.trim()}` : "Project review" };
+  } catch {
+    return { title: "Project review" };
+  }
+}
 
 type MilestoneRow = {
   id: string;

@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { Section } from "@/components/ui/section";
+
+export const metadata: Metadata = {
+  title: "Suggestions",
+  description: "Share product ideas, feature requests, and feedback with the Sevri team.",
+  openGraph: {
+    title: "Suggestions — Sevri",
+    description: "Share product ideas, feature requests, and feedback with the Sevri team.",
+  },
+};
 
 export default function SuggestionsPage() {
   return (

@@ -2,11 +2,34 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Archivo, Instrument_Serif, JetBrains_Mono, Schibsted_Grotesk } from "next/font/google";
 import { MotionProvider } from "@/components/theme/motion-provider";
+import { clientEnv } from "@/lib/env";
 import "@/app/globals.css";
 
+const SITE_DESCRIPTION = "Build an authentic project you can finish and showcase.";
+
 export const metadata: Metadata = {
-  title: "Sevri",
-  description: "Build an authentic project you can finish and showcase.",
+  metadataBase: new URL(clientEnv.NEXT_PUBLIC_SITE_URL),
+  // Routes set a bare title ("Pricing", "Step 4 · Photonics benchmark") and the
+  // template brands it, so every tab, history entry, and screen-reader
+  // announcement says where you are.
+  title: {
+    default: "Sevri — Build a project you'll actually finish",
+    template: "%s — Sevri",
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: "Sevri",
+  openGraph: {
+    type: "website",
+    siteName: "Sevri",
+    title: "Sevri — Build a project you'll actually finish",
+    description: SITE_DESCRIPTION,
+    url: "/",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Sevri — Build a project you'll actually finish",
+    description: SITE_DESCRIPTION,
+  },
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "any" },

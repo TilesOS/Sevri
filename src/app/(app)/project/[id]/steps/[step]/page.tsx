@@ -1,9 +1,23 @@
-import { notFound, redirect } from "next/navigation";
+import type { Metadata } from "next";
+import { notFound, redirect, unstable_rethrow } from "next/navigation";
 import { getRequiredUser } from "@/lib/auth/guard";
+import { stepLabel } from "@/lib/copy/glossary";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
+import { buildProjectMetadata } from "@/lib/projects/metadata";
 import { getProjectWorkspaceView } from "@/lib/projects/workspace";
 import { listMilestoneReviews } from "@/lib/db/queries/reviewers";
 import { ProjectStepWorkspace } from "@/components/project/project-step-workspace";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string; step: string }>;
+}): Promise<Metadata> {
+  const { id, step } = await params;
+  const stepNumber = Number.parseInt(step, 10);
+
+  return buildProjectMetadata(id, Number.isInteger(stepNumber) ? stepLabel(stepNumber) : "Step");
+}
 
 export default async function ProjectStepPage({
   params,
@@ -36,7 +50,8 @@ export default async function ProjectStepPage({
     const reviews = await listMilestoneReviews(milestone.id);
 
     return <ProjectStepWorkspace workspace={workspace} milestone={milestone} plan={plan} reviews={reviews} />;
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     notFound();
   }
 }

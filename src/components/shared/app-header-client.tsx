@@ -17,10 +17,14 @@ import {
   Settings,
   X,
 } from "lucide-react";
+import { ProjectNavProvider, useProjectNav } from "@/components/project/project-nav-context";
 import { ProjectSidebarSlot } from "@/components/project/project-sidebar-slot";
 import { Container } from "@/components/shared/container";
+import { MAIN_CONTENT_ID, SkipToContent } from "@/components/shared/skip-to-content";
 import { IconButton } from "@/components/ui/icon-button";
 import { PageTransition } from "@/components/ui/page-transition";
+import { getHeaderBreadcrumbs } from "@/lib/copy/breadcrumbs";
+import { NEW_PROJECT_CTA, WORKSPACE_LABELS } from "@/lib/copy/glossary";
 import { cn } from "@/lib/utils";
 
 type NavIcon = ComponentType<SVGProps<SVGSVGElement>>;
@@ -37,10 +41,10 @@ const workspaceLinks: Array<{
   icon: NavIcon;
   match: (pathname: string) => boolean;
 }> = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, match: (p) => p === "/dashboard" },
-  { href: "/recommendations", label: "Project ideas", icon: Lightbulb, match: (p) => p.startsWith("/recommendations") },
-  { href: "/calendar", label: "Calendar", icon: CalendarDays, match: (p) => p.startsWith("/calendar") },
-  { href: "/portfolio", label: "Portfolio", icon: BriefcaseBusiness, match: (p) => p.startsWith("/portfolio") },
+  { href: "/dashboard", label: WORKSPACE_LABELS.dashboard, icon: LayoutDashboard, match: (p) => p === "/dashboard" },
+  { href: "/recommendations", label: WORKSPACE_LABELS.ideas, icon: Lightbulb, match: (p) => p.startsWith("/recommendations") },
+  { href: "/calendar", label: WORKSPACE_LABELS.calendar, icon: CalendarDays, match: (p) => p.startsWith("/calendar") },
+  { href: "/portfolio", label: WORKSPACE_LABELS.portfolio, icon: BriefcaseBusiness, match: (p) => p.startsWith("/portfolio") },
 ];
 
 interface AppShellClientProps {
@@ -62,7 +66,6 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   const initials = getInitials(displayName);
 
   useEffect(() => setIsMobileDrawerOpen(false), [pathname]);
-  const headerBreadcrumbs = getHeaderBreadcrumbs(pathname);
 
   useEffect(() => {
     try {
@@ -168,7 +171,9 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
   };
 
   return (
+    <ProjectNavProvider pathname={pathname}>
     <div className="product-ui relative min-h-screen bg-canvas" style={shellStyle}>
+      <SkipToContent />
       {isMobileDrawerOpen ? (
         <button
           type="button"
@@ -280,36 +285,60 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
               <PanelLeft className="h-4 w-4" />
             </IconButton>
           ) : null}
-          <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
-            {headerBreadcrumbs.map((item, index) => (
-              <div
-                key={`${item.href}-${item.label}`}
-                className={cn("min-w-0 items-center gap-2", index === 0 ? "flex" : "hidden sm:flex")}
-              >
-                {index > 0 ? <span className="text-ink-muted">/</span> : null}
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "truncate transition-colors hover:text-ink",
-                    index === headerBreadcrumbs.length - 1
-                      ? "font-medium text-ink"
-                      : "text-ink-muted",
-                  )}
-                >
-                  {item.label}
-                </Link>
-              </div>
-            ))}
-          </nav>
+          <HeaderBreadcrumbs pathname={pathname} />
         </header>
-        <main className="min-h-[calc(100vh-3.5rem)] py-7 sm:py-10">
+        <main id={MAIN_CONTENT_ID} className="min-h-[calc(100vh-3.5rem)] py-7 sm:py-10">
           <Container>
             <PageTransition transitionKey={pathname}>{children}</PageTransition>
           </Container>
         </main>
       </div>
     </div>
+    </ProjectNavProvider>
+  );
+}
+
+/**
+ * The trail always ends with where you are, and on a project route it always
+ * names the project. Narrow screens drop the leading crumbs rather than the
+ * trailing ones — collapsing to "Dashboard" told a student nothing about the
+ * step they were reading.
+ */
+function HeaderBreadcrumbs({ pathname }: { pathname: string }) {
+  const projectNav = useProjectNav();
+  const projectTitle = projectNav.status === "ready" ? projectNav.payload.projectTitle : null;
+  const breadcrumbs = getHeaderBreadcrumbs(pathname, projectTitle);
+  const firstMobileIndex = breadcrumbs.findIndex((item) => item.showOnMobile);
+
+  return (
+    <nav className="flex min-w-0 items-center gap-2 text-sm" aria-label="Breadcrumb">
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" aria-hidden="true" />
+      {breadcrumbs.map((item, index) => (
+        <div
+          key={`${item.href}-${item.label}`}
+          className={cn("min-w-0 items-center gap-2", item.showOnMobile ? "flex" : "hidden sm:flex")}
+        >
+          {index > 0 ? (
+            <span
+              className={cn("text-ink-muted", index === firstMobileIndex && "hidden sm:inline")}
+              aria-hidden="true"
+            >
+              /
+            </span>
+          ) : null}
+          <Link
+            href={item.href}
+            className={cn(
+              "truncate transition-colors hover:text-ink",
+              index === breadcrumbs.length - 1 ? "font-medium text-ink" : "text-ink-muted",
+            )}
+            aria-current={index === breadcrumbs.length - 1 ? "page" : undefined}
+          >
+            {item.label}
+          </Link>
+        </div>
+      ))}
+    </nav>
   );
 }
 
@@ -327,9 +356,8 @@ function SidebarContent({
   onNavigate: () => void;
 }) {
   const profileMenuRef = useRef<HTMLDetailsElement>(null);
-  const isFocusRoute = /^\/projects\/[^/]+\/focus(?:\/|$)/.test(pathname);
-  const isProjectRoute =
-    (pathname.startsWith("/project/") || pathname.startsWith("/projects/")) && !isFocusRoute;
+  const isFocusRoute = /^\/project\/[^/]+\/focus(?:\/|$)/.test(pathname);
+  const isProjectRoute = pathname.startsWith("/project/") && !isFocusRoute;
 
   useEffect(() => {
     const closeOnOutsideClick = (event: PointerEvent) => {
@@ -339,8 +367,24 @@ function SidebarContent({
       }
     };
 
+    // Escape closes the menu and returns focus to the trigger, so a keyboard
+    // user is never stranded inside an open popover.
+    const closeOnEscape = (event: KeyboardEvent) => {
+      const menu = profileMenuRef.current;
+      if (event.key !== "Escape" || !menu?.open) {
+        return;
+      }
+
+      menu.open = false;
+      menu.querySelector<HTMLElement>("summary")?.focus();
+    };
+
     document.addEventListener("pointerdown", closeOnOutsideClick);
-    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutsideClick);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
   }, []);
 
   return (
@@ -355,7 +399,7 @@ function SidebarContent({
         onClick={onNavigate}
       >
         <Plus className="h-4 w-4" aria-hidden="true" />
-        <span>Explore a project</span>
+        <span>{NEW_PROJECT_CTA}</span>
       </Link>
 
       <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">Workspace</p>
@@ -381,7 +425,7 @@ function SidebarContent({
         <div className="mt-6 flex min-h-0 flex-1 flex-col border-t border-line pt-4">
           <p className="mb-2 px-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-ink-muted">Current project</p>
           <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-            <ProjectSidebarSlot pathname={pathname} />
+            <ProjectSidebarSlot />
           </div>
         </div>
       ) : <div className="flex-1" />}
@@ -431,51 +475,4 @@ function getInitials(displayName: string) {
 
 function clampSidebarWidth(width: number) {
   return Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, width));
-}
-
-function getPageLabel(pathname: string) {
-  if (pathname.startsWith("/project/") || pathname.startsWith("/projects/")) return "Project workspace";
-  if (pathname.startsWith("/recommendations")) return "Project ideas";
-  if (pathname.startsWith("/calendar")) return "Calendar";
-  if (pathname.startsWith("/portfolio")) return "Portfolio";
-  if (pathname.startsWith("/settings")) return "Settings";
-  if (pathname.startsWith("/onboarding")) return "Onboarding";
-  return "Dashboard";
-}
-
-function getHeaderBreadcrumbs(pathname: string) {
-  const projectMatch = pathname.match(/^\/projects?\/([^/]+)(?:\/(.*))?$/);
-  if (projectMatch) {
-    const [, projectId, remainder = ""] = projectMatch;
-    const breadcrumbs = [
-      { href: "/dashboard", label: "Dashboard" },
-      { href: `/project/${projectId}`, label: "Project workspace" },
-    ];
-    const stepMatch = remainder.match(/^steps\/(\d+)/);
-
-    if (stepMatch) {
-      breadcrumbs.push({
-        href: `/project/${projectId}/steps/${stepMatch[1]}`,
-        label: `Step ${stepMatch[1]}`,
-      });
-    } else if (remainder === "scope") {
-      breadcrumbs.push({ href: `/project/${projectId}/scope`, label: "Scope" });
-    } else if (remainder === "research-lens") {
-      breadcrumbs.push({ href: `/project/${projectId}/research-lens`, label: "Research lens" });
-    } else if (remainder === "pitch-kit") {
-      breadcrumbs.push({ href: `/project/${projectId}/pitch-kit`, label: "Pitch kit" });
-    } else if (remainder === "focus") {
-      breadcrumbs.push({ href: `/projects/${projectId}/focus`, label: "Focus" });
-    }
-
-    return breadcrumbs;
-  }
-
-  const pageLabel = getPageLabel(pathname);
-  if (pathname === "/dashboard") return [{ href: "/dashboard", label: pageLabel }];
-
-  return [
-    { href: "/dashboard", label: "Dashboard" },
-    { href: pathname, label: pageLabel },
-  ];
 }

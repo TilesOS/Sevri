@@ -41,7 +41,9 @@ export function ErrorState({
   }, []);
 
   return (
-    <Card padding="lg" className="space-y-6">
+    // data-page-enter-skip keeps this out of the page-enter fade: a boundary that
+    // arrives mid-animation is the reason error pages used to render invisible.
+    <Card padding="lg" className="space-y-6" data-page-enter-skip>
       <div ref={headingRef} tabIndex={-1}>
         <PageHeader eyebrow={eyebrow} title={title} description={description} className="border-b-0 pb-0" />
       </div>

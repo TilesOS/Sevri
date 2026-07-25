@@ -671,6 +671,20 @@ export interface Database {
           created_at?: string;
         };
       };
+      auth_rate_limits: {
+        Row: {
+          id: string;
+          bucket: string;
+          key_hash: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          bucket: string;
+          key_hash: string;
+          created_at?: string;
+        };
+      };
     };
     Functions: {
       create_milestone_submission_with_pending_evaluation: {

@@ -1,11 +1,22 @@
-import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { notFound, unstable_rethrow } from "next/navigation";
 import { getRequiredUser } from "@/lib/auth/guard";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
+import { buildProjectMetadata } from "@/lib/projects/metadata";
 import { getProjectWorkspaceView } from "@/lib/projects/workspace";
 import { listProjectInvitations, listProjectReviewers } from "@/lib/db/queries/reviewers";
 import { getUserIntegrationPublic } from "@/lib/db/queries/github";
 import { ProjectRoadmapEmptyState } from "@/components/project/project-roadmap-empty-state";
 import { ProjectOverviewView } from "@/components/project/project-overview-view";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+  return buildProjectMetadata(id);
+}
 
 export default async function ProjectOverviewPage({
   params,
@@ -48,7 +59,8 @@ export default async function ProjectOverviewPage({
         showScheduleRetryNotice={resolvedSearchParams?.schedule === "retry"}
       />
     );
-  } catch {
+  } catch (error) {
+    unstable_rethrow(error);
     notFound();
   }
 }
