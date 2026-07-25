@@ -123,6 +123,22 @@ export const RoadmapStepSchema = z.object({
   scope_guardrail: z.string().min(12).max(220),
 });
 
+export const PitchKitTalkingPointSchema = z.object({
+  label: z.string().min(4).max(40),
+  body: z.string().min(40).max(300),
+});
+
+/**
+ * How the student talks about the project. Generated with the roadmap rather than
+ * stitched from templates afterwards, so the prose is written as prose and gets
+ * the same schema validation and repair-retry as the rest of the roadmap.
+ */
+export const PitchKitSchema = z.object({
+  elevator_pitch: z.string().min(80).max(400),
+  resume_bullets: z.array(z.string().min(60).max(220)).min(2).max(3),
+  talking_points: z.array(PitchKitTalkingPointSchema).min(3).max(3),
+});
+
 export const RoadmapOverviewSchema = z.object({
   project_title: z.string().min(5).max(140),
   short_overview: z.string().min(40).max(320),
@@ -130,6 +146,17 @@ export const RoadmapOverviewSchema = z.object({
   steps: z.array(RoadmapStepSchema).min(4).max(6),
   cut_if_behind: z.array(z.string().min(8).max(180)).min(1).max(4),
   success_criteria: z.array(z.string().min(8).max(180)).min(2).max(5),
+  /**
+   * Optional on the shared type because roadmaps stored before the pitch kit
+   * existed are rehydrated through this schema. Generation requires it — see
+   * `RoadmapGenerationSchema`.
+   */
+  pitch_kit: PitchKitSchema.nullish(),
+});
+
+/** The roadmap contract for generation: the pitch kit is mandatory. */
+export const RoadmapGenerationSchema = RoadmapOverviewSchema.extend({
+  pitch_kit: PitchKitSchema,
 });
 
 export const StepGuidanceEmailSchema = z.object({
@@ -195,6 +222,8 @@ export type RecommendationBatch = z.infer<typeof RecommendationBatchSchema>;
 export type ProjectOption = z.infer<typeof ProjectOptionSchema>;
 export type RoadmapOverview = z.infer<typeof RoadmapOverviewSchema>;
 export type RoadmapStep = z.infer<typeof RoadmapStepSchema>;
+export type PitchKit = z.infer<typeof PitchKitSchema>;
+export type PitchKitTalkingPoint = z.infer<typeof PitchKitTalkingPointSchema>;
 export type StepGuidance = z.infer<typeof StepGuidanceSchema>;
 export type WorkEvaluation = z.infer<typeof WorkEvaluationSchema>;
 export type WorkPortfolioCuration = z.infer<typeof WorkPortfolioCurationSchema>;

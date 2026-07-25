@@ -16,6 +16,7 @@ import type {
   PortfolioStatusOverride,
   PortfolioSubmissionRow,
 } from "@/lib/db/queries/portfolio";
+import { stripZeroWidth } from "../text/prose.ts";
 import type { ProjectTrack } from "@/types/domain";
 
 export type PortfolioStatus = "in_progress" | "paused" | "completed" | "abandoned";
@@ -90,16 +91,18 @@ function cleanString(value: unknown): string {
   return typeof value === "string" ? value.trim() : "";
 }
 
-function compactText(value: string, maxLength: number): string {
-  const cleaned = value.replace(/\s+/g, " ").trim();
-  if (cleaned.length <= maxLength) {
-    return cleaned;
-  }
+/**
+ * Normalizes whitespace without shortening. Summaries are shown in full and
+ * clamped with CSS where the layout is tight — cutting the string here is what
+ * produced stored-looking fragments such as "Limitation: the study".
+ */
+function tidyText(value: string): string {
+  return stripZeroWidth(value).replace(/\s+/g, " ").trim();
+}
 
-  const sliced = cleaned.slice(0, maxLength - 1);
-  const lastSpace = sliced.lastIndexOf(" ");
-  const cut = lastSpace > 80 ? sliced.slice(0, lastSpace) : sliced;
-  return `${cut.trim()}...`;
+/** Commit subjects are a single line by construction; a long one is elided visually. */
+function firstLine(value: string): string {
+  return tidyText(value).split("\n")[0] ?? "";
 }
 
 function asProjectTrack(value: unknown): ProjectTrack {
@@ -195,17 +198,17 @@ function summarizePortfolioEntry(input: {
   const curationState = getPortfolioCurationState(input.entry);
   const curated = cleanString(input.entry.curated_summary);
   if (curated.length > 0) {
-    return { summary: compactText(curated, 320), hasCuratedSummary: true, curationState };
+    return { summary: tidyText(curated), hasCuratedSummary: true, curationState };
   }
 
   const roadmapOverview = cleanString(input.roadmap?.overview);
   if (roadmapOverview.length > 0) {
-    return { summary: compactText(roadmapOverview, 320), hasCuratedSummary: false, curationState };
+    return { summary: tidyText(roadmapOverview), hasCuratedSummary: false, curationState };
   }
 
   const recommendationSummary = cleanString(input.recommendation?.summary);
   if (recommendationSummary.length > 0) {
-    return { summary: compactText(recommendationSummary, 320), hasCuratedSummary: false, curationState };
+    return { summary: tidyText(recommendationSummary), hasCuratedSummary: false, curationState };
   }
 
   return {
@@ -281,7 +284,7 @@ function summarizeCachedCommits(cachedCommits: unknown): PortfolioCachedCommitVi
       return {
         sha,
         shortSha: cleanString(record.short_sha) || sha.slice(0, 7),
-        title: cleanString(record.message_title) || compactText(cleanString(record.message), 96),
+        title: cleanString(record.message_title) || firstLine(cleanString(record.message)),
         body: cleanString(record.message_body),
         authorName: getStringField(record.author, "name"),
         authoredAt: getStringField(record.author, "date") || null,

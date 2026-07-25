@@ -53,12 +53,6 @@ function formatDate(value: string | null | undefined) {
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
 
-function compactText(value: string | null | undefined, maxLength: number) {
-  const clean = (value ?? "").replace(/\s+/g, " ").trim();
-  if (clean.length <= maxLength) return clean;
-  return `${clean.slice(0, maxLength).trim()}...`;
-}
-
 function exportLabel(format: PortfolioExportFormat) {
   return format === "common_app_activity" ? "Common App activity" : "Resume bullets";
 }
@@ -446,9 +440,9 @@ export function PortfolioDetailClient({
 
             <div className="rounded-2xl border border-line bg-canvas p-4">
               <p className="editorial-kicker">Selected evidence preview</p>
-              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink-soft">
-                {selectedSubmission?.submission_text
-                  ? compactText(selectedSubmission.submission_text, 700)
+              <p className="mt-2 line-clamp-[12] whitespace-pre-wrap text-sm leading-6 text-ink-soft">
+                {selectedSubmission?.submission_text?.trim()
+                  ? selectedSubmission.submission_text
                   : "No submitted work is available for this project yet."}
               </p>
             </div>
@@ -561,7 +555,7 @@ function GithubActivitySnapshot({
               </div>
               <p className="mt-2 text-sm font-semibold text-ink">{commit.title}</p>
               {commit.body ? (
-                <p className="mt-1 text-xs leading-5 text-ink-soft">{compactText(commit.body, 180)}</p>
+                <p className="mt-1 line-clamp-3 text-xs leading-5 text-ink-soft">{commit.body}</p>
               ) : null}
             </li>
           ))}

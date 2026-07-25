@@ -7,9 +7,12 @@ export type QualityIssueKind =
   | "trailing_connector"
   | "dangling_colon_dash"
   | "language_contamination"
+  | "mixed_script"
+  | "zero_width"
   | "mojibake"
   | "unbalanced_pair"
   | "too_short"
+  | "too_long"
   | "too_long_title"
   | "empty_or_whitespace";
 
@@ -18,6 +21,13 @@ export type QualityFieldKind = "title" | "prose" | "bullet" | "list_item";
 export interface FieldSpec {
   kind: QualityFieldKind;
   minCredible?: number;
+  /**
+   * The schema's own length budget. Exceeding it is a repair signal sent back to
+   * the model — content is never cut to fit, because a cut produces exactly the
+   * mid-word artifacts this layer exists to prevent.
+   */
+  maxLength?: number;
+  /** Width the UI is laid out for. Over-long values are clamped with CSS, never sliced. */
   maxUiSafe?: number;
   language?: "en";
 }
@@ -65,8 +75,23 @@ const MOJIBAKE_PATTERNS: RegExp[] = [
   /[\u0080-\u009F]/u,
 ];
 
-const NON_LATIN_SCRIPT_PATTERN =
-  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Cyrillic}\p{Script=Arabic}\p{Script=Devanagari}\p{Script=Hebrew}\p{Script=Hangul}\p{Script=Thai}\p{Script=Greek}\p{Script=Bengali}\p{Script=Tamil}\p{Script=Gujarati}\p{Script=Telugu}\p{Script=Kannada}\p{Script=Malayalam}\p{Script=Gurmukhi}]{2,}/u;
+const NON_LATIN_SCRIPT_CLASS =
+  "\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Cyrillic}\\p{Script=Arabic}\\p{Script=Devanagari}\\p{Script=Hebrew}\\p{Script=Hangul}\\p{Script=Thai}\\p{Script=Bengali}\\p{Script=Tamil}\\p{Script=Gujarati}\\p{Script=Telugu}\\p{Script=Kannada}\\p{Script=Malayalam}\\p{Script=Gurmukhi}";
+
+const NON_LATIN_SCRIPT_PATTERN = new RegExp(`[${NON_LATIN_SCRIPT_CLASS}]{2,}`, "u");
+
+/**
+ * A single non-Latin character fused to a Latin word — the "alias別" artifact.
+ * A run of two is already caught above; this catches the one-character case that
+ * slipped through, which is the shape the model actually produced.
+ */
+const MIXED_SCRIPT_PATTERN = new RegExp(
+  `(?:[A-Za-z][${NON_LATIN_SCRIPT_CLASS}]|[${NON_LATIN_SCRIPT_CLASS}][A-Za-z])`,
+  "u",
+);
+
+/** Zero-width and soft-hyphen characters. They defeat every end-of-string check below. */
+const ZERO_WIDTH_PATTERN = /[\u200B-\u200D\u2060\uFEFF\u00AD]/gu;
 
 const URL_PATTERN = /https?:\/\/\S+/gu;
 const CODE_SPAN_PATTERN = /`[^`]*`/gu;
@@ -140,6 +165,19 @@ function hasMojibake(text: string): boolean {
   return MOJIBAKE_PATTERNS.some((pattern) => pattern.test(text));
 }
 
+function hasZeroWidth(text: string): boolean {
+  ZERO_WIDTH_PATTERN.lastIndex = 0;
+  return ZERO_WIDTH_PATTERN.test(text);
+}
+
+function stripZeroWidth(text: string): string {
+  return text.replace(ZERO_WIDTH_PATTERN, "");
+}
+
+function hasMixedScript(text: string, allowed: readonly string[]): boolean {
+  return MIXED_SCRIPT_PATTERN.test(stripForLanguageCheck(text, allowed));
+}
+
 function countUnbalancedPairs(text: string): number {
   let unbalanced = 0;
 
@@ -184,11 +222,28 @@ export function checkField(
     return issues;
   }
 
-  const value = rawValue;
+  const rawTrimmed = rawValue.trim();
+  if (rawTrimmed.length === 0) {
+    issues.push({ path, kind: "empty_or_whitespace", detail: "field is empty or whitespace-only" });
+    return issues;
+  }
+
+  if (hasZeroWidth(rawValue)) {
+    issues.push({
+      path,
+      kind: "zero_width",
+      detail: "contains zero-width or soft-hyphen characters",
+      snippet: snippetOf(rawValue),
+    });
+  }
+
+  // Every check below reads the end of the string, so the invisible characters
+  // have to come off first or a truncated field looks correctly terminated.
+  const value = stripZeroWidth(rawValue);
   const trimmed = value.trim();
 
   if (trimmed.length === 0) {
-    issues.push({ path, kind: "empty_or_whitespace", detail: "field is empty or whitespace-only" });
+    issues.push({ path, kind: "empty_or_whitespace", detail: "field is only invisible characters" });
     return issues;
   }
 
@@ -207,6 +262,13 @@ export function checkField(
       path,
       kind: "language_contamination",
       detail: "contains non-Latin script fragments in an English field",
+      snippet: snippetOf(value),
+    });
+  } else if ((spec.language ?? "en") === "en" && hasMixedScript(value, allowedTerms)) {
+    issues.push({
+      path,
+      kind: "mixed_script",
+      detail: "fuses a non-Latin character onto an English word",
       snippet: snippetOf(value),
     });
   }
@@ -265,11 +327,22 @@ export function checkField(
     });
   }
 
+  // Over-length is reported so the model rewrites the field shorter but complete.
+  // Nothing downstream cuts the value to fit.
+  if (spec.maxLength !== undefined && trimmed.length > spec.maxLength) {
+    issues.push({
+      path,
+      kind: "too_long",
+      detail: `field is ${trimmed.length} chars, budget is ${spec.maxLength} — rewrite it shorter, do not cut it`,
+      snippet: snippetOf(value),
+    });
+  }
+
   if (spec.kind === "title" && spec.maxUiSafe !== undefined && trimmed.length > spec.maxUiSafe) {
     issues.push({
       path,
       kind: "too_long_title",
-      detail: `title is ${trimmed.length} chars, UI budget is ${spec.maxUiSafe}`,
+      detail: `title is ${trimmed.length} chars, UI budget is ${spec.maxUiSafe} — write a shorter complete title`,
       snippet: snippetOf(value),
     });
   }
@@ -319,7 +392,12 @@ function walkStrings(
   }
 }
 
-const FATAL_KINDS: ReadonlySet<QualityIssueKind> = new Set(["mojibake", "unbalanced_pair"]);
+const FATAL_KINDS: ReadonlySet<QualityIssueKind> = new Set([
+  "mojibake",
+  "unbalanced_pair",
+  "mixed_script",
+  "language_contamination",
+]);
 
 export function checkStructured(
   parsed: unknown,
@@ -343,6 +421,25 @@ export function checkStructured(
   return { issues, severity };
 }
 
+/** What the model should do about each issue kind, in its own words. */
+const REPAIR_INSTRUCTIONS: Record<QualityIssueKind, string> = {
+  mid_word_end: "it stops mid-word — write the whole word",
+  missing_terminal_punct: "it does not end in terminal punctuation — finish the sentence",
+  trailing_connector: "it ends on a preposition or conjunction — finish the thought",
+  dangling_colon_dash: "it ends on a comma, colon, semicolon, or dash — finish the thought",
+  language_contamination: "it contains non-English script — write in English only",
+  mixed_script: "it fuses a non-Latin character onto an English word — remove it",
+  zero_width: "it contains invisible zero-width characters — remove them",
+  mojibake: "it contains broken characters — rewrite it cleanly",
+  unbalanced_pair: "it has an unmatched quote, bracket, or parenthesis — close it",
+  too_short: "it is too short to be useful — write a fuller version",
+  too_long:
+    "it exceeds its length budget — write a SHORTER but COMPLETE version, never a cut-off one",
+  too_long_title:
+    "the title is too long for the layout — write a shorter complete title, never a cut-off one",
+  empty_or_whitespace: "it is empty — write real content",
+};
+
 export function buildRepairFeedback(report: ContentQualityReport): string[] {
   if (report.issues.length === 0) return [];
   const grouped = new Map<string, QualityIssueKind[]>();
@@ -354,8 +451,9 @@ export function buildRepairFeedback(report: ContentQualityReport): string[] {
 
   const lines: string[] = [];
   for (const [path, kinds] of grouped) {
+    const instructions = kinds.map((kind) => REPAIR_INSTRUCTIONS[kind]).join("; ");
     lines.push(
-      `Field "${path}" has issues: ${kinds.join(", ")}. Rewrite this field as a complete thought ending in terminal punctuation, in English, with no mojibake or truncation.`,
+      `Field "${path}": ${instructions}. Rewrite the whole field as one complete thought in English.`,
     );
   }
 
@@ -488,6 +586,11 @@ export function safeRenderText(
   let text = rawValue;
   let degraded = false;
 
+  if (hasZeroWidth(text)) {
+    text = stripZeroWidth(text);
+    degraded = true;
+  }
+
   if (hasMojibake(text)) {
     text = stripMojibake(text);
     degraded = true;
@@ -525,18 +628,15 @@ export function safeRenderText(
         degraded = true;
       } else if (text.length > 0) {
         // No sentence boundary found — append a period to close the phrase.
-        text = `${text.replace(/[,;:-\u2013\u2014]+$/u, "").trim()}.`;
+        // The hyphen is escaped: unescaped it forms a ":" to en-dash range, which
+        // swallows letters and turned "\u2026the study" into "\u2026the".
+        text = `${text.replace(/[,;:\-\u2013\u2014]+$/u, "").trim()}.`;
         degraded = true;
       }
     }
   }
 
-  if (spec.kind === "title" && spec.maxUiSafe !== undefined && text.length > spec.maxUiSafe) {
-    const sliced = text.slice(0, spec.maxUiSafe);
-    const lastSpace = sliced.lastIndexOf(" ");
-    text = (lastSpace > 0 ? sliced.slice(0, lastSpace) : sliced).trim();
-    degraded = true;
-  }
-
+  // A long title is returned in full. Cutting it here is what produced titles
+  // like "...waveguides to identify underexploit"; the UI clamps with CSS instead.
   return { text, degraded };
 }

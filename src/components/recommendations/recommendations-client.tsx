@@ -9,6 +9,8 @@ import {
   RECOMMENDATION_CARD_PROSE_SPEC,
   RECOMMENDATION_CARD_TITLE_SPEC,
 } from "@/lib/ai/content-quality-specs";
+import { asSentence } from "@/lib/text/prose";
+import { toStudentVoice } from "@/lib/text/student-voice";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -414,8 +416,10 @@ export function RecommendationsClient({
                       </div>
                       {item.authenticity_note ? (
                         <div>
-                          <p className="text-xs font-medium text-ink-muted">Authenticity note</p>
-                          <p className="mt-1 text-sm leading-6 text-ink-soft">{item.authenticity_note}</p>
+                          <p className="text-xs font-medium text-ink-muted">Why this stays yours</p>
+                          <p className="mt-1 text-sm leading-6 text-ink-soft">
+                            {asSentence(toStudentVoice(item.authenticity_note))}
+                          </p>
                         </div>
                       ) : null}
                       {item.skills_demonstrated && item.skills_demonstrated.length ? (

@@ -1,3 +1,4 @@
+import { Alert } from "@/components/ui/alert";
 import { Card } from "@/components/ui/card";
 import { ReadmeDiffSection } from "@/components/project/readme-diff-section";
 import { PageHeader } from "@/components/ui/page-header";
@@ -20,6 +21,13 @@ export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspace
 
       {showReadmeDiff ? (
         <ReadmeDiffSection cachedReadme={cachedReadme} readmeDraft={readmeDraft} />
+      ) : null}
+
+      {workspace.pitchKit.isDraft ? (
+        <Alert tone="info" heading="Draft — refine the wording before you use it.">
+          This pitch kit was assembled from your project&apos;s scope rather than written for you. It is
+          accurate, but read it aloud and put it in your own words first.
+        </Alert>
       ) : null}
 
       {workspace.elevatorPitch ? (

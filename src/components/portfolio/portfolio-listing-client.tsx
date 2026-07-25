@@ -173,7 +173,8 @@ function PortfolioEntryCard({ entry }: { entry: PortfolioListingEntryView }) {
 
       <div className="space-y-3">
         <h2 className="text-2xl font-semibold text-ink">{entry.project.title}</h2>
-        <p className="text-sm leading-6 text-ink-soft">{entry.summary}</p>
+        {/* Clamped visually rather than cut, so the stored summary stays whole. */}
+        <p className="line-clamp-4 text-sm leading-6 text-ink-soft">{entry.summary}</p>
       </div>
 
       <ProgressBar

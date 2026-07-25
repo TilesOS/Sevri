@@ -7,10 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "node scripts/run-eslint.cjs",
-    "test:unit": "node --experimental-strip-types --test --test-concurrency=1 --test-isolation=none src/lib/projects/step-guidance-lock.test.ts src/lib/projects/progress.test.ts src/lib/projects/output-metrics.test.ts src/lib/projects/latest-submission.test.ts src/lib/portfolio/portfolio-view-model.test.ts src/lib/usage/limits.test.ts src/lib/billing/period.test.ts src/lib/ai/content-quality.test.ts src/lib/ai/content-quality-specs.test.ts src/lib/ai/pipelines-quality.test.ts src/lib/calendar/deadline-extension.test.ts src/lib/calendar/estimates.test.ts src/lib/calendar/schedule.test.ts src/lib/calendar/urgency.test.ts src/lib/calendar/export.test.ts src/lib/portfolio/safety/safety.test.ts",
+    "test:unit": "node --experimental-strip-types --test --test-concurrency=1 --test-isolation=none src/lib/projects/step-guidance-lock.test.ts src/lib/projects/progress.test.ts src/lib/projects/output-metrics.test.ts src/lib/projects/latest-submission.test.ts src/lib/portfolio/portfolio-view-model.test.ts src/lib/usage/limits.test.ts src/lib/billing/period.test.ts src/lib/ai/content-quality.test.ts src/lib/ai/content-quality-specs.test.ts src/lib/ai/pipelines-quality.test.ts src/lib/calendar/deadline-extension.test.ts src/lib/calendar/estimates.test.ts src/lib/calendar/schedule.test.ts src/lib/calendar/urgency.test.ts src/lib/calendar/export.test.ts src/lib/portfolio/safety/safety.test.ts src/lib/text/prose.test.ts src/lib/text/content-lint.test.ts src/lib/text/student-voice.test.ts src/lib/projects/pitch-kit.test.ts src/lib/ai/storage-copy.test.ts",
     "typecheck": "tsc --noEmit",
     "benchmark:ai": "node -r tsconfig-paths/register node_modules/jiti/bin/jiti.js scripts/benchmark-generation.ts",
-    "billing:reconcile": "node -r tsconfig-paths/register node_modules/jiti/bin/jiti.js scripts/reconcile-subscriptions.ts"
+    "billing:reconcile": "node -r tsconfig-paths/register node_modules/jiti/bin/jiti.js scripts/reconcile-subscriptions.ts",
+    "audit:content": "node -r tsconfig-paths/register node_modules/jiti/bin/jiti.js scripts/audit-generated-content.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^4.1.0",

@@ -11,6 +11,8 @@ import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { canGenerateRecommendations, getGenerationLimit } from "@/lib/usage/limits";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
+import { asSentence } from "@/lib/text/prose";
+import { toStudentVoice } from "@/lib/text/student-voice";
 
 export const runtime = "nodejs";
 
@@ -166,7 +168,9 @@ export async function POST(request: Request) {
       tools_needed: recommendation.tools_needed,
       impressiveness_score: recommendation.impressiveness_score,
       finishability_score: recommendation.finishability_score,
-      authenticity_note: context.summary,
+      // Shown on the idea board, so it is stored addressed to the student rather
+      // than as the pipeline-facing third-person summary.
+      authenticity_note: asSentence(toStudentVoice(context.summary)),
       track_payload_json: recommendation.track_payload_json,
       raw_model_output_json: {
         recommendation,

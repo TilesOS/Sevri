@@ -1,4 +1,5 @@
 import {
+  PitchKitSchema,
   ResearchProjectOptionSchema,
   RoadmapOverviewSchema,
   SoftwareProjectOptionSchema,
@@ -6,7 +7,16 @@ import {
   type ProjectOption,
   type RoadmapOverview,
   type RoadmapStep,
-} from "@/lib/ai/schemas";
+} from "./schemas.ts";
+import {
+  composePitchKitDraft,
+  composeScopeStatement,
+  formatTalkingPoint,
+  isUsableStoredCopy,
+  isUsableStoredCopyList,
+  toDeferralList,
+  type PitchKitContent,
+} from "../projects/pitch-kit.ts";
 
 interface StoredRecommendationRow {
   id: string;
@@ -43,71 +53,45 @@ function coerceDifficulty(value: unknown) {
   return "beginner";
 }
 
-function normalizeSentence(value: string) {
-  return value.replace(/\s+/g, " ").trim();
+function isGeneratedPitchKitUsable(pitchKit: NonNullable<RoadmapOverview["pitch_kit"]>): boolean {
+  return (
+    isUsableStoredCopy(pitchKit.elevator_pitch) &&
+    isUsableStoredCopyList(pitchKit.resume_bullets) &&
+    isUsableStoredCopyList(pitchKit.talking_points.map((point) => formatTalkingPoint(point)))
+  );
 }
 
-function clampSentence(value: string, maxLength = 150) {
-  const normalized = normalizeSentence(value);
-  if (normalized.length <= maxLength) {
-    return normalized;
-  }
-
-  const truncated = normalized.slice(0, maxLength);
-  const lastSpace = truncated.lastIndexOf(" ");
-  const safe = lastSpace > 80 ? truncated.slice(0, lastSpace) : truncated;
-  return `${safe.trimEnd()}...`;
-}
-
-function firstSentence(value: string, fallback: string, maxLength = 150) {
-  const normalized = normalizeSentence(value);
-  if (!normalized) {
-    return fallback;
-  }
-
-  const match = normalized.match(/^(.*?[.!?])(?:\s|$)/);
-  const sentence = match ? match[1] : normalized.split(";")[0] ?? normalized;
-  return clampSentence(sentence, maxLength);
-}
-
-function trimTrailingPeriod(value: string) {
-  return value.replace(/[.?!]+$/, "").trim();
-}
-
-function buildInterviewTalkingPoints(input: {
+/**
+ * The pitch kit written by the model during roadmap generation, or a
+ * deterministic draft when the roadmap predates the schema field or the
+ * generated copy does not read cleanly. Drafts are flagged so the workspace can
+ * label them.
+ */
+function resolvePitchKit(input: {
   context: GenerationContext;
   selectedOption: ProjectOption;
   roadmap: RoadmapOverview;
-}) {
-  if (input.selectedOption.project_track === "research") {
-    const seed = input.selectedOption.track_payload_json;
-    const evidencePlan = trimTrailingPeriod(seed.evidence_plan);
-    const methodology = trimTrailingPeriod(seed.methodology);
-    const researchQuestion = trimTrailingPeriod(seed.research_question);
-
-    return [
-      `Why this project: ${firstSentence(
-        input.selectedOption.why_it_fits,
-        "It aligns with the student's domain interests and gives them a believable question to own.",
-      )}`,
-      `What it does: It investigates ${researchQuestion.toLowerCase()} using ${methodology.toLowerCase()} and a bounded evidence plan.`,
-      `Broader implications: It turns a broad question into evidence people can actually discuss, using ${evidencePlan.toLowerCase()} instead of vague assumptions.`,
-    ];
+}): PitchKitContent {
+  const generated = input.roadmap.pitch_kit;
+  // A generated kit that still trips the lint after its repair retries is
+  // replaced by the deterministic draft, so broken prose is never written.
+  if (generated && isGeneratedPitchKitUsable(generated)) {
+    return {
+      elevatorPitch: generated.elevator_pitch,
+      resumeBullets: generated.resume_bullets,
+      talkingPoints: generated.talking_points,
+      isDraft: false,
+    };
   }
 
-  const seed = input.selectedOption.track_payload_json;
-  const targetUser = trimTrailingPeriod(seed.target_user);
-  const coreWorkflow = trimTrailingPeriod(seed.core_workflow);
-  const problemStatement = trimTrailingPeriod(seed.problem_statement);
-
-  return [
-    `Why this project: ${firstSentence(
-      input.selectedOption.why_it_fits,
-      "It matches the student's background, constraints, and the kind of proof they want to show.",
-    )}`,
-    `What it does: It gives ${targetUser.toLowerCase()} a focused way to ${coreWorkflow.toLowerCase()}.`,
-    `Broader implications: It matters because ${problemStatement.toLowerCase()} is a real workflow problem, and this project makes that problem easier to handle in practice.`,
-  ];
+  return composePitchKitDraft({
+    projectTrack: input.selectedOption.project_track,
+    projectTitle: input.roadmap.project_title,
+    seed: input.selectedOption.track_payload_json,
+    firstDeliverable: input.roadmap.steps[0]?.deliverable ?? null,
+    stepCount: input.roadmap.steps.length,
+    whyItFits: input.selectedOption.why_it_fits,
+  });
 }
 
 export function coerceStoredProjectOption(row: StoredRecommendationRow): ProjectOption {
@@ -220,8 +204,12 @@ export function buildRoadmapOverviewFromStorage(input: {
     cut_if_behind: storedCutIfBehind.length > 0 ? storedCutIfBehind : ["Defer stretch features until the core is solid"],
     success_criteria: storedSuccessCriteria.length > 0 ? storedSuccessCriteria : [
       "The core deliverable is complete and reviewable",
-      "The student can explain the work and decisions behind it",
+      "You can explain the work and the decisions behind it",
     ],
+    // Roadmaps stored before the pitch kit existed simply have none; the
+    // workspace composes a labeled draft in that case. A malformed stored kit is
+    // dropped rather than failing the whole roadmap rehydration.
+    pitch_kit: PitchKitSchema.safeParse(payload.pitch_kit).data ?? null,
   });
 }
 
@@ -233,12 +221,13 @@ export function buildRoadmapStorageArtifacts(input: {
   const stepLines = input.roadmap.steps
     .map((step) => `- ${step.title}: ${step.deliverable} (${step.rough_time_estimate})`)
     .join("\n");
+  const pitchKit = resolvePitchKit(input);
 
   return {
-    mvpScope:
-      input.selectedOption.project_track === "research"
-        ? `Keep the work centered on ${input.selectedOption.track_payload_json.research_question.toLowerCase()} and do not expand beyond the current evidence plan.`
-        : `Keep the MVP centered on ${input.selectedOption.track_payload_json.core_workflow.toLowerCase()} and avoid optional feature creep.`,
+    mvpScope: composeScopeStatement({
+      projectTrack: input.selectedOption.project_track,
+      seed: input.selectedOption.track_payload_json,
+    }),
     repoStructure:
       input.selectedOption.project_track === "research"
         ? [
@@ -252,14 +241,16 @@ export function buildRoadmapStorageArtifacts(input: {
             { path: "docs/demo-script.md", purpose: "Narrative for demoing the product and its proof of value." },
           ],
     readmeDraft: `# ${input.roadmap.project_title}\n\n## Overview\n${input.roadmap.short_overview}\n\n## Roadmap\n${stepLines}\n`,
-    stretchGoals: input.roadmap.cut_if_behind.map((item) => `Stretch later: ${item}`),
+    stretchGoals: toDeferralList(input.roadmap.cut_if_behind),
     explanationGuide: {
-      elevator_pitch: `${input.roadmap.project_title} is a focused ${input.context.project_track} project built around ${input.selectedOption.summary.toLowerCase()}`,
-      resume_bullets: [
-        `Built ${input.roadmap.project_title} to address ${input.selectedOption.summary.toLowerCase()}.`,
-        `Scoped the MVP around ${input.roadmap.steps[0]?.deliverable.toLowerCase() ?? "one concrete deliverable"} and validated progress against explicit milestones.`,
-      ],
-      interview_talking_points: buildInterviewTalkingPoints(input),
+      elevator_pitch: pitchKit.elevatorPitch,
+      resume_bullets: pitchKit.resumeBullets,
+      // Stored as "Label: body" strings, the one shape the workspace reads.
+      // The structured form lives on `track_payload_json.pitch_kit`.
+      interview_talking_points: pitchKit.talkingPoints.map((point) => formatTalkingPoint(point)),
+      // Lets the workspace label deterministic drafts and leave model-written
+      // copy alone, without re-linting on every page load.
+      source: pitchKit.isDraft ? "draft" : "model",
     },
     trackPayloadJson: {
       project_brief: input.roadmap.project_brief,
@@ -271,6 +262,8 @@ export function buildRoadmapStorageArtifacts(input: {
       cut_if_behind: input.roadmap.cut_if_behind,
       success_criteria: input.roadmap.success_criteria,
       selected_option_seed: input.selectedOption.track_payload_json,
+      project_track: input.selectedOption.project_track,
+      pitch_kit: input.roadmap.pitch_kit ?? null,
       focus_summary: input.context.summary,
       step_count: input.roadmap.steps.length,
     },

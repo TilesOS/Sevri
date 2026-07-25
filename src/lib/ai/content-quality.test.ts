@@ -89,6 +89,42 @@ test("checkField flags titles exceeding UI budget", () => {
   assert.ok(kinds(issues).includes("too_long_title"));
 });
 
+test("checkField flags over-length fields against the schema budget", () => {
+  const spec: FieldSpec = { kind: "prose", minCredible: 24, maxLength: 220 };
+  const issues = checkField(`${"A complete sentence about the work. ".repeat(8)}`, "path", spec);
+  assert.ok(kinds(issues).includes("too_long"));
+});
+
+test("an over-length field produces repair feedback rather than being stored cut", () => {
+  const spec: FieldSpec = { kind: "prose", minCredible: 24, maxLength: 220 };
+  const overLength = `${"The core workflow runs end to end on realistic inputs. ".repeat(6)}`;
+  const report = checkStructured({ summary: overLength }, { summary: spec });
+
+  // The value is reported as a problem for the model to fix...
+  assert.ok(report.issues.some((issue) => issue.kind === "too_long"));
+  const feedback = buildRepairFeedback(report);
+  assert.equal(feedback.length, 1);
+  assert.ok(feedback[0].includes("SHORTER but COMPLETE"));
+
+  // ...and nothing in this layer shortens it on the way to storage.
+  assert.equal(safeRenderText(overLength, spec).text, overLength.trim());
+});
+
+test("checkField flags zero-width characters", () => {
+  const issues = checkField("Limitation: the study\u200B", "path", PROSE_SPEC);
+  assert.ok(kinds(issues).includes("zero_width"));
+});
+
+test("a zero-width tail no longer hides a missing terminal stop", () => {
+  const issues = checkField("Limitation: the study\u200B", "path", PROSE_SPEC);
+  assert.ok(kinds(issues).includes("missing_terminal_punct"));
+});
+
+test("checkField flags a single non-Latin character fused to an English word", () => {
+  const issues = checkField("Resolve the alias\u5225 before you continue.", "path", PROSE_SPEC);
+  assert.ok(kinds(issues).includes("mixed_script"));
+});
+
 test("checkField flags short content below minCredible", () => {
   const issues = checkField("short.", "path", PROSE_SPEC);
   assert.ok(kinds(issues).includes("too_short"));
@@ -166,12 +202,20 @@ test("safeRenderText drops trailing colon", () => {
   assert.ok(!out.text.endsWith(":."));
 });
 
-test("safeRenderText truncates titles exceeding maxUiSafe on a word boundary", () => {
+test("safeRenderText never shortens an over-long title", () => {
   const long = "word ".repeat(40).trim();
   const out = safeRenderText(long, TITLE_SPEC);
+  // Cutting to fit is what produced titles like "...to identify underexploit".
+  // The full value is returned and the UI clamps it with CSS.
+  assert.equal(out.text, long);
+  assert.equal(out.degraded, false);
+});
+
+test("safeRenderText strips zero-width characters and can then close the sentence", () => {
+  const out = safeRenderText("Limitation: the study\u200B", PROSE_SPEC);
+  assert.ok(!out.text.includes("\u200B"));
   assert.equal(out.degraded, true);
-  assert.ok(out.text.length <= 100);
-  assert.ok(!out.text.endsWith(" "));
+  assert.ok(out.text.endsWith("."));
 });
 
 test("safeRenderText leaves clean prose unchanged", () => {
