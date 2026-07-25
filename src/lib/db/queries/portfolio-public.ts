@@ -74,13 +74,15 @@ async function getFallbackSubmission(input: {
     return null;
   }
 
+  // Newest submission across the project's milestones. Ordering mirrors
+  // src/lib/projects/latest-submission.ts (created_at desc, id desc).
   const { data: submission, error: submissionError } = await supabase
     .from("milestone_submissions")
     .select("id, submission_text")
     .eq("user_id", input.userId)
-    .eq("is_latest", true)
     .in("milestone_id", milestoneIds)
     .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
     .limit(1)
     .maybeSingle();
 

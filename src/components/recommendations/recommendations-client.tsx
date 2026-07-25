@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { AnimatePresence, motion } from "motion/react";
+import { motion, useReducedMotion } from "motion/react";
 import { useRouter } from "next/navigation";
 import { canGenerateRecommendations, getGenerationLimit, hasUnlimitedGenerations } from "@/lib/usage/limits";
 import { safeRenderText } from "@/lib/ai/content-quality";
@@ -76,6 +76,20 @@ const difficultyLabel: Record<string, string> = {
   advanced: "Advanced",
 };
 
+interface BoardState {
+  track: ProjectTrack;
+  items: RecommendationItem[];
+  /** Server board identity at the time this state was adopted. */
+  serverKey: string;
+}
+
+// The board is keyed by track as well as option ids. Cards are only ever
+// rendered from a board whose track matches the active one, so the header,
+// badge, and cards cannot disagree about which track is on screen.
+function boardKeyFor(track: ProjectTrack, items: RecommendationItem[]) {
+  return `${track}:${items.map((item) => item.id).join(",")}`;
+}
+
 export function RecommendationsClient({
   activeTrack,
   initialRecommendations,
@@ -84,12 +98,32 @@ export function RecommendationsClient({
   trackAvailability,
 }: RecommendationsClientProps) {
   const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
   const [isSwitchingTrack, startTrackTransition] = useTransition();
-  const [recommendations, setRecommendations] = useState(initialRecommendations);
+  const [board, setBoard] = useState<BoardState>(() => ({
+    track: activeTrack,
+    items: initialRecommendations,
+    serverKey: boardKeyFor(activeTrack, initialRecommendations),
+  }));
   const [localGenerationsUsed, setLocalGenerationsUsed] = useState(generationsUsed);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSelectingId, setIsSelectingId] = useState<string | null>(null);
+  const [pendingTrack, setPendingTrack] = useState<ProjectTrack | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Adopt server data during render rather than in an effect, so a track switch
+  // never commits a frame where the board and the header disagree. A locally
+  // generated board keeps its own serverKey, so it survives until the server
+  // catches up.
+  const serverBoardKey = boardKeyFor(activeTrack, initialRecommendations);
+  if (board.serverKey !== serverBoardKey) {
+    setBoard({ track: activeTrack, items: initialRecommendations, serverKey: serverBoardKey });
+  }
+
+  const recommendations = useMemo(
+    () => (board.track === activeTrack ? board.items : []),
+    [board, activeTrack],
+  );
 
   const generationLimit = getGenerationLimit(plan);
   const unlimitedGenerations = hasUnlimitedGenerations(plan);
@@ -98,17 +132,22 @@ export function RecommendationsClient({
     [plan, localGenerationsUsed],
   );
 
-  const hasTrackIntake = trackAvailability[activeTrack].hasIntake;
+  // While a switch is in flight the whole page commits to the requested track,
+  // with the board itself showing a loading state until its data arrives.
+  const displayedTrack = pendingTrack ?? activeTrack;
+  const hasTrackIntake = trackAvailability[displayedTrack].hasIntake;
   const ribbons = useMemo(() => deriveRibbons(recommendations), [recommendations]);
-  const trackTheme = trackThemes[activeTrack];
+  const trackTheme = trackThemes[displayedTrack];
 
   useEffect(() => {
     setLocalGenerationsUsed(generationsUsed);
   }, [generationsUsed]);
 
   useEffect(() => {
-    setRecommendations(initialRecommendations);
-  }, [initialRecommendations]);
+    if (!isSwitchingTrack) {
+      setPendingTrack(null);
+    }
+  }, [isSwitchingTrack]);
 
   async function handleGenerate() {
     setError(null);
@@ -131,7 +170,8 @@ export function RecommendationsClient({
       return;
     }
 
-    setRecommendations(body.recommendations);
+    const generated = body.recommendations;
+    setBoard((current) => ({ track: activeTrack, items: generated, serverKey: current.serverKey }));
     setLocalGenerationsUsed((current) =>
       typeof body.generations_used === "number" ? body.generations_used : current + 1,
     );
@@ -164,24 +204,32 @@ export function RecommendationsClient({
   function switchTrack(track: ProjectTrack) {
     if (track === activeTrack) return;
     setError(null);
+    setPendingTrack(track);
     startTrackTransition(() => {
       router.push(`/recommendations?track=${track}`);
     });
   }
 
   const subtitle =
-    activeTrack === "research"
+    displayedTrack === "research"
       ? "Explore multiple research directions, then compare the method, evidence plan, and finish line before you commit."
       : "Explore multiple software directions, then compare the user, problem, and version you can actually ship before you commit.";
   const generateLabel =
-    activeTrack === "research"
+    displayedTrack === "research"
       ? recommendations.length ? "Refresh research board" : "Generate research board"
       : recommendations.length ? "Refresh software board" : "Generate software board";
 
   return (
     <div className="space-y-8">
       <div aria-live="polite" className="sr-only">
-        {error ?? (isGenerating ? "Generating recommendations." : isSelectingId ? "Selecting recommendation." : "")}
+        {error ??
+          (isSwitchingTrack
+            ? `Loading the ${displayedTrack === "research" ? "research" : "software"} idea board.`
+            : isGenerating
+              ? "Generating recommendations."
+              : isSelectingId
+                ? "Selecting recommendation."
+                : "")}
       </div>
 
       <PageHeader eyebrow="Idea board" title="Project ideas" description={subtitle} />
@@ -213,8 +261,8 @@ export function RecommendationsClient({
             <button
               key={track}
               role="tab"
-              aria-selected={activeTrack === track}
-              className={activeTrack === track ? "rounded-md bg-paper px-4 py-1.5 text-sm font-medium text-ink shadow-soft" : "rounded-md px-4 py-1.5 text-sm text-ink-muted hover:text-ink"}
+              aria-selected={displayedTrack === track}
+              className={displayedTrack === track ? "rounded-md bg-paper px-4 py-1.5 text-sm font-medium text-ink shadow-soft" : "rounded-md px-4 py-1.5 text-sm text-ink-muted hover:text-ink"}
               onClick={() => switchTrack(track)}
               disabled={isSwitchingTrack}
             >
@@ -226,10 +274,10 @@ export function RecommendationsClient({
           <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
           <Button
             onClick={handleGenerate}
-            disabled={isGenerating || !canRegenerate || !hasTrackIntake}
+            disabled={isGenerating || isSwitchingTrack || !canRegenerate || !hasTrackIntake}
             className="px-6"
           >
-            {isGenerating ? "Generating..." : generateLabel}
+            {isGenerating ? "Generating..." : isSwitchingTrack ? "Loading board..." : generateLabel}
           </Button>
         </div>
       </Toolbar>
@@ -249,13 +297,13 @@ export function RecommendationsClient({
 
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
-      {!hasTrackIntake ? (
+      {isSwitchingTrack ? null : !hasTrackIntake ? (
         <Card className="space-y-4" elevation="none">
           <h2 className="text-2xl font-semibold text-ink">
-            {activeTrack === "research" ? "Set up your research track first." : "Set up your software track first."}
+            {displayedTrack === "research" ? "Set up your research track first." : "Set up your software track first."}
           </h2>
           <p className="text-sm leading-6 text-ink-soft">
-            Run onboarding again and choose the {activeTrack === "research" ? "Research Project" : "Software Project"} track to generate recommendations for it.
+            Run onboarding again and choose the {displayedTrack === "research" ? "Research Project" : "Software Project"} track to generate recommendations for it.
           </p>
           <div>
             <Button href="/onboarding" className="px-6">
@@ -272,13 +320,25 @@ export function RecommendationsClient({
         </Card>
       ) : null}
 
-      <AnimatePresence mode="wait" initial={false}>
+      {isSwitchingTrack ? (
+        <div className="grid gap-6 xl:grid-cols-3" aria-hidden="true">
+          {[0, 1, 2].map((placeholder) => (
+            <Card key={placeholder} className="space-y-4" elevation="none">
+              <div className="h-3 w-20 rounded-full bg-surface motion-safe:animate-pulse" />
+              <div className="h-6 w-3/4 rounded-full bg-surface motion-safe:animate-pulse" />
+              <div className="h-3 w-full rounded-full bg-surface motion-safe:animate-pulse" />
+              <div className="h-3 w-5/6 rounded-full bg-surface motion-safe:animate-pulse" />
+              <div className="h-16 w-full rounded-xl bg-surface motion-safe:animate-pulse" />
+              <div className="h-9 w-full rounded-[10px] bg-surface motion-safe:animate-pulse" />
+            </Card>
+          ))}
+        </div>
+      ) : (
         <motion.div
-          key={`${activeTrack}-${recommendations.map((item) => item.id).join(",") || "empty"}`}
-          initial={{ opacity: 0 }}
+          key={boardKeyFor(activeTrack, recommendations)}
+          initial={prefersReducedMotion ? false : { opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.16, ease: "easeOut" }}
+          transition={prefersReducedMotion ? { duration: 0 } : { duration: 0.16, ease: "easeOut" }}
           className="grid gap-6 xl:grid-cols-3"
         >
           {recommendations.map((item, index) => {
@@ -292,9 +352,13 @@ export function RecommendationsClient({
             return (
               <motion.div
                 key={item.id}
-                initial={{ opacity: 0 }}
+                initial={prefersReducedMotion ? false : { opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.16, delay: index * 0.03, ease: "easeOut" }}
+                transition={
+                  prefersReducedMotion
+                    ? { duration: 0 }
+                    : { duration: 0.16, delay: index * 0.03, ease: "easeOut" }
+                }
               >
                 <div className={`rec-card ${cardTone}`}>
                   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -384,9 +448,9 @@ export function RecommendationsClient({
             );
           })}
         </motion.div>
-      </AnimatePresence>
+      )}
 
-      {recommendations.length > 0 && recommendations[0]?.normalized_profile_id ? (
+      {!isSwitchingTrack && recommendations.length > 0 && recommendations[0]?.normalized_profile_id ? (
         <GenerationFeedbackForm
           stage="recommendations"
           normalizedProfileId={recommendations[0].normalized_profile_id}

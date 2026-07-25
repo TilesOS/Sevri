@@ -9,7 +9,13 @@ import {
   type PortfolioEntryRow,
 } from "@/lib/db/queries/portfolio";
 import { buildPortfolioPipelineInputFromDetailData } from "@/lib/portfolio/ai-context";
+import { isEligibleForFirstTimeCuration } from "@/lib/portfolio/portfolio-view-model";
 import { runSafetyChecks } from "@/lib/portfolio/safety";
+
+// Curation is one AI call per entry, run inline while the page renders. Cap the
+// batch so a student with many projects does not wait on a long serial run;
+// the remainder is picked up on the next visit.
+const MAX_FIRST_TIME_CURATIONS_PER_REQUEST = 3;
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown error";
@@ -90,10 +96,18 @@ export async function runFirstTimePortfolioCurationForPendingEntries(input: {
     project: { id: string };
   }>;
 }) {
+  let attempted = 0;
+
   for (const item of input.entries) {
-    if (item.entry.curation_attempted_at || item.entry.curated_summary) {
+    if (attempted >= MAX_FIRST_TIME_CURATIONS_PER_REQUEST) {
+      break;
+    }
+
+    if (!isEligibleForFirstTimeCuration(item.entry)) {
       continue;
     }
+
+    attempted += 1;
 
     try {
       const result = await generateAndSavePortfolioCuration({

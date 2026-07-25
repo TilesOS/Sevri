@@ -12,10 +12,12 @@ import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { getPlanLabel, getTrackLabel } from "@/components/theme/theme-utils";
 import { trackClientEvent } from "@/lib/analytics/events";
-import type {
-  PortfolioEntryDetailView,
-  PortfolioStatus,
-} from "@/lib/portfolio/portfolio-view";
+import {
+  getPortfolioCurationState,
+  type PortfolioCurationState,
+  type PortfolioEntryDetailView,
+  type PortfolioStatus,
+} from "@/lib/portfolio/portfolio-view-model";
 import { cn } from "@/lib/utils";
 import {
   canGenerateExports,
@@ -88,6 +90,20 @@ function isLivePublicPage(publicPage: PortfolioEntryDetailView["publicPage"]) {
   return Boolean(publicPage?.published_at && !publicPage.unpublished_at);
 }
 
+function missingCurationCopy(state: PortfolioCurationState, canRegenerate: boolean) {
+  if (state === "blocked") {
+    return "This summary is on hold until its text passes the publishing safety check. Everything else on this entry stays available.";
+  }
+
+  if (state === "failed") {
+    return canRegenerate
+      ? "This summary could not be generated. Your work is saved — regenerate it now, or wait for the next automatic attempt."
+      : "This summary could not be generated. Your work is saved, and Sevri will try again automatically.";
+  }
+
+  return "Curation has not run yet. The entry stays usable while the first summary is pending.";
+}
+
 export function PortfolioDetailClient({
   view,
   plan,
@@ -113,6 +129,7 @@ export function PortfolioDetailClient({
   const [publicAcknowledged, setPublicAcknowledged] = useState(false);
 
   const canRegenerate = canRegeneratePortfolioCuration(plan);
+  const curationState = getPortfolioCurationState(entry);
   const canExport = canGenerateExports(plan);
   const canPublish = canPublishPortfolio(plan);
   const livePublicPage = isLivePublicPage(publicPage);
@@ -360,11 +377,13 @@ export function PortfolioDetailClient({
               </GatedButton>
             </div>
             <p className="whitespace-pre-wrap text-sm leading-6 text-ink-soft">
-              {entry.curated_summary ?? "Curation has not completed yet. The entry remains usable while the first summary is pending or unavailable."}
+              {entry.curated_summary ?? missingCurationCopy(curationState, canRegenerate)}
             </p>
-            <p className="text-xs text-ink-muted">
-              Last generated {formatDate(entry.curation_generated_at)}
-            </p>
+            {entry.curation_generated_at ? (
+              <p className="text-xs text-ink-muted">
+                Last generated {formatDate(entry.curation_generated_at)}
+              </p>
+            ) : null}
           </Card>
 
           <Card className="space-y-5">

@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { selectPortfolioEvidence } from "@/lib/projects/latest-submission";
 
 export type PortfolioStatusOverride = "in_progress" | "paused" | "completed" | "abandoned";
 export type PortfolioExportFormat = "common_app_activity" | "resume_bullets";
@@ -88,7 +89,6 @@ export interface PortfolioSubmissionRow {
   submission_text: string | null;
   submission_filename: string | null;
   storage_path: string | null;
-  is_latest: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -223,7 +223,7 @@ const MILESTONE_COLUMNS = [
 
 const RECOMMENDATION_COLUMNS = "id, title, summary, rationale, project_track, track_payload_json";
 const SUBMISSION_COLUMNS =
-  "id, milestone_id, user_id, submission_kind, submission_text, submission_filename, storage_path, is_latest, created_at, updated_at";
+  "id, milestone_id, user_id, submission_kind, submission_text, submission_filename, storage_path, created_at, updated_at";
 const EVALUATION_COLUMNS =
   "id, submission_id, user_id, evaluation_json, status, failure_message, created_at, updated_at";
 const REVIEW_COLUMNS =
@@ -371,9 +371,9 @@ export async function getPortfolioEntryDetailData(
           .from("milestone_submissions")
           .select(SUBMISSION_COLUMNS)
           .eq("user_id", userId)
-          .eq("is_latest", true)
           .in("milestone_id", milestoneIds)
           .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     milestoneIds.length > 0
       ? supabase
@@ -398,7 +398,12 @@ export async function getPortfolioEntryDetailData(
     throw new Error(`Failed to load portfolio GitHub cache: ${githubError.message}`);
   }
 
-  const submissionRows = (submissions ?? []) as PortfolioSubmissionRow[];
+  // Every revision for the project comes back; narrow it to the current
+  // submission per milestone (plus any pinned older revision) here.
+  const submissionRows = selectPortfolioEvidence(
+    (submissions ?? []) as unknown as PortfolioSubmissionRow[],
+    entryRow.featured_submission_id,
+  );
   const submissionIds = submissionRows.map((submission) => submission.id);
 
   const [

@@ -1,20 +1,12 @@
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
-import { getStripeEnv } from "@/lib/env";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { hasVerifiedPlanAccess, isEntitledSubscriptionStatus } from "@/lib/billing/entitlements";
+import {
+  getSubscriptionPeriodEndIso,
+  planFromSubscription,
+} from "@/lib/stripe/subscription-mapping";
 import { upsertSubscription } from "@/lib/db/mutations/subscriptions";
-
-const env = getStripeEnv();
-
-function planFromSubscription(subscription: Stripe.Subscription): "free" | "pro_monthly" {
-  const activePriceIds = subscription.items.data.map((item) => item.price.id);
-  if (activePriceIds.includes(env.STRIPE_PRICE_PRO_MONTHLY)) {
-    return "pro_monthly";
-  }
-
-  return "free";
-}
 
 function statusRank(status: Stripe.Subscription.Status) {
   if (status === "active") return 4;
@@ -44,6 +36,7 @@ export interface BillingSyncResult {
   plan: "free" | "pro_monthly";
   status: string;
   entitled: boolean;
+  currentPeriodEnd: string | null;
   source: "subscription_id" | "checkout_session" | "customer_lookup" | "none";
 }
 
@@ -57,6 +50,7 @@ async function upsertFromSubscription(args: {
   const stripeCustomerId =
     typeof args.subscription.customer === "string" ? args.subscription.customer : args.fallbackCustomerId;
   const plan = planFromSubscription(args.subscription);
+  const currentPeriodEnd = getSubscriptionPeriodEndIso(args.subscription);
 
   await upsertSubscription({
     userId: args.userId,
@@ -64,10 +58,8 @@ async function upsertFromSubscription(args: {
     status: args.subscription.status,
     stripeCustomerId,
     stripeSubscriptionId: args.subscription.id,
-    stripeCheckoutSessionId: args.checkoutSessionId,
-    currentPeriodEnd: args.subscription.current_period_end
-      ? new Date(args.subscription.current_period_end * 1000).toISOString()
-      : null,
+    stripeCheckoutSessionId: args.checkoutSessionId ?? undefined,
+    currentPeriodEnd,
   });
 
   return {
@@ -75,6 +67,7 @@ async function upsertFromSubscription(args: {
     plan,
     status: args.subscription.status,
     entitled: hasVerifiedPlanAccess(plan, args.subscription.status),
+    currentPeriodEnd,
     source: args.source,
   };
 }
@@ -118,7 +111,7 @@ export async function syncBillingForUser(
 
   const { data: existing, error: existingError } = await supabase
     .from("subscriptions")
-    .select("plan, status, stripe_customer_id, stripe_subscription_id, stripe_checkout_session_id")
+    .select("plan, status, current_period_end, stripe_customer_id, stripe_subscription_id, stripe_checkout_session_id")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -200,6 +193,7 @@ export async function syncBillingForUser(
     plan: existingPlan,
     status: existingStatus,
     entitled: hasVerifiedPlanAccess(existingPlan, existingStatus),
+    currentPeriodEnd: existing?.current_period_end ?? null,
     source: "none",
   };
 }
