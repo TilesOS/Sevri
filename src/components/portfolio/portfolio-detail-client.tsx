@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Alert } from "@/components/ui/alert";
+import { PortfolioCurationTrigger } from "@/components/portfolio/portfolio-curation-trigger";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -15,6 +16,7 @@ import { trackClientEvent } from "@/lib/analytics/events";
 import { RATE_LIMITED_MESSAGE, toUserFacingError } from "@/lib/errors/user-messages";
 import {
   getPortfolioCurationState,
+  isEligibleForFirstTimeCuration,
   type PortfolioCurationState,
   type PortfolioEntryDetailView,
   type PortfolioStatus,
@@ -129,6 +131,15 @@ export function PortfolioDetailClient({
   const canPublish = canPublishPortfolio(plan);
   const livePublicPage = isLivePublicPage(publicPage);
   const publicUrl = publicPage?.slug ? `/p/${publicPage.slug}` : null;
+
+  useEffect(() => {
+    void trackClientEvent("portfolio_project_opened", {
+      project_id: view.project.id,
+      portfolio_entry_id: view.entry.id,
+    }).catch((error) => {
+      console.error("portfolio_project_opened tracking failed", error);
+    });
+  }, [view.entry.id, view.project.id]);
 
   const milestoneById = useMemo(() => {
     return new Map(view.milestones.map((milestone) => [milestone.id, milestone]));
@@ -317,6 +328,11 @@ export function PortfolioDetailClient({
 
   return (
     <div className="space-y-8 pb-12">
+      <PortfolioCurationTrigger
+        active={isEligibleForFirstTimeCuration(entry)}
+        curationKey={`${entry.id}:${entry.updated_at}:${entry.curation_claimed_at ?? ""}`}
+        projectId={view.project.id}
+      />
       <Card>
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">

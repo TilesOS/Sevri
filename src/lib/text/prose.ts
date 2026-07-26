@@ -38,6 +38,37 @@ export function normalizeWhitespace(value: string): string {
   return stripZeroWidth(value).replace(/\s+/gu, " ").trim();
 }
 
+/**
+ * Shortens public-facing prose without leaving a partial word. Prefer a
+ * complete sentence near the limit; otherwise use a word boundary and an
+ * ellipsis so the omission is explicit.
+ */
+export function truncateProse(value: string | null | undefined, maxLength: number): string {
+  if (typeof value !== "string" || maxLength <= 0) return "";
+  const normalized = normalizeWhitespace(value);
+  if (normalized.length <= maxLength) return normalized;
+  if (maxLength === 1) return "…";
+
+  const prefix = normalized.slice(0, maxLength);
+  const sentenceMatches = Array.from(prefix.matchAll(/[.!?…](?=\s|$)/gu));
+  const lastSentence = sentenceMatches.at(-1);
+  const sentenceEnd = lastSentence ? (lastSentence.index ?? -1) + lastSentence[0].length : -1;
+  if (sentenceEnd >= Math.min(40, Math.floor(maxLength * 0.5))) {
+    return prefix.slice(0, sentenceEnd).trim();
+  }
+
+  const wordBudget = maxLength - 1;
+  const wordPrefix = normalized.slice(0, wordBudget + 1);
+  const lastSpace = wordPrefix.lastIndexOf(" ");
+  if (lastSpace <= 0) return "…";
+
+  const shortened = wordPrefix
+    .slice(0, lastSpace)
+    .replace(/[,;:\-–—]+$/u, "")
+    .trimEnd();
+  return shortened.length > 0 ? `${shortened}…` : "…";
+}
+
 export function hasZeroWidth(value: string): boolean {
   ZERO_WIDTH_PATTERN.lastIndex = 0;
   return ZERO_WIDTH_PATTERN.test(value);

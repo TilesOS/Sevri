@@ -8,6 +8,8 @@ import {
   safeRenderText,
   type FieldSpec,
 } from "./content-quality.ts";
+import { applyAndValidateStructuredCleanup } from "./structured-cleanup.ts";
+import { z } from "zod";
 
 const TITLE_SPEC: FieldSpec = { kind: "title", minCredible: 8, maxUiSafe: 100 };
 const PROSE_SPEC: FieldSpec = { kind: "prose", minCredible: 24 };
@@ -245,4 +247,39 @@ test("applyStructuredCleanup leaves unspecced paths alone", () => {
   const { cleaned, changedPaths } = applyStructuredCleanup(parsed, { title: TITLE_SPEC });
   assert.deepEqual(changedPaths, []);
   assert.equal(cleaned.ignored, "Ends with and");
+});
+
+test("tier-three cleanup cannot turn schema-valid output into invalid stored output", () => {
+  const schema = z.object({ title: z.string().min(5) });
+  const original = schema.parse({ title: "This and" });
+
+  const result = applyAndValidateStructuredCleanup({
+    parsed: original,
+    schema,
+    qualitySpec: { title: TITLE_SPEC },
+  });
+
+  assert.equal(result.cleaned.title, "This");
+  assert.equal(result.parsed, null);
+  assert.ok(result.schemaIssues.some((issue) => issue.includes("title")));
+  assert.ok(result.qualityReport.issues.some((issue) => issue.path === "title"));
+});
+
+test("tier-three cleanup reruns semantic validation before returning success", () => {
+  const schema = z.object({ title: z.string().min(1) });
+  let validationCalls = 0;
+  const result = applyAndValidateStructuredCleanup({
+    parsed: schema.parse({ title: "Useful and" }),
+    schema,
+    qualitySpec: { title: { ...TITLE_SPEC, minCredible: 1 } },
+    validator: (candidate) => {
+      validationCalls += 1;
+      return candidate.title === "Useful" ? ["title lost required meaning"] : [];
+    },
+  });
+
+  assert.equal(validationCalls, 1);
+  assert.equal(result.cleaned.title, "Useful");
+  assert.equal(result.parsed, null);
+  assert.deepEqual(result.semanticIssues, ["title lost required meaning"]);
 });

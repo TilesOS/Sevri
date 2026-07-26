@@ -149,7 +149,7 @@ test("work evaluation schema keeps legacy evaluations compatible while accepting
   );
 });
 
-test("validator feedback lines reference quality issue kinds for repair context", () => {
+test("validator feedback identifies the field and gives human-readable repair guidance", () => {
   const bad = {
     recommendations: [
       {
@@ -169,7 +169,9 @@ test("validator feedback lines reference quality issue kinds for repair context"
   const feedback = validatorFeedback(bad, OPTIONS_QUALITY_SPEC);
   const titleLine = feedback.find((line) => line.includes("recommendations[0].title"));
   assert.ok(titleLine);
-  assert.ok(titleLine!.includes("mid_word_end") || titleLine!.includes("too_short"));
+  assert.match(titleLine!, /write the whole word|write a fuller version/i);
+  assert.match(titleLine!, /rewrite the whole field as one complete thought/i);
+  assert.doesNotMatch(titleLine!, /mid_word_end|too_short/);
 });
 
 test("research onboarding accepts intermediate experience and prompt code calibrates it distinctly", () => {

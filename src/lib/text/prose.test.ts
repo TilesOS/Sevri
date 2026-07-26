@@ -9,6 +9,7 @@ import {
   sentenceCount,
   stripTerminalPunctuation,
   stripZeroWidth,
+  truncateProse,
 } from "./prose.ts";
 
 test("asSentence capitalizes and closes an unterminated field", () => {
@@ -83,4 +84,17 @@ test("sentenceCount counts terminated sentences", () => {
   assert.equal(sentenceCount(""), 0);
   assert.equal(sentenceCount("No stop here"), 1);
   assert.equal(sentenceCount("One. Two."), 2);
+});
+
+test("truncateProse prefers a complete sentence near the public length limit", () => {
+  assert.equal(
+    truncateProse("This first sentence is complete. This second sentence should not be cut.", 48),
+    "This first sentence is complete.",
+  );
+});
+
+test("truncateProse falls back to a word boundary with an explicit ellipsis", () => {
+  const result = truncateProse("A sentence with several carefully chosen words but no ending", 34);
+  assert.equal(result, "A sentence with several carefully…");
+  assert.ok(result.length <= 34);
 });

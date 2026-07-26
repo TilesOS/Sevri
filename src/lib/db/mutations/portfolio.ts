@@ -155,17 +155,25 @@ export async function markPortfolioCurationAttempted(input: {
   entryId: string;
   userId: string;
   metadata: Record<string, unknown>;
+  claimToken?: string;
 }) {
   const supabase = await createServerSupabaseClient();
-  const { error } = await supabase
+  let query = supabase
     .from("portfolio_entries")
     .update({
       curation_attempted_at: new Date().toISOString(),
       curation_metadata_json: input.metadata,
+      curation_claim_token: null,
+      curation_claimed_at: null,
     })
     .eq("id", input.entryId)
     .eq("user_id", input.userId);
 
+  if (input.claimToken) {
+    query = query.eq("curation_claim_token", input.claimToken);
+  }
+
+  const { error } = await query;
   if (error) {
     throw new Error(`Failed to mark portfolio curation attempt: ${error.message}`);
   }
@@ -177,10 +185,11 @@ export async function savePortfolioCuration(input: {
   curatedSummary: string;
   model: string | null;
   metadata: Record<string, unknown>;
+  claimToken?: string;
 }) {
   const supabase = await createServerSupabaseClient();
   const now = new Date().toISOString();
-  const { data, error } = await supabase
+  let query = supabase
     .from("portfolio_entries")
     .update({
       curated_summary: input.curatedSummary,
@@ -188,17 +197,55 @@ export async function savePortfolioCuration(input: {
       curation_attempted_at: now,
       curation_generated_at: now,
       curation_metadata_json: input.metadata,
+      curation_claim_token: null,
+      curation_claimed_at: null,
     })
     .eq("id", input.entryId)
     .eq("user_id", input.userId)
-    .select("*")
-    .single();
+    .select("*");
+
+  if (input.claimToken) {
+    query = query.eq("curation_claim_token", input.claimToken);
+  }
+
+  const { data, error } = await query.single();
 
   if (error) {
     throw new Error(`Failed to save portfolio curation: ${error.message}`);
   }
 
   return data;
+}
+
+export interface PortfolioCurationClaim {
+  entryId: string;
+  projectId: string;
+  claimToken: string;
+}
+
+export async function claimFirstTimePortfolioCurations(input: {
+  projectId?: string;
+  limit?: number;
+}): Promise<PortfolioCurationClaim[]> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase.rpc("claim_first_time_portfolio_curations", {
+    p_project_id: input.projectId ?? null,
+    p_limit: input.limit ?? 3,
+  });
+
+  if (error) {
+    throw new Error(`Failed to claim Portfolio curation: ${error.message}`);
+  }
+
+  return ((data ?? []) as Array<{
+    entry_id: string;
+    project_id: string;
+    claim_token: string;
+  }>).map((row) => ({
+    entryId: row.entry_id,
+    projectId: row.project_id,
+    claimToken: row.claim_token,
+  }));
 }
 
 export async function upsertPortfolioExport(input: {

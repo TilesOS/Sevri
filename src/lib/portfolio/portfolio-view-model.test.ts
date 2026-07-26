@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   FIRST_TIME_CURATION_RETRY_COOLDOWN_MS,
   buildPortfolioEntryDetailViewFromData,
+  buildPortfolioViewFromData,
   getPortfolioCurationState,
   isEligibleForFirstTimeCuration,
 } from "./portfolio-view-model.ts";
@@ -72,6 +73,7 @@ function makeEntry(overrides: Partial<PortfolioEntryRow> = {}): PortfolioEntryRo
     curation_model: null,
     curation_attempted_at: null,
     curation_generated_at: null,
+    curation_claimed_at: null,
     curation_metadata_json: {},
     student_reflection: null,
     featured_submission_id: null,
@@ -307,6 +309,24 @@ test("a pinned submission that is missing from the evidence list does not break 
   assert.equal(view.featuredSubmission, null);
 });
 
+test("cached commit fallback titles stop at the first newline", () => {
+  const view = buildPortfolioEntryDetailViewFromData(
+    makeDetailData({
+      githubActivity: {
+        project_id: PROJECT_ID,
+        cached_commits: [
+          {
+            sha: "abcdef1234567890",
+            message: "Keep this subject\nDo not merge this body into the title",
+          },
+        ],
+      },
+    }),
+  );
+
+  assert.equal(view.cachedCommits[0]?.title, "Keep this subject");
+});
+
 test("status override wins over project status", () => {
   const view = buildPortfolioEntryDetailViewFromData(
     makeDetailData({
@@ -321,6 +341,28 @@ test("status override wins over project status", () => {
 
 test("first-time curation runs for entries that were never attempted", () => {
   assert.equal(isEligibleForFirstTimeCuration(makeEntry()), true);
+});
+
+test("listing data reports missing and eligible entries as pending without creating rows", () => {
+  const missing = buildPortfolioViewFromData({
+    projects: [makeProject()],
+    entries: [],
+    roadmaps: [],
+    recommendations: [],
+    milestones: [],
+  });
+  assert.equal(missing.entries.length, 0);
+  assert.equal(missing.pendingCurationCount, 1);
+
+  const pending = buildPortfolioViewFromData({
+    projects: [makeProject()],
+    entries: [makeEntry()],
+    roadmaps: [],
+    recommendations: [],
+    milestones: [],
+  });
+  assert.equal(pending.entries.length, 1);
+  assert.equal(pending.pendingCurationCount, 1);
 });
 
 test("first-time curation does not re-run for curated or safety-blocked entries", () => {

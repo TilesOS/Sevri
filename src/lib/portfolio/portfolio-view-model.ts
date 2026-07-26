@@ -17,7 +17,7 @@ import type {
   PortfolioSubmissionRow,
 } from "@/lib/db/queries/portfolio";
 import { getProjectProgressPercent } from "../projects/progress.ts";
-import { stripZeroWidth } from "../text/prose.ts";
+import { normalizeWhitespace, stripZeroWidth } from "../text/prose.ts";
 import type { ProjectTrack } from "@/types/domain";
 
 export type PortfolioStatus = "in_progress" | "paused" | "completed" | "abandoned";
@@ -62,6 +62,7 @@ export interface PortfolioListingEntryView {
 export interface PortfolioView {
   entries: PortfolioListingEntryView[];
   counts: Record<PortfolioStatus | "all", number>;
+  pendingCurationCount: number;
 }
 
 export interface PortfolioEntryDetailView {
@@ -103,7 +104,8 @@ function tidyText(value: string): string {
 
 /** Commit subjects are a single line by construction; a long one is elided visually. */
 function firstLine(value: string): string {
-  return tidyText(value).split("\n")[0] ?? "";
+  const [line = ""] = stripZeroWidth(value).split(/\r?\n/u);
+  return normalizeWhitespace(line);
 }
 
 function asProjectTrack(value: unknown): ProjectTrack {
@@ -408,9 +410,14 @@ export function buildPortfolioViewFromData(data: PortfolioListingData): Portfoli
       });
     })
     .filter((entry): entry is PortfolioListingEntryView => entry !== null);
+  const pendingCurationCount =
+    data.projects.length -
+    entries.length +
+    entries.filter((entry) => isEligibleForFirstTimeCuration(entry.entry)).length;
 
   return {
     entries,
     counts: buildCounts(entries),
+    pendingCurationCount,
   };
 }

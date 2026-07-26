@@ -13,6 +13,7 @@ export interface PortfolioEntryRow {
   curation_model: string | null;
   curation_attempted_at: string | null;
   curation_generated_at: string | null;
+  curation_claimed_at: string | null;
   curation_metadata_json: Record<string, unknown>;
   student_reflection: string | null;
   featured_submission_id: string | null;
@@ -180,6 +181,7 @@ const ENTRY_COLUMNS = [
   "curation_model",
   "curation_attempted_at",
   "curation_generated_at",
+  "curation_claimed_at",
   "curation_metadata_json",
   "student_reflection",
   "featured_submission_id",
@@ -234,6 +236,25 @@ const EXPORT_COLUMNS =
   "id, user_id, portfolio_entry_id, export_format, export_json, export_text, generation_metadata_json, generated_at, created_at";
 const PUBLIC_PAGE_COLUMNS =
   "id, user_id, portfolio_entry_id, slug, display_name_choice, safety_snapshot_json, published_at, unpublished_at, public_acknowledged_at, created_at";
+
+export async function getPortfolioProjectForUser(
+  projectId: string,
+  userId: string,
+): Promise<PortfolioProjectRow | null> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load portfolio project: ${error.message}`);
+  }
+
+  return data ? (data as PortfolioProjectRow) : null;
+}
 
 export async function getPortfolioListingData(userId: string): Promise<PortfolioListingData> {
   const supabase = await createServerSupabaseClient();

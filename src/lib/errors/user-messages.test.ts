@@ -55,6 +55,17 @@ test("database internals fall back to reassuring copy", () => {
   assert.ok(!message.includes("row-level security"));
 });
 
+test("AI provider and configured-model internals use contextual fallback copy", () => {
+  const fallback = "We couldn't generate an idea board. Check your connection and try again.";
+  assert.equal(
+    toUserFacingError(
+      "AI generation is temporarily unavailable because the configured model is not enabled for this project.",
+      fallback,
+    ),
+    fallback,
+  );
+});
+
 test("copy already written for a person passes through untouched", () => {
   const written = "Finish Step 2 before opening guidance for this step.";
   assert.equal(toUserFacingError(written, FALLBACK), written);

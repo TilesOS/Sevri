@@ -56,6 +56,10 @@ const PATTERN_RULES: ReadonlyArray<PatternRule> = [
     message: "Your session expired. Sign in again to continue.",
   },
   {
+    pattern: /\bopenai\b|\bprovider\b|\bconfigured model\b|\bmodel access\b|\bapi key\b/i,
+    internal: true,
+  },
+  {
     pattern: /supabase|postgres|pgrst|violates .* (?:constraint|policy)|relation .* does not exist|duplicate key/i,
     internal: true,
   },

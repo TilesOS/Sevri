@@ -57,7 +57,6 @@ interface RecommendationsClientProps {
 interface RecommendationsResponseBody {
   recommendations?: RecommendationItem[];
   error?: string;
-  details?: string;
   code?: string;
   generations_used?: number;
   generation_limit?: number | null;
@@ -168,14 +167,7 @@ export function RecommendationsClient({
   const selectionInFlightRef = useRef(false);
   const selectionOperationIdsRef = useRef(new Map<string, string>());
 
-  // Adopt server data during render rather than in an effect, so a track switch
-  // never commits a frame where the board and the header disagree. A locally
-  // generated board keeps its own serverKey, so it survives until the server
-  // catches up.
   const serverBoardKey = boardKeyFor(activeTrack, initialRecommendations);
-  if (board.serverKey !== serverBoardKey) {
-    setBoard({ track: activeTrack, items: initialRecommendations, serverKey: serverBoardKey });
-  }
 
   const recommendations = useMemo(
     () => (board.track === activeTrack ? board.items : []),
@@ -200,6 +192,17 @@ export function RecommendationsClient({
     setLocalGenerationsUsed(generationsUsed);
   }, [generationsUsed]);
 
+  // Server navigation owns track changes. Keep the render itself pure; until
+  // this effect adopts the new board, the track guard above renders no stale
+  // cards under the new header.
+  useEffect(() => {
+    setBoard((current) =>
+      current.serverKey === serverBoardKey
+        ? current
+        : { track: activeTrack, items: initialRecommendations, serverKey: serverBoardKey },
+    );
+  }, [activeTrack, initialRecommendations, serverBoardKey]);
+
   useEffect(() => {
     if (!isSwitchingTrack) {
       setPendingTrack(null);
@@ -210,32 +213,43 @@ export function RecommendationsClient({
     setError(null);
     setIsGenerating(true);
 
-    const response = await fetch("/api/ai/recommendations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ project_track: activeTrack }),
-    });
+    try {
+      const response = await fetch("/api/ai/recommendations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ project_track: activeTrack }),
+      });
 
-    const body = (await response.json().catch(() => null)) as RecommendationsResponseBody | null;
+      const body = (await response.json().catch(() => null)) as RecommendationsResponseBody | null;
 
-    if (!response.ok || !body?.recommendations) {
-      if (typeof body?.generations_used === "number") {
-        setLocalGenerationsUsed(body.generations_used);
+      if (!response.ok || !body?.recommendations) {
+        if (typeof body?.generations_used === "number") {
+          setLocalGenerationsUsed(body.generations_used);
+        }
+        setError(
+          toUserFacingError(
+            body?.error,
+            "We couldn't generate an idea board. Check your connection and try again.",
+          ),
+        );
+        return;
       }
-      setError(
-        toUserFacingError(body?.error ?? body?.details, "We couldn't generate an idea board. Try again in a moment."),
-      );
-      setIsGenerating(false);
-      return;
-    }
 
-    const generated = body.recommendations;
-    setBoard((current) => ({ track: activeTrack, items: generated, serverKey: current.serverKey }));
-    setLocalGenerationsUsed((current) =>
-      typeof body.generations_used === "number" ? body.generations_used : current + 1,
-    );
-    setIsGenerating(false);
-    router.refresh();
+      const generated = body.recommendations;
+      setBoard((current) => ({
+        track: activeTrack,
+        items: generated,
+        serverKey: current.serverKey,
+      }));
+      setLocalGenerationsUsed((current) =>
+        typeof body.generations_used === "number" ? body.generations_used : current + 1,
+      );
+      router.refresh();
+    } catch {
+      setError("We couldn't reach Sevri. Check your connection and try again.");
+    } finally {
+      setIsGenerating(false);
+    }
   }
 
   async function handleSelect(recommendationId: string, allowDuplicate = false) {

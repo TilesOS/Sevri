@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { PortfolioCurationTrigger } from "@/components/portfolio/portfolio-curation-trigger";
+import { trackClientEvent } from "@/lib/analytics/events";
 import { getTrackLabel } from "@/components/theme/theme-utils";
 import type { PortfolioListingEntryView, PortfolioStatus } from "@/lib/portfolio/portfolio-view";
 import { cn } from "@/lib/utils";
@@ -46,7 +48,15 @@ function matchesSearch(entry: PortfolioListingEntryView, query: string) {
   ].some((value) => value.toLowerCase().includes(needle));
 }
 
-export function PortfolioListingClient({ entries }: { entries: PortfolioListingEntryView[] }) {
+export function PortfolioListingClient({
+  entries,
+  pendingCurationCount,
+  completedCount,
+}: {
+  entries: PortfolioListingEntryView[];
+  pendingCurationCount: number;
+  completedCount: number;
+}) {
   // "All" — a portfolio's first impression should be the work that exists, not
   // an empty Completed tab beside a stat card counting nine projects.
   const [activeTab, setActiveTab] = useState<PortfolioTab>("all");
@@ -72,8 +82,24 @@ export function PortfolioListingClient({ entries }: { entries: PortfolioListingE
 
   const hasEntries = entries.length > 0;
 
+  useEffect(() => {
+    void trackClientEvent("portfolio_viewed", {
+      entry_count: entries.length,
+      completed_count: completedCount,
+    }).catch((error) => {
+      console.error("portfolio_viewed tracking failed", error);
+    });
+  }, [completedCount, entries.length]);
+
   return (
     <div className="space-y-8">
+      <PortfolioCurationTrigger
+        active={pendingCurationCount > 0}
+        curationKey={[
+          pendingCurationCount,
+          ...entries.map((item) => `${item.entry.id}:${item.entry.updated_at}`),
+        ].join("|")}
+      />
       <Card>
         <PageHeader
           eyebrow="Private Portfolio"

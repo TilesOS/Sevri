@@ -1,12 +1,9 @@
 import type { PublicPortfolioSafetyInput } from "@/lib/portfolio/safety";
 import type { PortfolioEntryDetailView } from "@/lib/portfolio/portfolio-view";
+import { truncateProse } from "@/lib/text/prose";
 
 export function trimPublicText(value: string | null | undefined, maxLength: number) {
-  const clean = (value ?? "").replace(/\s+/g, " ").trim();
-  if (clean.length <= maxLength) {
-    return clean;
-  }
-  return clean.slice(0, maxLength).trim();
+  return truncateProse(value, maxLength);
 }
 
 export function getPublicFeaturedSubmissionExcerpt(view: PortfolioEntryDetailView) {
