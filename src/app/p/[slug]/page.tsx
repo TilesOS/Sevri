@@ -7,12 +7,33 @@ import { getPublicPortfolioPageBySlug } from "@/lib/db/queries/portfolio-public"
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = {
-  robots: {
-    index: false,
-    follow: false,
-  },
-};
+/**
+ * Public pages stay out of search indexes — a student chose to share a link, not
+ * to be findable — but the tab still names the project instead of the raw URL.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}): Promise<Metadata> {
+  const { slug } = await params;
+  const robots = { index: false, follow: false } as const;
+
+  try {
+    const page = await getPublicPortfolioPageBySlug(slug);
+    if (!page) {
+      return { title: "Project not found", robots };
+    }
+
+    return {
+      title: `${page.projectTitle} · ${page.displayName}`,
+      description: page.summary,
+      robots,
+    };
+  } catch {
+    return { title: "Public project", robots };
+  }
+}
 
 async function trackPublicView(ownerUserId: string, slug: string) {
   try {

@@ -1,13 +1,37 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { getRequiredReviewerUser } from "@/lib/auth/guard";
+import { getAuthenticatedUser, getRequiredReviewerUser } from "@/lib/auth/guard";
 import { getReviewerProjectWorkspace } from "@/lib/db/queries/reviewers";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
+import { getProjectProgressPercent } from "@/lib/projects/progress";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+  const { id } = await params;
+
+  try {
+    const user = await getAuthenticatedUser();
+    if (!user) {
+      return { title: "Project review" };
+    }
+
+    const workspace = await getReviewerProjectWorkspace(id, user.id);
+    const title = workspace?.project?.title;
+
+    return { title: typeof title === "string" && title.trim() ? `Review · ${title.trim()}` : "Project review" };
+  } catch {
+    return { title: "Project review" };
+  }
+}
 
 type MilestoneRow = {
   id: string;
@@ -33,8 +57,7 @@ export default async function ReviewerProjectPage({ params }: { params: Promise<
   const { project, roadmap, milestones } = workspace;
   const typedMilestones = (milestones ?? []) as MilestoneRow[];
   const completedCount = typedMilestones.filter((m) => m.completed).length;
-  const completionPercent =
-    typedMilestones.length === 0 ? 0 : Math.round((completedCount / typedMilestones.length) * 100);
+  const completionPercent = getProjectProgressPercent(completedCount, typedMilestones.length);
   const overview =
     typeof roadmap?.overview === "string" && roadmap.overview.trim().length > 0
       ? roadmap.overview
@@ -58,7 +81,7 @@ export default async function ReviewerProjectPage({ params }: { params: Promise<
             <ProgressBar
               value={completionPercent}
               label="Student progress"
-              helperText={`${completedCount} of ${typedMilestones.length} milestones complete`}
+              helperText={`${completedCount} of ${typedMilestones.length} project steps complete`}
               className="[&_.text-ink]:text-paper [&_.text-ink-muted]:text-paper/55"
             />
           ) : null}

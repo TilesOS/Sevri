@@ -6,7 +6,14 @@ export interface PromptFeedbackItem {
   contextLabel?: string | null;
 }
 
-const QUALITY_CLAUSE = "Every field must be a complete thought ending in terminal punctuation (. ! ?). Never truncate mid-word. Keep titles under 100 characters and end them on a noun phrase, not a preposition or conjunction. Write in English only; use foreign words only for proper nouns or standard technical terms. Do not use placeholder text, ellipses to indicate cut-off content, or bracketed notes.";
+const QUALITY_CLAUSE = "Every field must be a complete thought ending in terminal punctuation (. ! ?). Never truncate mid-word. If a field would run past its length budget, write a SHORTER but COMPLETE version rather than cutting one off. Keep titles under 100 characters and end them on a noun phrase, not a preposition or conjunction. Write in English only; use foreign words only for proper nouns or standard technical terms. Do not use placeholder text, ellipses to indicate cut-off content, or bracketed notes.";
+
+/**
+ * Voice contract for every field a student reads. The pipeline's own vocabulary
+ * (target outcome, normalized profile, anchor interests) must never surface, and
+ * the reader is addressed directly rather than described in the third person.
+ */
+const VOICE_CLAUSE = "Write to the student directly in second person: say \"you\" and \"your project\", never \"the student\", \"they\", or \"their\". Never name Sevri, the profile, or any internal field name such as target outcome, anchor interests, or focus signal in text the student will read. Be encouraging but credible; do not inflate what the work proves.";
 
 function formatFeedback(feedback: PromptFeedbackItem[] | undefined) {
   if (!feedback || feedback.length === 0) {
@@ -55,6 +62,7 @@ export function buildNormalizeSystemPrompt(projectTrack: ProjectTrack) {
     "Infer at most one careful step beyond what the user explicitly signals.",
     "Populate anti_generic_warnings, scope_guardrails, and goal/resource summaries with concrete, useful language.",
     "If the intake is specific, the normalized profile must stay specific.",
+    "The summary field is shown to the student on the idea board, so write it to them in second person (\"your\"), not about them.",
     QUALITY_CLAUSE,
   ].join(" ");
 }
@@ -177,6 +185,7 @@ export function buildOptionsSystemPrompt(projectTrack: ProjectTrack) {
     ...diversityGuidance,
     "Scores must reflect the real time budget, skill level, and risk flags rather than generic optimism.",
     "These seed fields become the foundation for roadmap generation - make them specific enough to drive a real execution plan.",
+    VOICE_CLAUSE,
     QUALITY_CLAUSE,
   ].join(" ");
 }
@@ -226,7 +235,15 @@ export function buildRoadmapSystemPrompt(projectTrack: ProjectTrack) {
     "",
     "Do not use generic titles like 'Foundation Setup', 'Core Workflow', or 'Polish and Packaging'. Instead, use titles that name a specific project artifact, domain concept, or user-facing feature (e.g., 'Wire the Trace Parser', 'Score the Rubric Matrix', 'Ship the Comparison View'). The title should tell the student exactly WHAT they are building in this step.",
     "Every deliverable must be a concrete artifact, not a phase name.",
+    "",
+    "pitch_kit: How the student talks about this project once it exists. Write it as finished prose the student could say out loud without editing.",
+    "pitch_kit.elevator_pitch: 2-4 sentences naming what the project is, who it serves, and what makes it credible. No hype and no invented results.",
+    "pitch_kit.resume_bullets: 2-3 bullets that each start with a past-tense action verb and describe the artifact and the evidence. Claim only what the roadmap actually produces.",
+    "pitch_kit.talking_points: exactly 3 points. Each has a short label (for example 'Why this project', 'What it does', 'Why it matters') and a body of 1-2 complete sentences.",
+    "Every pitch_kit field is read by the student and is written for them: complete sentences, correct capitalization, no trailing fragments.",
+    "",
     "Do not include long rationale, README text, or extra sections.",
+    VOICE_CLAUSE,
     QUALITY_CLAUSE,
   ].join(" ");
 }
@@ -260,7 +277,9 @@ export function buildRoadmapUserPrompt(input: {
     "- validation_check for each step must describe observable evidence that the step is complete.",
     "- scope_guardrail for each step must name the most likely scope creep risk for that step.",
     "- cut_if_behind items must be specific features, sections, or sub-tasks from THIS project.",
+    "- Phrase each cut_if_behind item as a thing that can wait (a noun phrase such as 'the export view'), not as an instruction to delete it now.",
     "- success_criteria must tie to real deliverables, not effort or process.",
+    "- pitch_kit must describe only what this roadmap actually delivers, in the student's own second-person voice.",
   ].join("\n\n");
 }
 
@@ -284,6 +303,7 @@ export function buildStepGuidanceSystemPrompt(projectTrack: ProjectTrack, stepIn
     "The done_when criteria must tie directly to the step's validation_check - do not invent abstract completion conditions.",
     "Pitfalls must reference real risks specific to this project and step, not generic advice.",
     positionGuidance,
+    VOICE_CLAUSE,
     QUALITY_CLAUSE,
   ].join(" ");
 }

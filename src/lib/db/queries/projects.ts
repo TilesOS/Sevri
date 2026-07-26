@@ -13,6 +13,7 @@ export async function getActiveProject(userId: string) {
     .select("*")
     .eq("user_id", userId)
     .in("status", ["active", "paused"])
+    .is("archived_at", null)
     .order("selected_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -24,6 +25,30 @@ export async function getActiveProject(userId: string) {
   return data;
 }
 
+/**
+ * Archived projects, for the restore list. They are deliberately excluded from
+ * every other dashboard and calendar query — archiving hides a project without
+ * deleting anything, so this is the only place they surface.
+ */
+export async function getArchivedProjectsForDashboard(userId: string) {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("id, title, project_track, selected_at")
+    .eq("user_id", userId)
+    .not("archived_at", "is", null)
+    .order("selected_at", { ascending: false });
+
+  if (error) {
+    throw new Error(`Failed to fetch archived projects: ${error.message}`);
+  }
+
+  return (data ?? []).map((project) => ({
+    ...project,
+    project_track: project.project_track === "research" ? "research" : "software",
+  }));
+}
+
 export async function getProjectsForDashboard(userId: string) {
   const supabase = await createServerSupabaseClient();
   const { data: projects, error: projectError } = await supabase
@@ -31,6 +56,7 @@ export async function getProjectsForDashboard(userId: string) {
     .select("id, title, status, project_track, selected_at")
     .eq("user_id", userId)
     .in("status", ["active", "paused", "completed"])
+    .is("archived_at", null)
     .order("selected_at", { ascending: false });
 
   if (projectError) {
@@ -42,6 +68,7 @@ export async function getProjectsForDashboard(userId: string) {
   let milestoneCountsByProjectId = new Map<string, { total: number; completed: number }>();
   let currentStepNumberByProjectId = new Map<string, number>();
   let outputMetricsByProjectId = new Map<string, ReturnType<typeof emptyProjectOutputMetrics>>();
+  const projectById = new Map((projects ?? []).map((project) => [project.id, project]));
 
   if (projectIds.length > 0) {
     const [
@@ -99,7 +126,7 @@ export async function getProjectsForDashboard(userId: string) {
     }, new Map<string, ReturnType<typeof emptyProjectOutputMetrics>>());
 
     for (const link of githubLinks ?? []) {
-      const project = (projects ?? []).find((candidate) => candidate.id === link.project_id);
+      const project = projectById.get(link.project_id);
       if (!project || project.project_track !== "software") continue;
 
       const current = outputMetricsByProjectId.get(project.id) ?? emptyProjectOutputMetrics();
@@ -109,7 +136,7 @@ export async function getProjectsForDashboard(userId: string) {
 
     const researchMilestoneIds = (milestones ?? [])
       .filter((milestone) => {
-        const project = (projects ?? []).find((candidate) => candidate.id === milestone.project_id);
+        const project = projectById.get(milestone.project_id);
         return project?.project_track === "research";
       })
       .map((milestone) => milestone.id);

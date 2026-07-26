@@ -43,7 +43,7 @@ export function ProjectRoadmapEmptyState({
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <p className="editorial-kicker">What happens next</p>
-          <p className="mt-3 text-lg font-semibold text-ink">Sevri creates the milestone structure.</p>
+          <p className="mt-3 text-lg font-semibold text-ink">Sevri creates the step structure.</p>
         </Card>
         <Card tone="primary">
           <p className="editorial-kicker">Execution bias</p>

@@ -10,7 +10,7 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
       <Card className="space-y-4 bg-surface" elevation="soft">
         <p className="text-xs font-medium text-ink-muted">Core scope</p>
         <h2 className="text-lg font-semibold text-ink">Protect the MVP before you chase the stretch version.</h2>
-        <p className="text-sm leading-6 text-ink-soft">{workspace.roadmap?.mvp_scope}</p>
+        <p className="text-sm leading-6 text-ink-soft">{workspace.mvpScope}</p>
       </Card>
 
       <Card className="space-y-4">
@@ -25,7 +25,12 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
       </Card>
 
       <Card className="space-y-4">
-        <p className="text-sm font-medium text-ink">Delay these until later</p>
+        <div className="space-y-1">
+          <p className="text-sm font-medium text-ink">Worth doing later</p>
+          <p className="text-xs leading-5 text-ink-muted">
+            These are parked, not cancelled. Come back to them once the core is solid.
+          </p>
+        </div>
         {workspace.stretchGoals.length ? (
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
             {workspace.stretchGoals.map((goal) => (
@@ -36,7 +41,7 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
           </ul>
         ) : (
           <p className="text-sm leading-6 text-ink-soft">
-            No explicit stretch goals were stored, which is a good reason to keep the current roadmap narrow.
+            Nothing is parked yet, which is a good reason to keep the current roadmap narrow.
           </p>
         )}
       </Card>

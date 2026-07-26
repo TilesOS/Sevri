@@ -1,6 +1,10 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { clientEnv } from "@/lib/env";
+import {
+  copyNextSessionResponseState,
+  createSessionPreservingRedirect,
+} from "@/lib/supabase/response";
 
 const PROTECTED_PATHS = [
   "/dashboard",
@@ -41,11 +45,17 @@ export async function updateSession(request: NextRequest) {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }>) {
+      setAll(
+        cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }>,
+        headersToSet: Record<string, string>,
+      ) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
+        response = copyNextSessionResponseState(response, NextResponse.next({ request }));
         cookiesToSet.forEach(({ name, value, options }) => {
           response.cookies.set(name, value, options);
+        });
+        Object.entries(headersToSet).forEach(([name, value]) => {
+          response.headers.set(name, value);
         });
       },
     },
@@ -64,8 +74,9 @@ export async function updateSession(request: NextRequest) {
   if (!user && matchesPath(pathname, PROTECTED_PATHS)) {
     const url = request.nextUrl.clone();
     url.pathname = "/sign-in";
-    url.searchParams.set("next", pathname);
-    return NextResponse.redirect(url);
+    url.search = "";
+    url.searchParams.set("next", `${pathname}${request.nextUrl.search}`);
+    return createSessionPreservingRedirect(url, response);
   }
 
   if (!user) {
@@ -83,19 +94,22 @@ export async function updateSession(request: NextRequest) {
   if (matchesPath(pathname, AUTH_PATHS)) {
     const url = request.nextUrl.clone();
     url.pathname = role === "reviewer" ? "/reviewer" : "/dashboard";
-    return NextResponse.redirect(url);
+    url.search = "";
+    return createSessionPreservingRedirect(url, response);
   }
 
   if (role === "reviewer" && matchesPath(pathname, STUDENT_ONLY_PATHS)) {
     const url = request.nextUrl.clone();
     url.pathname = "/reviewer";
-    return NextResponse.redirect(url);
+    url.search = "";
+    return createSessionPreservingRedirect(url, response);
   }
 
   if (role === "student" && matchesPath(pathname, REVIEWER_ONLY_PATHS)) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
-    return NextResponse.redirect(url);
+    url.search = "";
+    return createSessionPreservingRedirect(url, response);
   }
 
   return response;

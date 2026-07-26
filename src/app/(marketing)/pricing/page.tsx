@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+import { getMarketingViewer } from "@/lib/auth/viewer";
 import { PLAN_LIMITS } from "@/lib/usage/limits";
 import { FaqAccordion } from "@/components/marketing/faq-accordion";
 import { Button } from "@/components/ui/button";
@@ -5,6 +7,19 @@ import { Reveal } from "@/components/ui/reveal";
 import { Section } from "@/components/ui/section";
 
 const freeGenerationLimit = PLAN_LIMITS.free.generation_limit;
+
+// The free-tier number comes from the enforced plan limit, not a copy of it, so
+// the search snippet can never disagree with the page or the gate.
+const PRICING_DESCRIPTION = `Start free with ${freeGenerationLimit} idea board generations, or go Pro for unlimited boards, step coaching, and portfolio packaging.`;
+
+export const metadata: Metadata = {
+  title: "Pricing",
+  description: PRICING_DESCRIPTION,
+  openGraph: {
+    title: "Pricing — Sevri",
+    description: PRICING_DESCRIPTION,
+  },
+};
 
 const comparisonRows = [
   { label: "Idea board generations", free: `${freeGenerationLimit} total`, pro: "Unlimited (fair-use)" },
@@ -32,7 +47,7 @@ const freeFeatures = [
   `${freeGenerationLimit} idea board generations`,
   "Both software and research tracks",
   "4-step onboarding wizard",
-  "Roadmap + milestone tracking",
+  "Roadmap + step tracking",
 ];
 
 const proFeatures = [
@@ -42,7 +57,26 @@ const proFeatures = [
   "Built for sustained execution",
 ];
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const viewer = await getMarketingViewer();
+
+  // The plan cards address whoever is reading. Telling a signed-in student to
+  // "Create account", or selling Pro to someone already paying for it, is the
+  // kind of small incoherence that makes a paid product feel untended.
+  const freeCta = viewer.isAuthenticated
+    ? { href: "/dashboard", label: "Open workspace" }
+    : { href: "/sign-up", label: "Start free" };
+  const proCta = viewer.isPro
+    ? { href: "/settings/billing", label: "Manage your plan" }
+    : viewer.isAuthenticated
+      ? { href: "/settings/billing", label: "Upgrade to Pro" }
+      : { href: "/sign-up", label: "Create account" };
+  const intro = viewer.isPro
+    ? "You're on Pro: unlimited generations, per-step coaching, and portfolio packaging are all included."
+    : viewer.isAuthenticated
+      ? "You're on the free plan. Upgrade when you want unlimited generations and deeper coaching."
+      : "Start free while you validate the workflow. Upgrade when you want unlimited generations and deeper coaching.";
+
   return (
     <>
       <Section className="pt-10">
@@ -51,10 +85,7 @@ export default function PricingPage() {
           <h1 className="mt-3 font-display text-5xl leading-[0.95] tracking-tight text-ink sm:text-6xl">
             Simple pricing for serious students.
           </h1>
-          <p className="mx-auto mt-5 max-w-lg text-lg leading-8 text-ink-soft">
-            Start free while you validate the workflow. Upgrade when you want unlimited generations and deeper
-            coaching.
-          </p>
+          <p className="mx-auto mt-5 max-w-lg text-lg leading-8 text-ink-soft">{intro}</p>
         </div>
 
         <div className="mx-auto grid max-w-4xl gap-5 lg:grid-cols-2">
@@ -73,8 +104,8 @@ export default function PricingPage() {
                 ))}
               </ul>
               <div className="mt-auto pt-10">
-                <Button href="/sign-up" variant="outline" fullWidth size="lg">
-                  Start free
+                <Button href={freeCta.href} variant="outline" fullWidth size="lg">
+                  {freeCta.label}
                 </Button>
               </div>
             </div>
@@ -86,7 +117,9 @@ export default function PricingPage() {
               <div className="relative z-10 flex h-full flex-col">
                 <div className="flex items-center justify-between">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-cream/50">Pro</p>
-                  <span className="rounded-full bg-coral px-3 py-1 text-xs font-semibold text-ink">Recommended</span>
+                  <span className="rounded-full bg-coral px-3 py-1 text-xs font-semibold text-ink">
+                    {viewer.isPro ? "Your plan" : "Recommended"}
+                  </span>
                 </div>
                 <div className="mt-4 flex items-end gap-1.5">
                   <span className="font-display text-5xl text-cream">$10</span>
@@ -100,8 +133,8 @@ export default function PricingPage() {
                   ))}
                 </ul>
                 <div className="mt-auto pt-10">
-                  <Button href="/sign-up" variant="contrast" fullWidth size="lg">
-                    Create account
+                  <Button href={proCta.href} variant="contrast" fullWidth size="lg">
+                    {proCta.label}
                   </Button>
                 </div>
               </div>

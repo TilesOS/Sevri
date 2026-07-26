@@ -7,7 +7,18 @@ import { getProjectGithubLink, type ProjectGithubLinkRow } from "@/lib/db/querie
 import { getMilestoneGuidance } from "@/lib/db/queries/milestone-guidance";
 import { deriveMilestoneProgressMeta } from "@/lib/projects/milestone-status";
 import { getProjectProgressSummary, type ProjectProgressSummary } from "@/lib/projects/progress";
+import {
+  composePitchKitDraft,
+  composeScopeStatement,
+  formatTalkingPoint,
+  isUsableStoredCopy,
+  isUsableStoredCopyList,
+  parseTalkingPoint,
+  toDeferralList,
+} from "@/lib/projects/pitch-kit";
 import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
+import { asSentence } from "@/lib/text/prose";
+import { toStudentVoice } from "@/lib/text/student-voice";
 import type { ProjectTrack } from "@/types/domain";
 
 export interface ProjectGithubLinkView {
@@ -56,6 +67,22 @@ export interface ParsedTalkingPoint {
 }
 
 /**
+ * The written surfaces of the workspace, resolved from storage.
+ *
+ * Stored copy is used when it passes the content lint. Roadmaps written before
+ * the pitch kit was model-generated carry template-stitched prose (". and",
+ * "? with", third-person voice); rather than migrate that text, it is recomposed
+ * from the structured fields that are also stored and marked as a draft.
+ */
+export interface ProjectPitchKitView {
+  elevatorPitch: string;
+  resumeBullets: string[];
+  talkingPoints: string[];
+  parsedTalkingPoints: ParsedTalkingPoint[];
+  isDraft: boolean;
+}
+
+/**
  * Adaptive "what to do next" preview rendered on the project overview.
  * Pulls from the current step's stored guidance + saved checklist state.
  */
@@ -88,10 +115,14 @@ export interface ProjectWorkspaceView {
   completedCount: number;
   completionPercent: number;
   progress: ProjectProgressSummary;
+  /** "Cut if behind" items, phrased as deferrals rather than as delete-now instructions. */
   stretchGoals: string[];
   projectBrief: string;
   projectLens: ProjectLensItem[];
   keyDeliverables: string[];
+  /** The Scope & Guardrails statement, recomposed when the stored one is stitched. */
+  mvpScope: string;
+  pitchKit: ProjectPitchKitView;
   elevatorPitch: string;
   resumeBullets: string[];
   talkingPoints: string[];
@@ -106,16 +137,84 @@ function getPayloadString(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim().length > 0 ? value : fallback;
 }
 
-function parseTalkingPoint(point: string) {
-  const match = point.match(/^([^:]{3,40}):\s*(.+)$/);
-  if (!match) {
-    return null;
+function getPayloadStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
+    : [];
+}
+
+const EMPTY_PITCH_KIT: ProjectPitchKitView = {
+  elevatorPitch: "",
+  resumeBullets: [],
+  talkingPoints: [],
+  parsedTalkingPoints: [],
+  isDraft: false,
+};
+
+/**
+ * Resolves the pitch kit for display. Model-written copy is shown as written;
+ * anything else is re-derived from the stored option seed so older projects get
+ * readable prose without a data migration, and is labeled as a draft.
+ */
+function resolvePitchKitView(input: {
+  explanationGuide: Record<string, unknown>;
+  projectTrack: ProjectTrack;
+  projectTitle: string;
+  optionSeed: Record<string, unknown>;
+  firstDeliverable: string | null;
+  stepCount: number;
+}): ProjectPitchKitView {
+  const storedPitch = getPayloadString(input.explanationGuide.elevator_pitch);
+  const storedBullets = getPayloadStringList(input.explanationGuide.resume_bullets);
+  const storedPoints = getPayloadStringList(input.explanationGuide.interview_talking_points);
+
+  const storedIsUsable =
+    isUsableStoredCopy(storedPitch) &&
+    isUsableStoredCopyList(storedBullets) &&
+    isUsableStoredCopyList(storedPoints);
+
+  if (storedIsUsable) {
+    return {
+      elevatorPitch: storedPitch,
+      resumeBullets: storedBullets,
+      talkingPoints: storedPoints,
+      parsedTalkingPoints: toParsedTalkingPoints(storedPoints),
+      isDraft: input.explanationGuide.source === "draft",
+    };
   }
 
+  // Without a stored option seed there is nothing true to say about the project,
+  // so the page keeps its empty state rather than showing invented copy.
+  const hasSeed = Object.values(input.optionSeed).some(
+    (value) => typeof value === "string" && value.trim().length > 0,
+  );
+  if (!hasSeed) {
+    return EMPTY_PITCH_KIT;
+  }
+
+  const draft = composePitchKitDraft({
+    projectTrack: input.projectTrack,
+    projectTitle: input.projectTitle,
+    seed: input.optionSeed,
+    firstDeliverable: input.firstDeliverable,
+    stepCount: input.stepCount,
+  });
+  const talkingPoints = draft.talkingPoints.map((point) => formatTalkingPoint(point));
+
   return {
-    label: match[1].trim(),
-    body: match[2].trim(),
+    elevatorPitch: draft.elevatorPitch,
+    resumeBullets: draft.resumeBullets,
+    talkingPoints,
+    parsedTalkingPoints: toParsedTalkingPoints(talkingPoints),
+    isDraft: true,
   };
+}
+
+function toParsedTalkingPoints(points: string[]): ParsedTalkingPoint[] {
+  return points
+    .map((raw) => ({ raw, parsed: parseTalkingPoint(raw) }))
+    .filter((item): item is { raw: string; parsed: { label: string; body: string } } => item.parsed !== null)
+    .map((item) => ({ raw: item.raw, label: item.parsed.label, body: item.parsed.body }));
 }
 
 function normalizeMilestones(
@@ -198,13 +297,13 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
       : {};
   const milestones = normalizeMilestones(workspace.milestones ?? [], scheduleTimezone, roadmapPayload);
   const completedCount = milestones.filter((milestone) => milestone.completed).length;
-  const completionPercent = milestones.length === 0 ? 0 : Math.round((completedCount / milestones.length) * 100);
   const progress = getProjectProgressSummary({
     hasRoadmap: Boolean(workspace.roadmap),
     completedCount,
     totalMilestones: milestones.length,
     projectStatus: workspace.project.status,
   });
+  const completionPercent = progress.percent;
   const scheduledStartDate = workspace.roadmap?.scheduled_start_date ?? null;
   const scheduledEndDate = workspace.roadmap?.scheduled_end_date ?? null;
   const scheduleReady =
@@ -212,58 +311,63 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     Boolean(scheduledEndDate) &&
     milestones.length > 0 &&
     milestones.every((milestone) => milestone.dueDate && milestone.scheduleDurationDays);
-  const stretchGoals = (Array.isArray(workspace.roadmap?.stretch_goals) ? workspace.roadmap?.stretch_goals : []).filter(
-    (goal: unknown): goal is string => typeof goal === "string" && goal.trim().length > 0,
+  // Older rows stored these as "Stretch later: ..." or as "Drop ..." imperatives,
+  // which read as an instruction to cut the item now rather than to revisit it.
+  const stretchGoals = toDeferralList(
+    getPayloadStringList(workspace.roadmap?.stretch_goals),
   );
   const optionSeed =
     roadmapPayload.selected_option_seed && typeof roadmapPayload.selected_option_seed === "object"
       ? (roadmapPayload.selected_option_seed as Record<string, unknown>)
       : {};
-  const projectBrief = getPayloadString(roadmapPayload.project_brief);
-  const projectLens =
+  const projectBrief = toStudentVoice(getPayloadString(roadmapPayload.project_brief));
+  const projectLens = (
     projectTrack === "research"
       ? [
           {
-            label: "Research question",
-            value: getPayloadString(optionSeed.research_question, "Clarify the final question once the roadmap begins."),
+            label: "Your research question",
+            value: getPayloadString(optionSeed.research_question, "Clarify your final question once the roadmap begins."),
           },
           {
-            label: "Methodology",
-            value: getPayloadString(optionSeed.methodology, "Choose the cleanest method that matches your access."),
+            label: "Your method",
+            value: getPayloadString(optionSeed.methodology, "Choose the cleanest method that matches what you can access."),
           },
           {
-            label: "Evidence plan",
+            label: "Your evidence plan",
             value: getPayloadString(optionSeed.evidence_plan, "Protect the evidence you can realistically gather."),
           },
         ]
       : [
           {
-            label: "Target user",
+            label: "Who it is for",
             value: getPayloadString(optionSeed.target_user, "Clarify who this project is genuinely for."),
           },
           {
-            label: "Problem statement",
+            label: "The problem you are solving",
             value: getPayloadString(optionSeed.problem_statement, "Keep the core problem concrete and narrow."),
           },
           {
-            label: "Core workflow",
+            label: "Your core workflow",
             value: getPayloadString(optionSeed.core_workflow, "Protect the first workflow that makes the project feel real."),
           },
-        ];
+        ]
+  ).map((item) => ({ label: item.label, value: asSentence(toStudentVoice(item.value)) }));
   const explanationGuide =
     workspace.roadmap?.explanation_guide && typeof workspace.roadmap.explanation_guide === "object"
       ? (workspace.roadmap.explanation_guide as Record<string, unknown>)
       : {};
-  const resumeBullets = Array.isArray(explanationGuide.resume_bullets)
-    ? explanationGuide.resume_bullets.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    : [];
-  const talkingPoints = Array.isArray(explanationGuide.interview_talking_points)
-    ? explanationGuide.interview_talking_points.filter((item): item is string => typeof item === "string" && item.trim().length > 0)
-    : [];
-  const parsedTalkingPoints = talkingPoints
-    .map((point) => ({ raw: point, parsed: parseTalkingPoint(point) }))
-    .filter((item): item is { raw: string; parsed: { label: string; body: string } } => item.parsed !== null)
-    .map((item) => ({ raw: item.raw, label: item.parsed.label, body: item.parsed.body }));
+  const pitchKit = resolvePitchKitView({
+    explanationGuide,
+    projectTrack,
+    projectTitle: workspace.project.title ?? "",
+    optionSeed,
+    firstDeliverable: milestones[0]?.deliverable ?? null,
+    stepCount: milestones.length,
+  });
+  const storedMvpScope = getPayloadString(workspace.roadmap?.mvp_scope);
+  const mvpScope = isUsableStoredCopy(storedMvpScope)
+    ? storedMvpScope
+    : composeScopeStatement({ projectTrack, seed: optionSeed });
   const firstIncompleteStepNumber = milestones.find((milestone) => !milestone.completed)?.stepNumber ?? null;
   const nextMilestone = milestones.find((milestone) => !milestone.completed) ?? milestones[milestones.length - 1] ?? null;
 
@@ -322,10 +426,12 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     projectBrief,
     projectLens,
     keyDeliverables: milestones.slice(0, 3).map((milestone) => milestone.deliverable),
-    elevatorPitch: getPayloadString(explanationGuide.elevator_pitch),
-    resumeBullets,
-    talkingPoints,
-    parsedTalkingPoints,
+    mvpScope,
+    pitchKit,
+    elevatorPitch: pitchKit.elevatorPitch,
+    resumeBullets: pitchKit.resumeBullets,
+    talkingPoints: pitchKit.talkingPoints,
+    parsedTalkingPoints: pitchKit.parsedTalkingPoints,
     firstIncompleteStepNumber,
     nextMilestone,
     nextStepAction,

@@ -1,3 +1,12 @@
+// The single source of truth for "how far along is this project?".
+//
+// Two separate facts are reported and must never be blended:
+//   - `percent`    — completed steps / total steps. Nothing else counts.
+//   - `stage`      — the lifecycle label (Ideating → … → Shipped).
+// An earlier version folded lifecycle stages into the percentage, which made the
+// same project read 72% on the dashboard and 60% in the Portfolio. Every surface
+// now reads `percent` from here.
+
 export type ProjectProgressStage = "ideating" | "chosen" | "scoped" | "step_work" | "shipped";
 export type ProjectProgressItemState = "complete" | "current" | "locked";
 
@@ -12,7 +21,12 @@ export interface ProjectProgressSummary {
   stage: ProjectProgressStage;
   stageLabel: string;
   stageDetail: string;
+  /** Completed steps / total steps, 0-100. Zero-step projects are 0. */
   percent: number;
+  completedSteps: number;
+  totalSteps: number;
+  /** The sentence that belongs next to `percent` — same fact, written out. */
+  percentDetail: string;
   items: ProjectProgressItem[];
 }
 
@@ -24,8 +38,18 @@ interface ProjectProgressInput {
   projectStatus?: string | null;
 }
 
-function clampPercent(value: number) {
-  return Math.max(0, Math.min(100, Math.round(value)));
+/**
+ * The one progress percentage. Completed steps over total steps; a project with
+ * no steps yet is 0%, never a partial credit for having reached a lifecycle stage.
+ */
+export function getProjectProgressPercent(completedSteps: number, totalSteps: number): number {
+  const total = Math.max(0, Math.floor(totalSteps));
+  if (total === 0) {
+    return 0;
+  }
+
+  const completed = Math.max(0, Math.min(Math.floor(completedSteps), total));
+  return Math.max(0, Math.min(100, Math.round((completed / total) * 100)));
 }
 
 export function getProjectProgressSummary(input: ProjectProgressInput): ProjectProgressSummary {
@@ -39,6 +63,7 @@ export function getProjectProgressSummary(input: ProjectProgressInput): ProjectP
     totalMilestones > 0
       ? `${completedCount} of ${totalMilestones} project steps complete`
       : "Project steps appear after the roadmap is generated";
+  const percent = getProjectProgressPercent(completedCount, totalMilestones);
 
   let stage: ProjectProgressStage;
   let stageLabel: string;
@@ -63,7 +88,9 @@ export function getProjectProgressSummary(input: ProjectProgressInput): ProjectP
   } else {
     stage = "step_work";
     stageLabel = `Step ${currentStepNumber} of ${totalMilestones}`;
-    stageDetail = stepProgressDetail;
+    // Deliberately not the step count: that fact already belongs to `percent`
+    // and `percentDetail`, and repeating it makes two numbers for one thing.
+    stageDetail = `Finish Step ${currentStepNumber}'s deliverable before opening the next one.`;
   }
 
   const items: ProjectProgressItem[] = [
@@ -88,7 +115,10 @@ export function getProjectProgressSummary(input: ProjectProgressInput): ProjectP
     {
       id: "step_work",
       label: totalMilestones > 0 ? `Steps ${completedCount}/${totalMilestones}` : "Steps",
-      detail: stepProgressDetail,
+      detail:
+        totalMilestones > 0
+          ? "One concrete deliverable per step"
+          : "Steps appear after the roadmap is generated",
       state: stage === "step_work" ? "current" : allStepsComplete ? "complete" : "locked",
     },
     {
@@ -99,16 +129,14 @@ export function getProjectProgressSummary(input: ProjectProgressInput): ProjectP
     },
   ];
 
-  const completedStages = items.filter((item) => item.state === "complete").length;
-  const partialStepCredit =
-    input.hasRoadmap && totalMilestones > 0 && !allStepsComplete ? completedCount / totalMilestones : 0;
-  const percent = clampPercent(((completedStages + partialStepCredit) / items.length) * 100);
-
   return {
     stage,
     stageLabel,
     stageDetail,
     percent,
+    completedSteps: completedCount,
+    totalSteps: totalMilestones,
+    percentDetail: stepProgressDetail,
     items,
   };
 }

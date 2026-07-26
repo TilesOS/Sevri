@@ -91,7 +91,8 @@ export function BillingActions({ canManageBilling }: BillingActionsProps) {
       </div>
 
       <p className="text-sm leading-6 text-ink-soft">
-        Billing changes usually appear automatically after Stripe confirms them. Use manual sync only if something still looks behind.
+        Billing updates arrive from Stripe automatically, and this page re-checks whenever something looks out of date.
+        You can also refresh it yourself at any time.
       </p>
 
       {info ? <Alert tone="success">{info}</Alert> : null}

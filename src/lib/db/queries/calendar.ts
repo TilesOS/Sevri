@@ -10,6 +10,10 @@ import type {
   ScheduleMilestoneInput,
 } from "@/lib/calendar/types";
 import { deriveUrgencyState } from "@/lib/calendar/urgency";
+import {
+  includesArchivedProjects,
+  type ProjectScheduleVisibility,
+} from "@/lib/projects/archive-visibility";
 import { deriveMilestoneProgressMeta } from "@/lib/projects/milestone-status";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ProjectTrack } from "@/types/domain";
@@ -44,8 +48,13 @@ export interface CalendarProjectView extends ProjectScheduleState {
 }
 
 export interface CalendarPageView {
+  /**
+   * The date the calendar opens on. The client re-derives this from the
+   * browser's own time zone on mount, so a UTC-side rollover never highlights
+   * tomorrow. There is no separate "default month": the calendar always opens
+   * on the month containing today.
+   */
   today: string;
-  defaultMonth: string;
   visibleProjectIds: string[];
   projects: CalendarProjectView[];
 }
@@ -53,6 +62,15 @@ export interface CalendarPageView {
 export interface ProjectScheduleGenerationContext extends ProjectScheduleState {
   estimatedWeeks: number;
   weeklyHours: number | null;
+}
+
+interface ProjectScheduleGenerationContextOptions {
+  /**
+   * Calendar operations keep archived projects hidden. Workspace operations
+   * such as focus blocks remain available because archiving does not remove
+   * the project's workspace or progress history.
+   */
+  visibility?: ProjectScheduleVisibility;
 }
 
 function groupByProjectId<T extends { project_id: string }>(rows: ReadonlyArray<T>) {
@@ -200,6 +218,7 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
     .select("id, title, status, project_track, selected_at")
     .eq("user_id", userId)
     .in("status", ["active", "paused", "completed"])
+    .is("archived_at", null)
     .order("selected_at", { ascending: false });
 
   if (projectError) {
@@ -208,10 +227,8 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
 
   const projectIds = (projects ?? []).map((project) => project.id);
   if (projectIds.length === 0) {
-    const today = getTodayDateString("UTC");
     return {
-      today,
-      defaultMonth: today,
+      today: getTodayDateString("UTC"),
       visibleProjectIds: [],
       projects: [],
     };
@@ -308,15 +325,10 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
       } satisfies CalendarProjectView;
     });
 
-  const fallbackToday = getTodayDateString("UTC");
-  const defaultMonth =
-    calendarProjects.find((project) => project.scheduleReady)?.scheduledStartDate ??
-    calendarProjects[0]?.selectedAt?.slice(0, 10) ??
-    fallbackToday;
-
+  // The calendar opens on the current month, not on whichever project happens to
+  // start first — a student arriving in July should see July, with today marked.
   return {
-    today: fallbackToday,
-    defaultMonth,
+    today: getTodayDateString("UTC"),
     visibleProjectIds: getVisibleProjectIds(calendarProjects),
     projects: calendarProjects,
   };
@@ -325,14 +337,20 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
 export async function getProjectScheduleGenerationContext(
   projectId: string,
   userId: string,
+  options: ProjectScheduleGenerationContextOptions = {},
 ): Promise<ProjectScheduleGenerationContext> {
   const supabase = await createServerSupabaseClient();
-  const { data: project, error: projectError } = await supabase
+  let projectQuery = supabase
     .from("projects")
     .select("id, title, status, project_track, recommendation_id")
     .eq("id", projectId)
-    .eq("user_id", userId)
-    .single();
+    .eq("user_id", userId);
+
+  if (!includesArchivedProjects(options.visibility)) {
+    projectQuery = projectQuery.is("archived_at", null);
+  }
+
+  const { data: project, error: projectError } = await projectQuery.single();
 
   if (projectError || !project) {
     throw new Error(projectError?.message ?? "Project not found.");

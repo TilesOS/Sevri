@@ -3,12 +3,11 @@ import { getRouteGenerationMetadata, runPortfolioCuration } from "@/lib/ai/pipel
 import {
   markPortfolioCurationAttempted,
   savePortfolioCuration,
+  type PortfolioCurationClaim,
 } from "@/lib/db/mutations/portfolio";
-import {
-  getPortfolioEntryDetailData,
-  type PortfolioEntryRow,
-} from "@/lib/db/queries/portfolio";
+import { getPortfolioEntryDetailData } from "@/lib/db/queries/portfolio";
 import { buildPortfolioPipelineInputFromDetailData } from "@/lib/portfolio/ai-context";
+import { trimPublicText } from "@/lib/portfolio/public-surface";
 import { runSafetyChecks } from "@/lib/portfolio/safety";
 
 function getErrorMessage(error: unknown) {
@@ -23,11 +22,15 @@ export async function generateAndSavePortfolioCuration(input: {
   projectId: string;
   userId: string;
   source: "first_time" | "regenerate";
+  claim?: Pick<PortfolioCurationClaim, "entryId" | "claimToken">;
 }) {
   const startedAt = performance.now();
   const data = await getPortfolioEntryDetailData(input.projectId, input.userId);
   if (!data) {
     return null;
+  }
+  if (input.claim && data.entry.id !== input.claim.entryId) {
+    throw new Error("Portfolio curation claim no longer matches the project entry.");
   }
 
   const pipelineInput = buildPortfolioPipelineInputFromDetailData(data);
@@ -44,7 +47,10 @@ export async function generateAndSavePortfolioCuration(input: {
       projectTitle: data.project.title,
       summary: generated.parsed.curated_summary,
       reflection: data.entry.student_reflection ?? "",
-      featuredSubmissionExcerpt: (data.latestSubmissions[0]?.submission_text ?? "").slice(0, 300),
+      featuredSubmissionExcerpt: trimPublicText(
+        data.latestSubmissions[0]?.submission_text,
+        300,
+      ),
     });
     if (!safety.passed) {
       return {
@@ -64,6 +70,7 @@ export async function generateAndSavePortfolioCuration(input: {
       ...metadata,
       source: input.source,
     },
+    claimToken: input.claim?.claimToken,
   });
 
   await trackEvent(
@@ -83,40 +90,44 @@ export async function generateAndSavePortfolioCuration(input: {
   };
 }
 
-export async function runFirstTimePortfolioCurationForPendingEntries(input: {
+export async function runClaimedFirstTimePortfolioCurations(input: {
   userId: string;
-  entries: Array<{
-    entry: PortfolioEntryRow;
-    project: { id: string };
-  }>;
+  claims: PortfolioCurationClaim[];
 }) {
-  for (const item of input.entries) {
-    if (item.entry.curation_attempted_at || item.entry.curated_summary) {
-      continue;
-    }
+  let completed = 0;
 
+  for (const claim of input.claims) {
     try {
       const result = await generateAndSavePortfolioCuration({
-        projectId: item.project.id,
+        projectId: claim.projectId,
         userId: input.userId,
         source: "first_time",
+        claim,
       });
 
-      if (result?.blocked) {
+      if (!result) {
+        throw new Error("Portfolio entry was not found after its curation claim.");
+      }
+
+      if (result.blocked) {
         await markPortfolioCurationAttempted({
-          entryId: item.entry.id,
+          entryId: claim.entryId,
           userId: input.userId,
+          claimToken: claim.claimToken,
           metadata: {
             source: "first_time",
             blocked: true,
             findings: result.findings,
           },
         });
+      } else {
+        completed += 1;
       }
     } catch (error) {
       await markPortfolioCurationAttempted({
-        entryId: item.entry.id,
+        entryId: claim.entryId,
         userId: input.userId,
+        claimToken: claim.claimToken,
         metadata: {
           source: "first_time",
           failed: true,
@@ -127,4 +138,6 @@ export async function runFirstTimePortfolioCurationForPendingEntries(input: {
       });
     }
   }
+
+  return { completed, attempted: input.claims.length };
 }

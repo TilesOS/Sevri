@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { getRequiredUser } from "@/lib/auth/guard";
 import { getGoogleCalendarSyncSettings } from "@/lib/db/queries/google-calendar";
 import { getUserIntegrationPublic } from "@/lib/db/queries/github";
@@ -5,6 +6,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { GoogleCalendarIntegrationCard } from "@/components/settings/google-calendar-integration-card";
 import { GithubIntegrationCard } from "@/components/settings/github-integration-card";
 import { SettingsNav } from "@/components/settings/settings-nav";
+
+export const metadata: Metadata = {
+  title: "Integrations",
+};
 
 interface IntegrationsPageProps {
   searchParams?: Promise<{ connected?: string; error?: string }>;

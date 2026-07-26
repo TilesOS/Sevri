@@ -2,9 +2,17 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  RateLimitUnavailableError,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
+import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { buildGenerationContext } from "@/lib/ai/generation-context";
+import { withProfileIdentity } from "@/lib/ai/intake-identity";
 import { captureServerError } from "@/lib/sentry/server";
+import { getProfileIdentity } from "@/lib/db/queries/profile";
 import { getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getGenerationVersion } from "@/lib/ai/client";
 import type { ProjectTrack } from "@/lib/validators/onboarding";
@@ -33,6 +41,7 @@ function asProjectTrack(value: unknown): ProjectTrack {
 
 export async function POST(request: Request) {
   let stage = "start";
+  let rateLimitReservationId: string | null = null;
   try {
     stage = "auth";
     const { user, response } = await requireApiUser();
@@ -44,27 +53,23 @@ export async function POST(request: Request) {
     const body = bodySchema.parse(await request.json().catch(() => ({})));
 
     stage = "rate-limit";
-    try {
-      const rateLimit = await enforceRateLimit({
-        userId: user.id,
-        endpoint: "normalize-profile",
-        maxRequests: 10,
-        windowMinutes: 60,
-      });
+    const rateLimit = await enforceRateLimit({
+      userId: user.id,
+      endpoint: "normalize-profile",
+      maxRequests: 10,
+      windowMinutes: 60,
+    });
 
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
-          { status: 429 },
-        );
-      }
-    } catch (rateLimitError) {
-      console.error("normalize-profile rate-limit failed", { stage, error: rateLimitError });
-      captureServerError(rateLimitError, {
-        route: "ai/normalize-profile",
-        stage: "rate-limit",
-      });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
     }
+    rateLimitReservationId = rateLimit.reservationId;
 
     stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();
@@ -88,10 +93,15 @@ export async function POST(request: Request) {
 
     const projectTrack = asProjectTrack(intake.project_track);
 
+    stage = "resolve-profile-identity";
+    // Stage comes from the profile, not from this track's saved intake, so both
+    // tracks describe the same student.
+    const identity = await getProfileIdentity(user.id).catch(() => ({ studentStage: null }));
+
     stage = "build-context";
     const normalized = buildGenerationContext({
       projectTrack,
-      rawIntake: (intake.raw_answers_json as Record<string, unknown>) ?? {},
+      rawIntake: withProfileIdentity((intake.raw_answers_json as Record<string, unknown>) ?? {}, identity),
     });
 
     stage = "insert-context";
@@ -119,19 +129,43 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
+    stage = "consume-rate-limit";
+    const completedReservationId = rateLimitReservationId;
+    rateLimitReservationId = null;
+    await consumeRateLimitReservation(completedReservationId);
+
     return NextResponse.json({ normalized_profile_id: data.id, ...normalized }, { status: 200 });
   } catch (error) {
     console.error("normalize-profile failed", { stage, error });
     captureServerError(error, { route: "ai/normalize-profile", stage });
     const details = getErrorDetails(error);
-    const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
+    const status =
+      error instanceof RateLimitUnavailableError
+        ? 503
+        : error instanceof z.ZodError && stage === "parse-request"
+          ? 400
+          : 500;
     return NextResponse.json(
       {
-        error: status === 400 ? "Invalid request payload" : "Failed to build generation context",
+        error:
+          status === 503
+            ? "Profile preparation is temporarily unavailable. Try again in a moment."
+            : status === 400
+              ? "Invalid request payload"
+              : "Failed to build generation context",
         stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },
       { status },
     );
+  } finally {
+    if (rateLimitReservationId) {
+      await releaseRateLimitReservation(rateLimitReservationId).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "ai/normalize-profile",
+          stage: "release-rate-limit",
+        });
+      });
+    }
   }
 }

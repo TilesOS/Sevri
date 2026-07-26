@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ArrowLeft, Presentation, Search, ShieldCheck, SquareChartGantt } from "lucide-react";
 import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
 import { roadmapStatusClassName } from "@/components/project/project-status";
+import { PROJECT_SECTION_LABELS, stepLabel } from "@/lib/copy/glossary";
 import { cn } from "@/lib/utils";
 import type { ProjectProgressSummary } from "@/lib/projects/progress";
 import type { ProjectMilestoneView } from "@/lib/projects/workspace";
@@ -18,10 +19,10 @@ interface ProjectSidebarNavigationProps {
 }
 
 const baseSectionLinks = [
-  { href: "", label: "Overview", icon: SquareChartGantt },
-  { href: "/scope", label: "Scope & Guardrails", icon: ShieldCheck },
-  { href: "/research-lens", label: "Research Lens", icon: Search },
-  { href: "/pitch-kit", label: "Presentation", icon: Presentation },
+  { href: "", label: PROJECT_SECTION_LABELS.overview, icon: SquareChartGantt },
+  { href: "/scope", label: PROJECT_SECTION_LABELS.scope, icon: ShieldCheck },
+  { href: "/lens", label: PROJECT_SECTION_LABELS.lens, icon: Search },
+  { href: "/pitch-kit", label: PROJECT_SECTION_LABELS.pitchKit, icon: Presentation },
 ] as const;
 
 export function ProjectSidebarNavigation({
@@ -54,7 +55,7 @@ export function ProjectSidebarNavigation({
 
       {baseSectionLinks.map((link) => {
         const href = `${projectBasePath}${link.href}`;
-        const isActive = pathname === href || pathname === `/projects/${projectId}${link.href}`;
+        const isActive = pathname === href;
         const isDisabled = !hasRoadmap && link.href !== "";
 
         return (
@@ -73,15 +74,14 @@ export function ProjectSidebarNavigation({
 
       {milestones.map((milestone) => {
         const href = `${projectBasePath}/steps/${milestone.stepNumber}`;
-        const isActive =
-          pathname === href || pathname === `/projects/${projectId}/steps/${milestone.stepNumber}`;
+        const isActive = pathname === href;
         const isDisabled = !hasRoadmap;
 
         return (
           <ProjectNavLink
             key={milestone.id}
             href={href}
-            label={`Step ${milestone.stepNumber}`}
+            label={stepLabel(milestone.stepNumber)}
             description={milestone.title}
             isActive={isActive}
             isDisabled={isDisabled}

@@ -18,7 +18,9 @@ export async function POST(
   const { id: projectId, sessionId } = await context.params;
 
   try {
-    await getProjectScheduleGenerationContext(projectId, user.id);
+    await getProjectScheduleGenerationContext(projectId, user.id, {
+      visibility: "workspace",
+    });
 
     const supabase = await createServerSupabaseClient();
     const { data: session, error: sessionError } = await supabase
@@ -59,7 +61,9 @@ export async function POST(
       return NextResponse.json({ error: "This work session is already complete." }, { status: 409 });
     }
 
-    const refreshed = await getProjectScheduleGenerationContext(projectId, user.id);
+    const refreshed = await getProjectScheduleGenerationContext(projectId, user.id, {
+      visibility: "workspace",
+    });
     await syncProjectToGoogleCalendar({
       userId: user.id,
       project: refreshed,

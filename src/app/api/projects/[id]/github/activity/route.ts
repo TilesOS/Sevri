@@ -1,7 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { requireApiStudent } from "@/lib/auth/api";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { createGitHubClient } from "@/lib/integrations/github/client";
 import {
@@ -91,6 +95,7 @@ export async function GET(
 
   const { id: projectId } = await context.params;
 
+  let rateLimitReservationId: string | null = null;
   const limit = await enforceRateLimit({
     userId: user.id,
     endpoint: "github_activity",
@@ -100,78 +105,103 @@ export async function GET(
   if (!limit.allowed) {
     return NextResponse.json(
       { code: "rate_limited", resetAt: limit.resetAt },
-      { status: 429 },
+      {
+        status: 429,
+        headers: { "Retry-After": String(limit.retryAfterSeconds) },
+      },
     );
   }
+  rateLimitReservationId = limit.reservationId;
 
-  const projectContext = await loadProjectContext(projectId, user.id).catch((error) => {
-    captureServerError(error, { route: "github/activity", project_id: projectId });
-    return null;
-  });
-  if (!projectContext) {
-    return NextResponse.json({ error: "Not found" }, { status: 404 });
-  }
-
-  const link = await loadCachedLink(projectId);
-  if (!link) {
-    return NextResponse.json({ code: "not_linked" }, { status: 404 });
-  }
-  if (link.status === "broken") {
-    return NextResponse.json({ code: "repo_broken" }, { status: 410 });
-  }
-
-  if (isCacheFresh(link.last_synced_at)) {
-    const cached = readCachedActivity(link);
-    if (cached) {
-      return buildResponse(cached.commits, cached.readme, cached.lastSyncedAt, projectContext);
-    }
-  }
-
-  let commits: GitHubCommit[];
   try {
-    const client = await createGitHubClient(user.id);
-    commits = await client.listCommits(link.repo_full_name, {
-      perPage: 100,
-      sha: link.default_branch,
+    const projectContext = await loadProjectContext(projectId, user.id).catch((error) => {
+      captureServerError(error, { route: "github/activity", project_id: projectId });
+      return null;
     });
+    if (!projectContext) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
+    }
 
-    let readme: GitHubReadme | null = null;
+    const link = await loadCachedLink(projectId);
+    if (!link) {
+      return NextResponse.json({ code: "not_linked" }, { status: 404 });
+    }
+    if (link.status === "broken") {
+      return NextResponse.json({ code: "repo_broken" }, { status: 410 });
+    }
+
+    if (isCacheFresh(link.last_synced_at)) {
+      const cached = readCachedActivity(link);
+      if (cached) {
+        const completedReservationId = rateLimitReservationId;
+        rateLimitReservationId = null;
+        await consumeRateLimitReservation(completedReservationId);
+        return buildResponse(cached.commits, cached.readme, cached.lastSyncedAt, projectContext);
+      }
+    }
+
+    let commits: GitHubCommit[];
     try {
-      readme = await client.getReadme(link.repo_full_name);
+      const client = await createGitHubClient(user.id);
+      commits = await client.listCommits(link.repo_full_name, {
+        perPage: 100,
+        sha: link.default_branch,
+      });
+
+      let readme: GitHubReadme | null = null;
+      try {
+        readme = await client.getReadme(link.repo_full_name);
+      } catch (error) {
+        if (error instanceof GitHubTokenRevokedError) {
+          await markIntegrationInvalid(user.id, "github").catch((err) =>
+            captureServerError(err, { route: "github/activity", step: "mark_invalid_readme" }),
+          );
+          return NextResponse.json({ code: "token_revoked" }, { status: 409 });
+        }
+        // README fetch failures (404, rate limit, repo broken) are non-fatal.
+        readme = null;
+      }
+
+      const lastSyncedAt = await writeCachedActivity(projectId, { commits, readme });
+      const completedReservationId = rateLimitReservationId;
+      rateLimitReservationId = null;
+      await consumeRateLimitReservation(completedReservationId);
+      return buildResponse(commits, readme, lastSyncedAt, projectContext);
     } catch (error) {
       if (error instanceof GitHubTokenRevokedError) {
         await markIntegrationInvalid(user.id, "github").catch((err) =>
-          captureServerError(err, { route: "github/activity", step: "mark_invalid_readme" }),
+          captureServerError(err, { route: "github/activity", step: "mark_invalid" }),
         );
         return NextResponse.json({ code: "token_revoked" }, { status: 409 });
       }
-      // README fetch failures (404, rate limit, repo broken) are non-fatal.
-      readme = null;
-    }
-
-    const lastSyncedAt = await writeCachedActivity(projectId, { commits, readme });
-    return buildResponse(commits, readme, lastSyncedAt, projectContext);
-  } catch (error) {
-    if (error instanceof GitHubTokenRevokedError) {
-      await markIntegrationInvalid(user.id, "github").catch((err) =>
-        captureServerError(err, { route: "github/activity", step: "mark_invalid" }),
-      );
-      return NextResponse.json({ code: "token_revoked" }, { status: 409 });
-    }
-    if (error instanceof GitHubRepoNotFoundError) {
-      await markLinkBroken(projectId).catch((err) =>
-        captureServerError(err, { route: "github/activity", step: "mark_broken" }),
-      );
-      return NextResponse.json({ code: "repo_broken" }, { status: 410 });
-    }
-    if (error instanceof GitHubRateLimitedError) {
-      const cached = readCachedActivity(link);
-      if (cached) {
-        return buildResponse(cached.commits, cached.readme, cached.lastSyncedAt, projectContext, true);
+      if (error instanceof GitHubRepoNotFoundError) {
+        await markLinkBroken(projectId).catch((err) =>
+          captureServerError(err, { route: "github/activity", step: "mark_broken" }),
+        );
+        return NextResponse.json({ code: "repo_broken" }, { status: 410 });
       }
-      return NextResponse.json({ code: "github_rate_limited" }, { status: 503 });
+      if (error instanceof GitHubRateLimitedError) {
+        const cached = readCachedActivity(link);
+        if (cached) {
+          const completedReservationId = rateLimitReservationId;
+          rateLimitReservationId = null;
+          await consumeRateLimitReservation(completedReservationId);
+          return buildResponse(cached.commits, cached.readme, cached.lastSyncedAt, projectContext, true);
+        }
+        return NextResponse.json({ code: "github_rate_limited" }, { status: 503 });
+      }
+      captureServerError(error, { route: "github/activity", step: "fetch" });
+      return NextResponse.json({ error: "Failed to fetch GitHub activity." }, { status: 502 });
     }
-    captureServerError(error, { route: "github/activity", step: "fetch" });
-    return NextResponse.json({ error: "Failed to fetch GitHub activity." }, { status: 502 });
+  } finally {
+    if (rateLimitReservationId) {
+      await releaseRateLimitReservation(rateLimitReservationId).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "github/activity",
+          project_id: projectId,
+          step: "release_rate_limit",
+        });
+      });
+    }
   }
 }

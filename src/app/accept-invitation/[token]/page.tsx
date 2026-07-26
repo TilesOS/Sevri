@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container } from "@/components/shared/container";
@@ -9,6 +10,11 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { AcceptInvitationActions } from "@/components/reviewer/accept-invitation-actions";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Reviewer invitation",
+  robots: { index: false, follow: false },
+};
 
 interface AcceptInvitationPageProps {
   params: Promise<{ token: string }>;

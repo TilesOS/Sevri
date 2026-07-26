@@ -2,12 +2,14 @@ import type { ReactNode } from "react";
 import { MarketingNav } from "@/components/marketing/marketing-nav";
 import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { Container } from "@/components/shared/container";
+import { MAIN_CONTENT_ID, SkipToContent } from "@/components/shared/skip-to-content";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen flex-col">
+      <SkipToContent />
       <MarketingNav />
-      <main className="flex-1 pb-10 pt-28 sm:pb-16 sm:pt-32">
+      <main id={MAIN_CONTENT_ID} className="flex-1 pb-10 pt-28 sm:pb-16 sm:pt-32">
         <Container className="grid gap-8 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
           <div className="relative hidden overflow-hidden rounded-3xl bg-navy p-10 text-cream lg:flex">
             <div className="aurora-fallback pointer-events-none absolute inset-0 opacity-45" />

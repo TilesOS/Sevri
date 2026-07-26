@@ -1,4 +1,5 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { selectPortfolioEvidence } from "@/lib/projects/latest-submission";
 
 export type PortfolioStatusOverride = "in_progress" | "paused" | "completed" | "abandoned";
 export type PortfolioExportFormat = "common_app_activity" | "resume_bullets";
@@ -12,6 +13,7 @@ export interface PortfolioEntryRow {
   curation_model: string | null;
   curation_attempted_at: string | null;
   curation_generated_at: string | null;
+  curation_claimed_at: string | null;
   curation_metadata_json: Record<string, unknown>;
   student_reflection: string | null;
   featured_submission_id: string | null;
@@ -25,7 +27,9 @@ export interface PortfolioProjectRow {
   user_id: string;
   recommendation_id: string;
   title: string;
-  status: "active" | "paused" | "completed" | "archived" | string;
+  status: "active" | "paused" | "completed" | string;
+  archived_at: string | null;
+  selection_operation_id: string;
   project_track: "software" | "research" | string;
   selected_at: string;
   created_at: string;
@@ -88,7 +92,6 @@ export interface PortfolioSubmissionRow {
   submission_text: string | null;
   submission_filename: string | null;
   storage_path: string | null;
-  is_latest: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -178,6 +181,7 @@ const ENTRY_COLUMNS = [
   "curation_model",
   "curation_attempted_at",
   "curation_generated_at",
+  "curation_claimed_at",
   "curation_metadata_json",
   "student_reflection",
   "featured_submission_id",
@@ -223,7 +227,7 @@ const MILESTONE_COLUMNS = [
 
 const RECOMMENDATION_COLUMNS = "id, title, summary, rationale, project_track, track_payload_json";
 const SUBMISSION_COLUMNS =
-  "id, milestone_id, user_id, submission_kind, submission_text, submission_filename, storage_path, is_latest, created_at, updated_at";
+  "id, milestone_id, user_id, submission_kind, submission_text, submission_filename, storage_path, created_at, updated_at";
 const EVALUATION_COLUMNS =
   "id, submission_id, user_id, evaluation_json, status, failure_message, created_at, updated_at";
 const REVIEW_COLUMNS =
@@ -232,6 +236,25 @@ const EXPORT_COLUMNS =
   "id, user_id, portfolio_entry_id, export_format, export_json, export_text, generation_metadata_json, generated_at, created_at";
 const PUBLIC_PAGE_COLUMNS =
   "id, user_id, portfolio_entry_id, slug, display_name_choice, safety_snapshot_json, published_at, unpublished_at, public_acknowledged_at, created_at";
+
+export async function getPortfolioProjectForUser(
+  projectId: string,
+  userId: string,
+): Promise<PortfolioProjectRow | null> {
+  const supabase = await createServerSupabaseClient();
+  const { data, error } = await supabase
+    .from("projects")
+    .select("*")
+    .eq("id", projectId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(`Failed to load portfolio project: ${error.message}`);
+  }
+
+  return data ? (data as PortfolioProjectRow) : null;
+}
 
 export async function getPortfolioListingData(userId: string): Promise<PortfolioListingData> {
   const supabase = await createServerSupabaseClient();
@@ -371,9 +394,9 @@ export async function getPortfolioEntryDetailData(
           .from("milestone_submissions")
           .select(SUBMISSION_COLUMNS)
           .eq("user_id", userId)
-          .eq("is_latest", true)
           .in("milestone_id", milestoneIds)
           .order("created_at", { ascending: false })
+          .order("id", { ascending: false })
       : Promise.resolve({ data: [], error: null }),
     milestoneIds.length > 0
       ? supabase
@@ -398,7 +421,12 @@ export async function getPortfolioEntryDetailData(
     throw new Error(`Failed to load portfolio GitHub cache: ${githubError.message}`);
   }
 
-  const submissionRows = (submissions ?? []) as PortfolioSubmissionRow[];
+  // Every revision for the project comes back; narrow it to the current
+  // submission per milestone (plus any pinned older revision) here.
+  const submissionRows = selectPortfolioEvidence(
+    (submissions ?? []) as unknown as PortfolioSubmissionRow[],
+    entryRow.featured_submission_id,
+  );
   const submissionIds = submissionRows.map((submission) => submission.id);
 
   const [

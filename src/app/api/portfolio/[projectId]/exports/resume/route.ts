@@ -4,7 +4,12 @@ import { generateAndSavePortfolioExport } from "@/lib/portfolio/exports";
 import { getPortfolioEntryDetailView } from "@/lib/portfolio/portfolio-view";
 import { captureServerError } from "@/lib/sentry/server";
 import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/feature-access";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  RateLimitUnavailableError,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
 
 export async function POST(
   _request: Request,
@@ -24,6 +29,7 @@ export async function POST(
     return createUpgradeRequiredResponse(access.error);
   }
 
+  let rateLimitReservationId: string | null = null;
   try {
     const limit = await enforceRateLimit({
       userId: user.id,
@@ -32,8 +38,15 @@ export async function POST(
       windowMinutes: 24 * 60,
     });
     if (!limit.allowed) {
-      return NextResponse.json({ code: "rate_limited", resetAt: limit.resetAt }, { status: 429 });
+      return NextResponse.json(
+        { code: "rate_limited", resetAt: limit.resetAt },
+        {
+          status: 429,
+          headers: { "Retry-After": String(limit.retryAfterSeconds) },
+        },
+      );
     }
+    rateLimitReservationId = limit.reservationId;
 
     const result = await generateAndSavePortfolioExport({
       projectId,
@@ -44,6 +57,10 @@ export async function POST(
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
 
+    const completedReservationId = rateLimitReservationId;
+    rateLimitReservationId = null;
+    await consumeRateLimitReservation(completedReservationId, result.export.id);
+
     return NextResponse.json({ portfolio_export: result.export });
   } catch (error) {
     captureServerError(error, {
@@ -51,8 +68,25 @@ export async function POST(
       project_id: projectId,
     });
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to generate resume export." },
-      { status: 400 },
+      {
+        error:
+          error instanceof RateLimitUnavailableError
+            ? "Export generation is temporarily unavailable. Try again in a moment."
+            : error instanceof Error
+              ? error.message
+              : "Failed to generate resume export.",
+      },
+      { status: error instanceof RateLimitUnavailableError ? 503 : 400 },
     );
+  } finally {
+    if (rateLimitReservationId) {
+      await releaseRateLimitReservation(rateLimitReservationId).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "portfolio/exports/resume",
+          project_id: projectId,
+          stage: "release-rate-limit",
+        });
+      });
+    }
   }
 }

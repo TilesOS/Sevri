@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageTransition } from "@/components/ui/page-transition";
 import { Section } from "@/components/ui/section";
+
+export const metadata: Metadata = {
+  title: "Support",
+  description: "Onboarding help, billing questions, and workspace guidance for Sevri students.",
+  openGraph: {
+    title: "Support — Sevri",
+    description: "Onboarding help, billing questions, and workspace guidance for Sevri students.",
+  },
+};
 
 export default function SupportPage() {
   return (

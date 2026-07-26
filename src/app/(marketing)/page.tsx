@@ -1,3 +1,4 @@
+import { getMarketingViewer } from "@/lib/auth/viewer";
 import { PLAN_LIMITS } from "@/lib/usage/limits";
 import { AuroraBackground } from "@/components/marketing/aurora-background";
 import { ExpandableCard } from "@/components/marketing/expandable-card";
@@ -36,15 +37,15 @@ const steps = [
   {
     num: "03",
     title: "Execution",
-    body: "Turn your pick into a roadmap and move through it, milestone by milestone.",
-    more: "Milestones, deliverables, and pitfalls stay visible so scope creep never quietly kills the project.",
+    body: "Turn your pick into a roadmap and move through it, step by step.",
+    more: "Steps, deliverables, and pitfalls stay visible so scope creep never quietly kills the project.",
     color: "var(--pale-blue)",
   },
 ];
 
 const scopeCards = [
   { k: "Compare", v: "Three directions, ranked by effort and ambition — so you choose deliberately." },
-  { k: "Coach", v: "Milestones and pitfalls stay visible, so you know what to protect and what to cut." },
+  { k: "Coach", v: "Steps and pitfalls stay visible, so you know what to protect and what to cut." },
   { k: "Prove", v: "The finished work says something specific about your judgment, not just your effort." },
   { k: "Trim", v: "Cut scope before it cuts you — every roadmap is sized to something you can finish." },
   { k: "Ship", v: "A shipped first version beats a perfect plan. Sevri keeps momentum over polish." },
@@ -66,7 +67,17 @@ const faqs = [
   },
 ];
 
-export default function HomePage() {
+export default async function HomePage() {
+  const viewer = await getMarketingViewer();
+  // Same reason as the pricing cards and the footer: a signed-in student should
+  // be pointed at their workspace, not invited to start over.
+  const primaryCta = viewer.isAuthenticated
+    ? { href: "/dashboard", label: "Open workspace" }
+    : { href: "/sign-up", label: "Start for free" };
+  const closingCta = viewer.isAuthenticated
+    ? { href: "/dashboard", label: "Open workspace" }
+    : { href: "/sign-up", label: "Create free account" };
+
   return (
     <>
       {/* ── Hero (dark "moment" + aurora shader) — fills the viewport under the fixed nav ── */}
@@ -83,8 +94,8 @@ export default function HomePage() {
               genuinely yours.
             </p>
             <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-              <Button href="/sign-up" size="lg" className="px-7">
-                Start for free
+              <Button href={primaryCta.href} size="lg" className="px-7">
+                {primaryCta.label}
               </Button>
               <Button href="/pricing" variant="contrast" size="lg" className="px-7">
                 See pricing
@@ -219,8 +230,8 @@ export default function HomePage() {
                 Free covers onboarding and up to {freeGenerationLimit} idea boards across both tracks.
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
-                <Button href="/sign-up" size="lg" className="px-7">
-                  Create free account
+                <Button href={closingCta.href} size="lg" className="px-7">
+                  {closingCta.label}
                 </Button>
                 <Button href="/pricing" variant="contrast" size="lg" className="px-7">
                   Compare plans

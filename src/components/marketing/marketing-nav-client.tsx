@@ -67,7 +67,10 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
 
   const signInHref = isAuthenticated ? "/dashboard" : "/sign-in";
   const signInLabel = isAuthenticated ? "Workspace" : "Sign in";
+  // The href already pointed at the workspace for signed-in readers while the
+  // label still said "Start free" — one of the two was always wrong.
   const ctaHref = isAuthenticated ? "/dashboard" : "/sign-up";
+  const ctaLabel = isAuthenticated ? "Open workspace" : "Start free";
 
   return (
     <>
@@ -181,7 +184,7 @@ export function MarketingNavClient({ isAuthenticated }: MarketingNavClientProps)
               <Container className="flex flex-col items-start justify-between gap-5 border-t border-line py-8 sm:flex-row sm:items-center">
                 <p className="font-serif text-xl italic text-ink-soft">Ready when you are.</p>
                 <Button href={ctaHref} size="lg" className="px-7" onClick={() => setOpen(false)}>
-                  Start free
+                  {ctaLabel}
                 </Button>
               </Container>
             </motion.div>

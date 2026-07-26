@@ -51,7 +51,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       return NextResponse.json({ error: "Choose a valid start time." }, { status: 400 });
     }
 
-    const project = await getProjectScheduleGenerationContext(projectId, user.id);
+    const scheduleContextOptions = body.completedNow
+      ? { visibility: "workspace" as const }
+      : undefined;
+    const project = await getProjectScheduleGenerationContext(
+      projectId,
+      user.id,
+      scheduleContextOptions,
+    );
     const milestoneId = body.milestoneId ?? null;
     if (milestoneId && !project.milestones.some((milestone) => milestone.id === milestoneId)) {
       return NextResponse.json({ error: "That step does not belong to this project." }, { status: 400 });
@@ -76,7 +83,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       throw new Error(`Failed to create planned work session: ${error.message}`);
     }
 
-    const refreshed = await getProjectScheduleGenerationContext(projectId, user.id);
+    const refreshed = await getProjectScheduleGenerationContext(
+      projectId,
+      user.id,
+      scheduleContextOptions,
+    );
     await syncProjectToGoogleCalendar({
       userId: user.id,
       project: refreshed,

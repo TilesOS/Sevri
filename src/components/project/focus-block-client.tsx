@@ -123,7 +123,7 @@ export function FocusBlockClient({
         focused_minutes: focusedMinutes,
       }).catch(() => undefined);
 
-      router.push(`/projects/${projectId}/steps/${stepNumber}?from=focus#submission-area`);
+      router.push(`/project/${projectId}/steps/${stepNumber}?from=focus#submission-area`);
     } catch (error) {
       completingRef.current = false;
       setIsCompleting(false);

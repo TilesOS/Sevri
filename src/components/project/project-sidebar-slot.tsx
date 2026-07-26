@@ -1,97 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { ProjectSidebarNavigation } from "@/components/project/project-sidebar-navigation";
-import type { ProjectProgressSummary } from "@/lib/projects/progress";
-import type { ProjectMilestoneView } from "@/lib/projects/workspace";
+import { useProjectNav } from "@/components/project/project-nav-context";
 
-interface ProjectSidebarPayload {
-  projectId: string;
-  projectTitle: string;
-  hasRoadmap: boolean;
-  progress: ProjectProgressSummary;
-  milestones: ProjectMilestoneView[];
-}
+export function ProjectSidebarSlot() {
+  const state = useProjectNav();
 
-type ProjectSidebarState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "ready"; payload: ProjectSidebarPayload }
-  | { status: "error" };
-
-function extractProjectId(pathname: string) {
-  const segments = pathname.split("/").filter(Boolean);
-
-  if ((segments[0] !== "project" && segments[0] !== "projects") || !segments[1]) {
-    return null;
-  }
-
-  return segments[1];
-}
-
-export function ProjectSidebarSlot({ pathname }: { pathname: string }) {
-  const projectId = extractProjectId(pathname);
-  const [state, setState] = useState<ProjectSidebarState>({ status: "idle" });
-  const [refreshToken, setRefreshToken] = useState(0);
-
-  useEffect(() => {
-    if (!projectId) {
-      return;
-    }
-
-    const refreshSidebar = (event: Event) => {
-      const detail = (event as CustomEvent<{ projectId?: string }>).detail;
-      if (!detail?.projectId || detail.projectId === projectId) {
-        setRefreshToken((current) => current + 1);
-      }
-    };
-
-    window.addEventListener("sevri:project-sidebar-refresh", refreshSidebar);
-    return () => window.removeEventListener("sevri:project-sidebar-refresh", refreshSidebar);
-  }, [projectId]);
-
-  useEffect(() => {
-    if (!projectId) {
-      setState({ status: "idle" });
-      return;
-    }
-
-    const controller = new AbortController();
-
-    setState((current) => {
-      if (current.status === "ready" && current.payload.projectId === projectId) {
-        return current;
-      }
-
-      return { status: "loading" };
-    });
-
-    void fetch(`/api/projects/${projectId}/sidebar`, {
-      method: "GET",
-      signal: controller.signal,
-      headers: { Accept: "application/json" },
-    })
-      .then(async (response) => {
-        if (!response.ok) {
-          throw new Error("Failed to load project navigation.");
-        }
-
-        const payload = (await response.json()) as ProjectSidebarPayload;
-        setState({ status: "ready", payload });
-      })
-      .catch((error) => {
-        if (controller.signal.aborted) {
-          return;
-        }
-
-        console.error(error);
-        setState({ status: "error" });
-      });
-
-    return () => controller.abort();
-  }, [projectId, refreshToken]);
-
-  if (!projectId) {
+  if (state.status === "idle") {
     return null;
   }
 
@@ -107,11 +23,25 @@ export function ProjectSidebarSlot({ pathname }: { pathname: string }) {
     );
   }
 
+  // A missing project is permanent. The old copy here ("Refresh the page to try
+  // again.") sent students in a loop on a project that no longer exists.
+  if (state.status === "missing") {
+    return (
+      <div className="space-y-2 px-2 text-sm text-ink-soft">
+        <p className="font-medium text-ink">This project isn&apos;t here.</p>
+        <p>It may have been deleted, or the link points somewhere else.</p>
+        <Link href="/dashboard" className="inline-block font-semibold text-ink hover:underline">
+          Back to all projects
+        </Link>
+      </div>
+    );
+  }
+
   if (state.status === "error") {
     return (
-      <div className="space-y-2 text-sm text-ink-soft">
-        <p className="font-medium text-ink">Project navigation is unavailable right now.</p>
-        <p>Refresh the page to try again.</p>
+      <div className="space-y-2 px-2 text-sm text-ink-soft">
+        <p className="font-medium text-ink">We couldn&apos;t load this project&apos;s steps.</p>
+        <p>Your work is saved. Refresh to try again — the page itself still works.</p>
       </div>
     );
   }

@@ -23,10 +23,12 @@ export function ProjectProgressTracker({
 }: ProjectProgressTrackerProps) {
   return (
     <div className={cn("space-y-4", className)}>
+      {/* The bar shows step completion, so its caption states step completion —
+          the lifecycle stage is reported separately by the chips below. */}
       <ProgressBar
         value={progress.percent}
         label="Project progress"
-        helperText={progress.stageDetail}
+        helperText={progress.percentDetail}
         className={contrast ? "[&_.text-ink]:text-paper [&_.text-ink-muted]:text-paper/55" : undefined}
       />
 

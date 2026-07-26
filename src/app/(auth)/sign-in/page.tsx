@@ -1,7 +1,13 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import Link from "next/link";
 import { Card } from "@/components/ui/card";
 import { AuthForm } from "@/components/shared/auth-form";
+
+export const metadata: Metadata = {
+  title: "Sign in",
+  description: "Sign in to your Sevri workspace.",
+};
 
 export default function SignInPage() {
   return (

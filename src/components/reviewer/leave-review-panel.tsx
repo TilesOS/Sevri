@@ -97,10 +97,10 @@ export function LeaveReviewPanel({ milestoneId, submissionId, existingReview }: 
             <Badge tone="neutral">Last saved {formatDate(existingReview.created_at)}</Badge>
           ) : null}
         </div>
-        <h3 className="text-xl font-semibold text-ink">Structured feedback on this milestone</h3>
+        <h3 className="text-xl font-semibold text-ink">Structured feedback on this step</h3>
         <p className="text-sm leading-6 text-ink-soft">
           Three short fields, no free-form comments. Submitting a new review supersedes your previous one for this
-          milestone &mdash; the student sees your latest answers.
+          step &mdash; the student sees your latest answers.
         </p>
       </div>
 
@@ -135,7 +135,7 @@ export function LeaveReviewPanel({ milestoneId, submissionId, existingReview }: 
             onChange={(event) => setReadyToMarkComplete(event.target.checked)}
           />
           <span className="text-sm leading-6 text-ink">
-            <span className="font-semibold">This milestone looks ready to mark complete.</span>
+            <span className="font-semibold">This step looks ready to mark complete.</span>
             <span className="block text-xs leading-5 text-ink-muted">
               Leave unchecked if you think the student should revise before moving on.
             </span>

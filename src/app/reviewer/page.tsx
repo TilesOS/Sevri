@@ -1,9 +1,15 @@
+import type { Metadata } from "next";
 import { getRequiredReviewerUser } from "@/lib/auth/guard";
 import { listReviewerProjects } from "@/lib/db/queries/reviewers";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
+
+export const metadata: Metadata = {
+  title: "Reviewer dashboard",
+  robots: { index: false, follow: false },
+};
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +29,7 @@ export default async function ReviewerDashboardPage() {
       <PageHeader
         eyebrow="Reviewer workspace"
         title="Projects you&rsquo;re reviewing"
-        description="Open a student&rsquo;s project to see their progress and leave structured feedback on each milestone."
+        description="Open a student&rsquo;s project to see their progress and leave structured feedback on each step."
       />
 
       {projects.length === 0 ? (

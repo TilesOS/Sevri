@@ -2,7 +2,13 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  RateLimitUnavailableError,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
+import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/feature-access";
 import { runStepGuidanceGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
 import { coerceStoredNormalizedProfile } from "@/lib/ai/normalized-profile";
@@ -76,6 +82,7 @@ function getStoredMetrics(rawModelOutput: unknown) {
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const routeStartedAt = performance.now();
   let stage = "start";
+  let rateLimitReservationId: string | null = null;
 
   try {
     stage = "auth";
@@ -87,29 +94,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "parse-request";
     const body = bodySchema.parse(await request.json().catch(() => ({})));
     const { id } = await context.params;
-
-    stage = "rate-limit";
-    try {
-      const rateLimit = await enforceRateLimit({
-        userId: user.id,
-        endpoint: "milestone-guidance",
-        maxRequests: 8,
-        windowMinutes: 60,
-      });
-
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          { error: "Rate limit exceeded", reset_at: rateLimit.resetAt },
-          { status: 429 },
-        );
-      }
-    } catch (rateLimitError) {
-      console.error("milestone guidance rate-limit failed", { stage, error: rateLimitError });
-      captureServerError(rateLimitError, {
-        route: "ai/milestones/guidance",
-        stage: "rate-limit",
-      });
-    }
 
     stage = "feature-access";
     const featureAccess = await assertFeatureAccess({
@@ -170,63 +154,106 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       );
     }
 
-    if (!body.refresh) {
-      stage = "check-cache";
-      const { data: cachedGuidance } = await supabase
-        .from("milestone_guidance")
-        .select("id, guidance_json, generation_version, raw_model_output_json, checklist_state_json")
-        .eq("milestone_id", milestone.id)
-        .maybeSingle();
+    // Reading stored guidance is free. The cache is read on every request —
+    // including a refresh — so that a rate-limited refresh can still hand back
+    // the coaching the student already has instead of an empty workbench.
+    stage = "check-cache";
+    const { data: cachedGuidance } = await supabase
+      .from("milestone_guidance")
+      .select("id, guidance_json, generation_version, raw_model_output_json, checklist_state_json")
+      .eq("milestone_id", milestone.id)
+      .maybeSingle();
 
-      if (cachedGuidance) {
-        try {
-          const parsed = StepGuidanceSchema.parse(cachedGuidance.guidance_json);
-          const cachedCitations = getStoredCitations(cachedGuidance.raw_model_output_json);
-          const cachedMetrics = getStoredMetrics(cachedGuidance.raw_model_output_json);
-          const cachedChecklistState =
-            cachedGuidance.checklist_state_json &&
-            typeof cachedGuidance.checklist_state_json === "object" &&
-            !Array.isArray(cachedGuidance.checklist_state_json)
-              ? (cachedGuidance.checklist_state_json as Record<string, boolean>)
-              : {};
-          return NextResponse.json(
-            {
-              milestone_guidance_id: cachedGuidance.id,
-              guidance: parsed,
-              checklist_state: cachedChecklistState,
-              cache_hit: true,
-              timings: {
-                stage: cachedMetrics?.stage ?? "step_guidance",
-                generation_version:
-                  cachedGuidance.generation_version ?? cachedMetrics?.generation_version ?? getGenerationVersion(),
-                model: cachedMetrics?.model ?? "cache",
-                attempt_count: typeof cachedMetrics?.attempt_count === "number" ? cachedMetrics.attempt_count : 0,
-                fallback_used: cachedMetrics?.fallback_used ?? false,
-                cache_hit: true,
-                route_total_ms: Math.round(performance.now() - routeStartedAt),
-                ai_total_ms: typeof cachedMetrics?.ai_total_ms === "number" ? cachedMetrics.ai_total_ms : 0,
-                validation_ms: typeof cachedMetrics?.validation_ms === "number" ? cachedMetrics.validation_ms : 0,
-                prompt_chars: typeof cachedMetrics?.prompt_chars === "number" ? cachedMetrics.prompt_chars : 0,
-                output_chars: JSON.stringify(parsed).length,
-                fallback_model_used:
-                  typeof cachedMetrics?.fallback_model_used === "string" ? cachedMetrics.fallback_model_used : null,
-                validator_failed: cachedMetrics?.validator_failed ?? false,
-                validator_issue_count:
-                  typeof cachedMetrics?.validator_issue_count === "number" ? cachedMetrics.validator_issue_count : 0,
-                tool_used: cachedMetrics?.tool_used ?? cachedCitations.length > 0,
-                web_search_used: cachedMetrics?.web_search_used ?? cachedCitations.length > 0,
-                citation_count: cachedCitations.length,
-                refusal_detected: cachedMetrics?.refusal_detected ?? false,
-              },
-              ...(cachedCitations.length > 0 ? { citations: cachedCitations } : {}),
-            },
-            { status: 200 },
-          );
-        } catch {
-          // Ignore malformed cache and regenerate.
-        }
+    const buildCachedPayload = (rateLimited: boolean) => {
+      if (!cachedGuidance) {
+        return null;
+      }
+
+      try {
+        const parsed = StepGuidanceSchema.parse(cachedGuidance.guidance_json);
+        const cachedCitations = getStoredCitations(cachedGuidance.raw_model_output_json);
+        const cachedMetrics = getStoredMetrics(cachedGuidance.raw_model_output_json);
+        const cachedChecklistState =
+          cachedGuidance.checklist_state_json &&
+          typeof cachedGuidance.checklist_state_json === "object" &&
+          !Array.isArray(cachedGuidance.checklist_state_json)
+            ? (cachedGuidance.checklist_state_json as Record<string, boolean>)
+            : {};
+
+        return {
+          milestone_guidance_id: cachedGuidance.id,
+          guidance: parsed,
+          checklist_state: cachedChecklistState,
+          cache_hit: true,
+          // Set only when a refresh was throttled: the stored coaching below is
+          // real, it just isn't newly generated.
+          ...(rateLimited ? { rate_limited: true, notice: RATE_LIMITED_MESSAGE } : {}),
+          timings: {
+            stage: cachedMetrics?.stage ?? "step_guidance",
+            generation_version:
+              cachedGuidance.generation_version ?? cachedMetrics?.generation_version ?? getGenerationVersion(),
+            model: cachedMetrics?.model ?? "cache",
+            attempt_count: typeof cachedMetrics?.attempt_count === "number" ? cachedMetrics.attempt_count : 0,
+            fallback_used: cachedMetrics?.fallback_used ?? false,
+            cache_hit: true,
+            route_total_ms: Math.round(performance.now() - routeStartedAt),
+            ai_total_ms: typeof cachedMetrics?.ai_total_ms === "number" ? cachedMetrics.ai_total_ms : 0,
+            validation_ms: typeof cachedMetrics?.validation_ms === "number" ? cachedMetrics.validation_ms : 0,
+            prompt_chars: typeof cachedMetrics?.prompt_chars === "number" ? cachedMetrics.prompt_chars : 0,
+            output_chars: JSON.stringify(parsed).length,
+            fallback_model_used:
+              typeof cachedMetrics?.fallback_model_used === "string" ? cachedMetrics.fallback_model_used : null,
+            validator_failed: cachedMetrics?.validator_failed ?? false,
+            validator_issue_count:
+              typeof cachedMetrics?.validator_issue_count === "number" ? cachedMetrics.validator_issue_count : 0,
+            tool_used: cachedMetrics?.tool_used ?? cachedCitations.length > 0,
+            web_search_used: cachedMetrics?.web_search_used ?? cachedCitations.length > 0,
+            citation_count: cachedCitations.length,
+            refusal_detected: cachedMetrics?.refusal_detected ?? false,
+          },
+          ...(cachedCitations.length > 0 ? { citations: cachedCitations } : {}),
+        };
+      } catch {
+        // Malformed cache is treated as absent, so the step regenerates.
+        return null;
+      }
+    };
+
+    if (!body.refresh) {
+      const cachedPayload = buildCachedPayload(false);
+      if (cachedPayload) {
+        return NextResponse.json(cachedPayload, { status: 200 });
       }
     }
+
+    // Only generation is rate limited. Retrieval above never consumes budget, so
+    // normal step-to-step navigation cannot trip this.
+    stage = "rate-limit";
+    const rateLimit = await enforceRateLimit({
+      userId: user.id,
+      endpoint: "milestone-guidance",
+      maxRequests: 8,
+      windowMinutes: 60,
+    });
+
+    if (!rateLimit.allowed) {
+      const cachedPayload = buildCachedPayload(true);
+      if (cachedPayload) {
+        return NextResponse.json(cachedPayload, {
+          status: 200,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        });
+      }
+
+      return NextResponse.json(
+        { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
+    }
+    rateLimitReservationId = rateLimit.reservationId;
 
     stage = "fetch-roadmap";
     const { data: roadmap, error: roadmapError } = await supabase
@@ -347,6 +374,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       cacheHit: false,
     });
 
+    stage = "consume-rate-limit";
+    const completedReservationId = rateLimitReservationId;
+    rateLimitReservationId = null;
+    await consumeRateLimitReservation(completedReservationId);
+
     stage = "track-guidance";
     void trackEvent(user.id, "milestone_guidance_generated", {
       project_id: project.id,
@@ -377,7 +409,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     captureServerError(error, { route: "ai/milestones/guidance", stage });
     const details = getErrorDetails(error);
     const status =
-      error instanceof z.ZodError && stage === "parse-request"
+      error instanceof RateLimitUnavailableError
+        ? 503
+        : error instanceof z.ZodError && stage === "parse-request"
         ? 400
         : stage === "generate-guidance"
           ? getGenerationFailureStatus(error)
@@ -386,7 +420,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json(
       {
         error:
-          status === 400
+          status === 503
+            ? "Step guidance is temporarily unavailable. Try again in a moment."
+            : status === 400
             ? "Invalid request payload"
             : stage === "generate-guidance"
               ? getGenerationFailureMessage(error, "Failed to generate step guidance")
@@ -396,5 +432,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       },
       { status },
     );
+  } finally {
+    if (rateLimitReservationId) {
+      await releaseRateLimitReservation(rateLimitReservationId).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "ai/milestones/guidance",
+          stage: "release-rate-limit",
+        });
+      });
+    }
   }
 }

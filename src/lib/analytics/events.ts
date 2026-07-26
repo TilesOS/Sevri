@@ -5,6 +5,8 @@ export const APP_EVENT_TYPES = [
   "onboarding_completed",
   "recommendations_generated",
   "recommendation_selected",
+  "project_archived",
+  "project_restored",
   "roadmap_generated",
   "milestone_guidance_generated",
   "upgrade_clicked",

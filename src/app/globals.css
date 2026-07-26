@@ -182,6 +182,26 @@
     background-color: var(--canvas);
   }
 
+  /* ── Page enter ──
+     Content is opaque with no CSS and no JS; the fade is added only when motion
+     is welcome. A page can never get stuck part-way through this. */
+  @keyframes page-enter {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .page-enter {
+      animation: page-enter 160ms ease-out both;
+    }
+
+    /* Error and not-found boundaries opt out entirely: a page whose whole job is
+       to explain what went wrong should never arrive by fading in. */
+    .page-enter:has([data-page-enter-skip]) {
+      animation: none;
+    }
+  }
+
   .font-display {
     font-family: var(--font-display), "Archivo", "Arial Black", sans-serif;
     letter-spacing: -0.02em;
@@ -436,11 +456,13 @@
     border-radius: 14px;
     padding: 12px;
   }
+  /* Tracking is tighter than the other mono labels because these hold whole
+     words now ("Finishability", "Impressiveness") rather than clipped ones. */
   .rec-card .meta-grid .k {
     font-family: var(--font-mono), monospace;
     font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.18em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--ink-muted);
     margin-bottom: 1px;

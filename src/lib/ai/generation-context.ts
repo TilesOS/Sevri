@@ -4,6 +4,7 @@ import {
   type GenerationContext,
   type ProjectTrack,
 } from "@/lib/ai/schemas";
+import { joinSentences } from "@/lib/text/prose";
 
 type RiskFlag =
   | "too_ambitious"
@@ -180,7 +181,7 @@ function buildGoalSignal(rawIntake: Record<string, unknown>, projectTrack: Proje
   const deliverable = String(rawIntake.target_research_deliverable ?? "portfolio entry").replace(/_/g, " ");
 
   if (projectTrack === "research") {
-    return `Deliver a credible research artifact for ${targetOutcome} goals with a polished ${deliverable} and an evidence path the student can defend.`;
+    return `Deliver a credible research artifact for ${targetOutcome} goals with a polished ${deliverable} and an evidence path you can defend.`;
   }
 
   return `Ship a concrete software project that is easy to demo, explain, and defend for ${targetOutcome} goals.`;
@@ -211,19 +212,17 @@ function buildResourceSnapshot(rawIntake: Record<string, unknown>, projectTrack:
   return `${parts.join("; ")}.`;
 }
 
+/**
+ * Combines the free-text constraint fields. Both are the user's own words, so
+ * they are joined as whole sentences rather than sliced to a character budget —
+ * a slice here is stored and later shown, and lands mid-word.
+ */
 function buildConstraintsSummary(rawIntake: Record<string, unknown>) {
   const constraints = asString(rawIntake.constraints, "").trim();
   const additional = asString(rawIntake.additional_context, "").trim();
+  const combined = joinSentences(constraints, additional);
 
-  if (constraints && additional) {
-    return `${constraints} ${additional}`.slice(0, 220);
-  }
-
-  if (constraints || additional) {
-    return (constraints || additional).slice(0, 220);
-  }
-
-  return "No major constraints were stated.";
+  return combined.length > 0 ? combined : "No major constraints were stated.";
 }
 
 function buildSoftwareFocusSignal(rawIntake: Record<string, unknown>, anchors: string[]) {
@@ -241,14 +240,14 @@ function buildResearchFocusSignal(rawIntake: Record<string, unknown>, anchors: s
 
 function buildResearchReadiness(skill: "beginner" | "intermediate" | "advanced") {
   if (skill === "advanced") {
-    return "The student can handle a moderately technical method if the scope stays narrow.";
+    return "You can handle a moderately technical method if the scope stays narrow.";
   }
 
   if (skill === "intermediate") {
-    return "The student can handle a structured method with clear procedure, a bounded evidence source, and explicit limitation framing.";
+    return "You can handle a structured method with a clear procedure, a bounded evidence source, and explicit limitation framing.";
   }
 
-  return "Keep the method simple enough that the student can defend each step clearly.";
+  return "Keep the method simple enough that you can defend each step clearly.";
 }
 
 function getRiskFlags(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack, anchors: string[]) {
@@ -324,7 +323,7 @@ function buildSoftwareContext(rawIntake: Record<string, unknown>) {
 
   return SoftwareGenerationContextSchema.parse({
     project_track: "software",
-    summary: `The strongest software anchors are ${interpretedInterests.slice(0, 3).join(", ")}. Keep the project narrow, domain-grounded, and demoable.`,
+    summary: `Your strongest anchors are ${interpretedInterests.slice(0, 3).join(", ")}. Keep the project narrow, grounded in that domain, and easy to demo.`,
     interpreted_interests: interpretedInterests,
     skill_assessment: skill,
     risk_flags: riskFlags,
@@ -386,7 +385,7 @@ function buildResearchContext(rawIntake: Record<string, unknown>) {
 
   return ResearchGenerationContextSchema.parse({
     project_track: "research",
-    summary: `The strongest research anchors are ${interpretedInterests.slice(0, 3).join(", ")}. Keep the question believable, evidence-based, and tightly scoped.`,
+    summary: `Your strongest anchors are ${interpretedInterests.slice(0, 3).join(", ")}. Keep the question believable, evidence-based, and tightly scoped.`,
     interpreted_interests: interpretedInterests,
     skill_assessment: skill,
     risk_flags: riskFlags,
@@ -474,7 +473,7 @@ export function coerceStoredGenerationContext(row: StoredGenerationContextRow): 
   if (projectTrack === "research") {
     return ResearchGenerationContextSchema.parse({
       project_track: "research",
-      summary: asString(row.summary, `Research anchors: ${interpretedInterests.slice(0, 3).join(", ")}.`),
+      summary: asString(row.summary, `Your anchors: ${interpretedInterests.slice(0, 3).join(", ")}.`),
       interpreted_interests: interpretedInterests,
       skill_assessment: coerceSkillAssessment(row.skill_assessment),
       risk_flags: asRiskFlags(row.risk_flags),
@@ -507,7 +506,7 @@ export function coerceStoredGenerationContext(row: StoredGenerationContextRow): 
 
   return SoftwareGenerationContextSchema.parse({
     project_track: "software",
-    summary: asString(row.summary, `Software anchors: ${interpretedInterests.slice(0, 3).join(", ")}.`),
+    summary: asString(row.summary, `Your anchors: ${interpretedInterests.slice(0, 3).join(", ")}.`),
     interpreted_interests: interpretedInterests,
     skill_assessment: coerceSkillAssessment(row.skill_assessment),
     risk_flags: asRiskFlags(row.risk_flags),

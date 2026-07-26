@@ -101,7 +101,7 @@ export function ProjectOverviewView({
 
       {/* Stat cards */}
       <div className="grid overflow-hidden rounded-xl border border-line bg-paper md:grid-cols-3">
-        <ProjectMetric label="Roadmap" value={`${workspace.milestones.length} milestones`} detail="Designed to keep momentum visible." />
+        <ProjectMetric label="Roadmap" value={`${workspace.milestones.length} steps`} detail="Designed to keep momentum visible." />
         <ProjectMetric label="Completed" value={`${workspace.completedCount}`} detail="Every completed step protects the finishable version." />
         <ProjectMetric label="Pacing" value={totalEstimatedRange(workspace.milestones)} detail="One concrete deliverable per step." />
       </div>
@@ -125,7 +125,17 @@ export function ProjectOverviewView({
           { label: "Overview", value: safeOverview || "No overview yet." },
           { label: "Next move", value: workspace.nextMilestone ? `Focus on Step ${workspace.nextMilestone.stepNumber}: ${workspace.nextMilestone.title}. Keep the deliverable narrow before you move ahead.` : "Your roadmap is complete. Revisit scope guardrails before expanding the project." },
           { label: "Protected deliverables", value: <ul className="space-y-1">{workspace.keyDeliverables.map((deliverable) => <li key={deliverable}>• {deliverable}</li>)}</ul> },
-          { label: "Project lens", value: <div className="space-y-1"><p>{workspace.projectLens.map((item) => item.label).join(" · ")}</p><p className="text-ink-soft">{safeProjectBrief || "The research lens keeps the framing visible while you build."}</p></div> },
+          {
+            label: "Your project lens",
+            value: (
+              <div className="space-y-1">
+                <p>{workspace.projectLens.map((item) => item.label).join(" · ")}</p>
+                <p className="text-ink-soft">
+                  {safeProjectBrief || "Your lens keeps the problem and the audience visible while you build."}
+                </p>
+              </div>
+            ),
+          },
         ]} />
       </Card>
 

@@ -1,14 +1,26 @@
 import type { ReactNode } from "react";
 import { Container } from "@/components/shared/container";
 import { Button } from "@/components/ui/button";
+import { getMarketingViewer } from "@/lib/auth/viewer";
 
-export function MarketingFooter() {
+export async function MarketingFooter() {
+  const viewer = await getMarketingViewer();
+
   const footerLinks = [
     { href: "/privacy", label: "Privacy" },
     { href: "/terms", label: "Terms" },
     { href: "/support", label: "Support" },
     { href: "/suggestions", label: "Suggestions" },
   ];
+
+  // Signed-in readers get a way into their workspace instead of an invitation to
+  // sign in or start an account they already have.
+  const primaryCta = viewer.isAuthenticated
+    ? { href: "/dashboard", label: "Open workspace" }
+    : { href: "/sign-up", label: "Start free" };
+  const accountLink = viewer.isAuthenticated
+    ? { href: "/dashboard", label: "Workspace" }
+    : { href: "/sign-in", label: "Sign in" };
 
   return (
     <footer className="mt-24 bg-navy text-cream">
@@ -19,8 +31,8 @@ export function MarketingFooter() {
             Pick the right project, scope it small, and finish something worth showing.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button href="/sign-up" className="px-6">
-              Start free
+            <Button href={primaryCta.href} className="px-6">
+              {primaryCta.label}
             </Button>
             <Button href="/pricing" variant="contrast" className="px-6">
               Pricing
@@ -34,7 +46,7 @@ export function MarketingFooter() {
             <div className="flex flex-col gap-2.5 text-sm text-cream/70">
               <FooterLink href="/">Overview</FooterLink>
               <FooterLink href="/pricing">Pricing</FooterLink>
-              <FooterLink href="/sign-in">Sign in</FooterLink>
+              <FooterLink href={accountLink.href}>{accountLink.label}</FooterLink>
             </div>
           </div>
           <div className="space-y-3">

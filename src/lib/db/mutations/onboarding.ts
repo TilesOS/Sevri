@@ -7,6 +7,7 @@ import {
   type ResearchOnboardingInput,
   type SoftwareOnboardingInput,
 } from "@/lib/validators/onboarding";
+import type { Database } from "@/types/db";
 
 export { onboardingInputSchema };
 export type { OnboardingInput };
@@ -63,7 +64,7 @@ export async function upsertOnboardingData(user: User, input: OnboardingInput) {
     throw new Error(`Failed to upsert profile: ${profileError.message}`);
   }
 
-  const intakeInsert =
+  const intakeInsert: Database["public"]["Tables"]["intakes"]["Insert"] =
     input.project_track === "software"
       ? {
           user_id: user.id,

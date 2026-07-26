@@ -33,10 +33,14 @@ import type {
   ScheduleGenerationSource,
 } from "@/lib/calendar/types";
 import type { CalendarPageView, CalendarProjectView } from "@/lib/db/queries/calendar";
+import { toUserFacingError } from "@/lib/errors/user-messages";
 import { cn } from "@/lib/utils";
 import type { Plan, ProjectTrack } from "@/types/domain";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
+
+/** Chips a day cell shows before collapsing the rest behind a "+N more" control. */
+const VISIBLE_CHIPS_PER_DAY = 3;
 
 interface CalendarPageClientProps {
   initialData: CalendarPageView;
@@ -92,6 +96,22 @@ interface WorkSessionDraft {
 
 function getClientTimeZone() {
   return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+}
+
+/**
+ * Today as the browser sees it. The server computes `today` in UTC, which is a
+ * day ahead for anyone west of Greenwich during their evening — enough to
+ * highlight the wrong cell and open the wrong month around a rollover.
+ */
+function getBrowserToday() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: getClientTimeZone(),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+
+  return isDateString(parts) ? parts : null;
 }
 
 function formatTimeForDisplay(value: string | undefined) {
@@ -378,8 +398,13 @@ function DayCell({
   return (
     <div
       className={cn(
-        "relative grid min-h-[4.75rem] grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2 border-b border-line px-3 py-2.5 text-left transition",
-        "sm:flex sm:min-h-[7.5rem] sm:flex-col sm:gap-2 sm:border-b-0 sm:border-r sm:border-t sm:px-2.5 sm:py-2.5 lg:min-h-[8rem]",
+        // overflow-hidden is the hard guarantee that nothing in this cell can be
+        // drawn over a neighbouring day, whatever a chip's label turns out to be.
+        "relative grid min-h-[4.75rem] min-w-0 grid-cols-[2.75rem_minmax(0,1fr)] items-start gap-2 overflow-hidden border-b border-line px-3 py-2.5 text-left transition",
+        // sm:items-stretch matters: with the inherited `items-start` a column
+        // flex container sizes children to their content, so a long chip made the
+        // list wider than the cell and it spilled into the next day.
+        "sm:flex sm:min-h-[7.5rem] sm:flex-col sm:items-stretch sm:gap-2 sm:border-b-0 sm:border-r sm:border-t sm:px-2.5 sm:py-2.5 lg:min-h-[8rem]",
         isCurrentMonth ? "bg-paper" : "hidden bg-surface/45 text-ink-muted sm:flex",
         selected && "bg-primary-soft ring-1 ring-inset ring-primary/40",
         dropActive && "bg-teal/10 ring-1 ring-inset ring-teal-deep/30",
@@ -419,8 +444,8 @@ function DayCell({
         ) : null}
       </button>
 
-      <div className="min-w-0 space-y-1.5">
-        {items.slice(0, 3).map((item) => (
+      <div className="w-full min-w-0 space-y-1.5">
+        {items.slice(0, VISIBLE_CHIPS_PER_DAY).map((item) => (
           <button
             key={item.id}
             type="button"
@@ -440,7 +465,7 @@ function DayCell({
               onSelect(date);
             }}
             className={cn(
-              "w-full rounded-md border px-2 py-1.5 text-left text-[11px] font-medium leading-4 transition hover:border-line-strong",
+              "block w-full min-w-0 max-w-full overflow-hidden rounded-md border px-2 py-1.5 text-left text-[11px] font-medium leading-4 transition hover:border-line-strong",
               getStatusSurfaceClassName(item.status),
               item.itemType === "work_session" && item.completedAt && "opacity-60",
             )}
@@ -457,8 +482,16 @@ function DayCell({
             </p>
           </button>
         ))}
-        {items.length > 3 ? (
-          <p className="px-1 text-[10px] font-medium text-ink-muted">+{items.length - 3} more</p>
+        {items.length > VISIBLE_CHIPS_PER_DAY ? (
+          // Actionable rather than decorative: selecting the day opens the panel
+          // that lists every item, so nothing clipped here is unreachable.
+          <button
+            type="button"
+            onClick={() => onSelect(date)}
+            className="block w-full truncate rounded-md px-1 py-0.5 text-left text-[10px] font-medium text-ink-muted transition hover:text-ink"
+          >
+            +{items.length - VISIBLE_CHIPS_PER_DAY} more
+          </button>
         ) : null}
       </div>
     </div>
@@ -545,8 +578,12 @@ function TrackSelector({
 export function CalendarPageClient({ initialData, plan, canExport }: CalendarPageClientProps) {
   const [data, setData] = useState(initialData);
   const [visibleProjectIds, setVisibleProjectIds] = useState(initialData.visibleProjectIds);
-  const [currentMonth, setCurrentMonth] = useState(startOfMonthDateString(initialData.defaultMonth));
-  const [selectedDate, setSelectedDate] = useState(initialData.defaultMonth);
+  // The calendar always opens on the current month with today selected, on both
+  // the desktop grid and the mobile agenda (they render from the same state).
+  const [today, setToday] = useState(initialData.today);
+  const [currentMonth, setCurrentMonth] = useState(startOfMonthDateString(initialData.today));
+  const [selectedDate, setSelectedDate] = useState(initialData.today);
+  const [hasNavigated, setHasNavigated] = useState(false);
   const [rescheduleDraft, setRescheduleDraft] = useState<RescheduleDraft | null>(null);
   const [dragItem, setDragItem] = useState<CalendarDisplayItem | null>(null);
   const [moveError, setMoveError] = useState<string | null>(null);
@@ -557,12 +594,28 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
   const [expandedResearchHistory, setExpandedResearchHistory] = useState(false);
   const [exportStepsExpanded, setExportStepsExpanded] = useState(false);
   const [workSessionDraft, setWorkSessionDraft] = useState(() =>
-    buildInitialWorkSessionDraft(initialData, initialData.defaultMonth),
+    buildInitialWorkSessionDraft(initialData, initialData.today),
   );
   const [workSessionError, setWorkSessionError] = useState<string | null>(null);
   const [isSavingWorkSession, setIsSavingWorkSession] = useState(false);
   const [deletingWorkSessionId, setDeletingWorkSessionId] = useState<string | null>(null);
   const deferredVisibleProjectIds = useDeferredValue(visibleProjectIds);
+
+  // Server-rendered `today` is UTC. Once mounted we know the real time zone, so
+  // realign the highlighted day and the opening month — but never yank the view
+  // out from under someone who has already navigated.
+  useEffect(() => {
+    const browserToday = getBrowserToday();
+    if (!browserToday || browserToday === today) {
+      return;
+    }
+
+    setToday(browserToday);
+    if (!hasNavigated) {
+      setCurrentMonth(startOfMonthDateString(browserToday));
+      setSelectedDate(browserToday);
+    }
+  }, [hasNavigated, today]);
 
   useEffect(() => {
     const validIds = new Set(data.projects.map((project) => project.projectId));
@@ -617,9 +670,20 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
       compareDateStrings(item.date, startOfMonthDateString(currentMonth)) >= 0 &&
       compareDateStrings(item.date, endOfMonthDateString(currentMonth)) <= 0,
   );
-  const overdueCount = currentMonthItems.filter((item) => item.urgency === "overdue").length;
-  const dueSoonCount = currentMonthItems.filter((item) => item.urgency === "due_soon").length;
+  // Overdue and due-soon are measured against today, not against whichever month
+  // is on screen — an item that slipped in June is still overdue while you look
+  // at July, and hiding it there is exactly the dishonest reading to avoid.
+  const overdueCount = visibleItems.filter((item) => item.urgency === "overdue").length;
+  const dueSoonCount = visibleItems.filter((item) => item.urgency === "due_soon").length;
   const monthItemCount = currentMonthItems.length;
+  // Opening on today can land on a quiet month. Rather than a dead end, offer a
+  // jump to the nearest dated work so the month view stays useful.
+  const nearestItem =
+    monthItemCount === 0
+      ? visibleItems.find((item) => compareDateStrings(item.date, today) >= 0)
+        ?? visibleItems[visibleItems.length - 1]
+        ?? null
+      : null;
   const unscheduledProjects = visibleProjects.filter((project) => !project.scheduleReady);
   const softwareProjects = data.projects.filter((project) => project.projectTrack === "software");
   const researchProjects = data.projects.filter((project) => project.projectTrack === "research");
@@ -692,7 +756,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
     }
 
     if (!response.ok || !body?.project || !body.items) {
-      setMoveError(body?.error ?? body?.message ?? "Failed to update the calendar.");
+      setMoveError(toUserFacingError(body?.error ?? body?.message, "We couldn't update the calendar. Try again in a moment."));
       setIsSavingMove(false);
       return;
     }
@@ -742,7 +806,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
     const body = (await response.json().catch(() => null)) as CalendarMutationResponse | null;
 
     if (!response.ok || !body?.project || !body.items) {
-      setWorkSessionError(body?.error ?? "Failed to plan work time.");
+      setWorkSessionError(toUserFacingError(body?.error, "We couldn't save that work block. Try again in a moment."));
       setIsSavingWorkSession(false);
       return;
     }
@@ -770,7 +834,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
     const body = (await response.json().catch(() => null)) as CalendarMutationResponse | null;
 
     if (!response.ok || !body?.project || !body.items) {
-      setWorkSessionError(body?.error ?? "Failed to remove planned work time.");
+      setWorkSessionError(toUserFacingError(body?.error, "We couldn't remove that work block. Try again in a moment."));
       setDeletingWorkSessionId(null);
       return;
     }
@@ -781,10 +845,17 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
 
   function moveMonth(offsetDays: number) {
     const nextMonth = startOfMonthDateString(addDaysToDateString(currentMonth, offsetDays));
+    setHasNavigated(true);
     setCurrentMonth(nextMonth);
     if (!selectedDate.startsWith(nextMonth.slice(0, 7))) {
       setSelectedDate(nextMonth);
     }
+  }
+
+  function goToToday() {
+    setHasNavigated(false);
+    setCurrentMonth(startOfMonthDateString(today));
+    setSelectedDate(today);
   }
 
   const moveOnlyConfirmationActive = rescheduleDraft
@@ -799,7 +870,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
       <PageHeader
         eyebrow="Project calendar"
         title="Turn your roadmap into a workable month."
-        description="Keep milestones, completion targets, and focused work blocks in one calm planning view. Moving a date here updates it everywhere without changing the estimate behind the step."
+        description="Keep steps, completion targets, and focused work blocks in one calm planning view. Moving a date here updates it everywhere without changing the estimate behind the step."
         metadata={
           <>
             <Badge tone="neutral">{getPlanLabel(plan)}</Badge>
@@ -851,16 +922,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                     <Button type="button" variant="ghost" size="sm" onClick={() => moveMonth(-1)}>
                       Previous
                     </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        const todayMonth = startOfMonthDateString(initialData.today);
-                        setCurrentMonth(todayMonth);
-                        setSelectedDate(initialData.today);
-                      }}
-                    >
+                    <Button type="button" variant="ghost" size="sm" onClick={goToToday}>
                       Today
                     </Button>
                     <Button type="button" variant="ghost" size="sm" onClick={() => moveMonth(32)}>
@@ -880,9 +942,33 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                     {dueSoonCount} due soon
                   </span>
                   <span className={cn("font-medium", overdueCount > 0 ? "text-red-700" : "text-emerald-700")}>
-                    {overdueCount > 0 ? `${overdueCount} overdue` : "No overdue items"}
+                    {overdueCount > 0 ? `${overdueCount} overdue` : "Nothing overdue"}
+                  </span>
+                  <span className="basis-full text-[11px] text-ink-muted sm:basis-auto">
+                    Due soon and overdue are counted across every visible project, not just this month.
                   </span>
                 </div>
+
+                {nearestItem ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 text-xs text-ink-muted">
+                    <span>
+                      Nothing is scheduled in {formatMonthLabel(currentMonth)}. The nearest dated work is{" "}
+                      {formatDateForDisplay(nearestItem.date, { month: "long", day: "numeric", year: "numeric" })}.
+                    </span>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setHasNavigated(true);
+                        setCurrentMonth(startOfMonthDateString(nearestItem.date));
+                        setSelectedDate(nearestItem.date);
+                      }}
+                    >
+                      Jump to it
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
               <div className="hidden grid-cols-7 border-b border-line bg-surface/55 sm:grid" aria-hidden="true">
@@ -899,7 +985,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                     key={date}
                     date={date}
                     currentMonth={currentMonth}
-                    today={initialData.today}
+                    today={today}
                     selected={date === selectedDate}
                     dropActive={rescheduleDraft?.targetDate === date}
                     items={itemsByDate.get(date) ?? []}
@@ -1195,7 +1281,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                       <div className="mt-4 flex flex-wrap gap-3">
                         {item.itemType === "work_session" && !item.completedAt ? (
                           <Button
-                            href={`/projects/${item.projectId}/focus?session=${encodeURIComponent(item.id)}`}
+                            href={`/project/${item.projectId}/focus?session=${encodeURIComponent(item.id)}`}
                             size="sm"
                             className="rounded-lg"
                           >

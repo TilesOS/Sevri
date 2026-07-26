@@ -16,7 +16,14 @@ export async function createServerSupabaseClient() {
         getAll() {
           return cookieStore.getAll();
         },
-        setAll(cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }>) {
+        setAll(
+          cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }>,
+          headersToSet: Record<string, string>,
+        ) {
+          // Server Components expose a cookie store but not their eventual
+          // response headers. Middleware applies these cache headers when it
+          // refreshes sessions; auth Route Handlers set them on their response.
+          void headersToSet;
           try {
             cookiesToSet.forEach(({ name, value, options }) => {
               cookieStore.set(name, value, options);
