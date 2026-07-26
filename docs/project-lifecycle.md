@@ -10,6 +10,9 @@ New records keep `status` as `active`, `paused`, or `completed`; archiving sets
 `archived_at`, and restoring clears it. Dashboard and calendar queries require
 `archived_at is null`. Portfolio intentionally retains archived records and
 shows them as Cut while the underlying lifecycle status remains unchanged.
+Workspace pages and focus blocks also retain archived records, including focus
+session completion; archiving hides planning surfaces without disabling work in
+an explicitly opened project.
 
 Legacy rows whose `status` is already `archived` cannot be restored to their
 original state because that value was overwritten before this migration. The

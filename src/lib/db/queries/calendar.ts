@@ -10,6 +10,10 @@ import type {
   ScheduleMilestoneInput,
 } from "@/lib/calendar/types";
 import { deriveUrgencyState } from "@/lib/calendar/urgency";
+import {
+  includesArchivedProjects,
+  type ProjectScheduleVisibility,
+} from "@/lib/projects/archive-visibility";
 import { deriveMilestoneProgressMeta } from "@/lib/projects/milestone-status";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { ProjectTrack } from "@/types/domain";
@@ -58,6 +62,15 @@ export interface CalendarPageView {
 export interface ProjectScheduleGenerationContext extends ProjectScheduleState {
   estimatedWeeks: number;
   weeklyHours: number | null;
+}
+
+interface ProjectScheduleGenerationContextOptions {
+  /**
+   * Calendar operations keep archived projects hidden. Workspace operations
+   * such as focus blocks remain available because archiving does not remove
+   * the project's workspace or progress history.
+   */
+  visibility?: ProjectScheduleVisibility;
 }
 
 function groupByProjectId<T extends { project_id: string }>(rows: ReadonlyArray<T>) {
@@ -324,15 +337,20 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
 export async function getProjectScheduleGenerationContext(
   projectId: string,
   userId: string,
+  options: ProjectScheduleGenerationContextOptions = {},
 ): Promise<ProjectScheduleGenerationContext> {
   const supabase = await createServerSupabaseClient();
-  const { data: project, error: projectError } = await supabase
+  let projectQuery = supabase
     .from("projects")
     .select("id, title, status, project_track, recommendation_id")
     .eq("id", projectId)
-    .eq("user_id", userId)
-    .is("archived_at", null)
-    .single();
+    .eq("user_id", userId);
+
+  if (!includesArchivedProjects(options.visibility)) {
+    projectQuery = projectQuery.is("archived_at", null);
+  }
+
+  const { data: project, error: projectError } = await projectQuery.single();
 
   if (projectError || !project) {
     throw new Error(projectError?.message ?? "Project not found.");

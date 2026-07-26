@@ -31,7 +31,9 @@ export default async function ProjectFocusPage({
   try {
     const [workspace, schedule] = await Promise.all([
       getProjectWorkspaceView(projectId, user.id),
-      getProjectScheduleGenerationContext(projectId, user.id),
+      getProjectScheduleGenerationContext(projectId, user.id, {
+        visibility: "workspace",
+      }),
     ]);
     const session = query.session
       ? schedule.workSessions.find((candidate) => candidate.id === query.session) ?? null
