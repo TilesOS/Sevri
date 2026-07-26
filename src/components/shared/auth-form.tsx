@@ -3,8 +3,9 @@
 import { type FormEvent, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { getSafeRedirectPath } from "@/lib/auth/redirect";
+import { toUserFacingAuthError } from "@/lib/auth/ui-error";
 import { createClient } from "@/lib/supabase/client";
-import { toUserFacingError } from "@/lib/errors/user-messages";
 import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
@@ -35,6 +36,7 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [error, setError] = useState<string | null>(callbackError);
   const [isLoading, setIsLoading] = useState(false);
   const [oauthProvider, setOauthProvider] = useState<OAuthProvider | null>(null);
+  const [signUpComplete, setSignUpComplete] = useState(false);
 
   async function handleOAuthSignIn(provider: OAuthProvider) {
     setError(null);
@@ -47,16 +49,29 @@ export function AuthForm({ mode }: AuthFormProps) {
     setIsLoading(true);
     setOauthProvider(provider);
 
-    const supabase = createClient();
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider,
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback?next=/dashboard`,
-      },
-    });
+    try {
+      const next = getSafeRedirectPath(searchParams.get("next"));
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("next", next);
+      const supabase = createClient();
+      const { error: oauthError } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          redirectTo: callbackUrl.toString(),
+        },
+      });
 
-    if (oauthError) {
-      setError(toUserFacingError(oauthError.message, "We couldn't start that sign-in. Try again."));
+      if (oauthError) {
+        throw oauthError;
+      }
+    } catch (oauthError) {
+      setError(
+        toUserFacingAuthError(
+          oauthError,
+          "We couldn't start that sign-in. Check your connection and try again.",
+        ),
+      );
+    } finally {
       setIsLoading(false);
       setOauthProvider(null);
     }
@@ -65,56 +80,87 @@ export function AuthForm({ mode }: AuthFormProps) {
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    setIsLoading(true);
     setOauthProvider(null);
 
-    const supabase = createClient();
+    if (mode === "sign-up" && !fullName.trim()) {
+      setError("Please enter your name.");
+      return;
+    }
 
-    if (mode === "sign-in") {
-      const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-      if (signInError) {
-        setError(toUserFacingError(signInError.message, "We couldn't sign you in. Try again."));
-        setIsLoading(false);
+    if (mode === "sign-up" && !ageConsent) {
+      setError("Please confirm you are at least 13 years old. If you are under 13, a parent or guardian must contact support@sevri.co before an account can be created.");
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      const supabase = createClient();
+
+      if (mode === "sign-in") {
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+          throw signInError;
+        }
+
+        router.replace(getSafeRedirectPath(searchParams.get("next")));
+        router.refresh();
         return;
       }
 
-      const next = searchParams.get("next") ?? "/dashboard";
-      router.push(next);
-      router.refresh();
-      return;
-    }
-
-    if (!fullName.trim()) {
-      setError("Please enter your name.");
-      setIsLoading(false);
-      return;
-    }
-
-    if (!ageConsent) {
-      setError("Please confirm you are at least 13 years old. If you are under 13, a parent or guardian must contact support@sevri.co before an account can be created.");
-      setIsLoading(false);
-      return;
-    }
-
-    const { error: signUpError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
+      const callbackUrl = new URL("/auth/callback", window.location.origin);
+      callbackUrl.searchParams.set("next", "/dashboard");
+      const { data, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: {
+            full_name: fullName.trim(),
+          },
+          emailRedirectTo: callbackUrl.toString(),
         },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
+      });
 
-    if (signUpError) {
-      setError(toUserFacingError(signUpError.message, "We couldn't create your account. Try again."));
+      if (signUpError) {
+        throw signUpError;
+      }
+
+      if (data.session) {
+        router.replace("/dashboard");
+        router.refresh();
+        return;
+      }
+
+      setSignUpComplete(true);
+    } catch (authError) {
+      setError(
+        toUserFacingAuthError(
+          authError,
+          mode === "sign-in"
+            ? "We couldn't sign you in. Check your connection and try again."
+            : "We couldn't create your account. Check your connection and try again.",
+        ),
+      );
+    } finally {
       setIsLoading(false);
-      return;
     }
+  }
 
-    router.push("/dashboard");
-    router.refresh();
+  if (signUpComplete) {
+    return (
+      <div className="space-y-5">
+        <Alert tone="success" heading="Check your email">
+          We sent a confirmation link to <strong>{email}</strong>. Open it to finish creating your account
+          and sign in to Sevri.
+        </Alert>
+        <p className="text-sm text-ink-soft">
+          Already confirmed?{" "}
+          <Link href="/sign-in" className="font-semibold text-coral hover:opacity-80">
+            Sign in
+          </Link>
+        </p>
+      </div>
+    );
   }
 
   return (

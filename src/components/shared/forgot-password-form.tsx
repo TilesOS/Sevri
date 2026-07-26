@@ -10,7 +10,6 @@ import { toUserFacingError } from "@/lib/errors/user-messages";
 
 type FormState =
   | { status: "idle" }
-  | { status: "submitting" }
   | { status: "sent"; message: string }
   | { status: "error"; message: string };
 
@@ -19,45 +18,48 @@ export function ForgotPasswordForm({ initialError }: { initialError?: string | n
   const [state, setState] = useState<FormState>(() =>
     initialError ? { status: "error", message: initialError } : { status: "idle" },
   );
-
-  const isSubmitting = state.status === "submitting";
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setState({ status: "submitting" });
-
-    let response: Response;
-    let body: { message?: string; error?: string } | null = null;
+    setIsSubmitting(true);
 
     try {
-      response = await fetch("/api/auth/forgot-password", {
+      const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
       });
-      body = (await response.json().catch(() => null)) as { message?: string; error?: string } | null;
+      const body = (await response.json().catch(() => null)) as {
+        message?: string;
+        error?: string;
+      } | null;
+
+      if (!response.ok) {
+        setState({
+          status: "error",
+          message: toUserFacingError(
+            body?.error,
+            "We couldn't start a password reset. Try again in a moment.",
+          ),
+        });
+        return;
+      }
+
+      setState({
+        status: "sent",
+        message:
+          body?.message ??
+          "If that email has a Sevri account, a reset link is on its way. It expires in about an hour.",
+      });
     } catch {
       setState({
         status: "error",
         message: "We couldn't reach Sevri. Check your connection and try again.",
       });
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    if (!response.ok) {
-      setState({
-        status: "error",
-        message: toUserFacingError(body?.error, "We couldn't start a password reset. Try again in a moment."),
-      });
-      return;
-    }
-
-    setState({
-      status: "sent",
-      message:
-        body?.message ??
-        "If that email has a Sevri account, a reset link is on its way. It expires in about an hour.",
-    });
   }
 
   if (state.status === "sent") {

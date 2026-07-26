@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
+import { getSafeRedirectPath } from "@/lib/auth/redirect";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-
-function safeRedirectPath(value: string | null): string {
-  if (value && value.startsWith("/") && !value.startsWith("//")) {
-    return value;
-  }
-  return "/dashboard";
-}
+import { applyPrivateAuthCacheHeaders } from "@/lib/supabase/response";
 
 /**
  * Where a failed exchange should land. A password-recovery link is the one case
@@ -25,18 +20,28 @@ function failureUrl(next: string, requestUrl: URL, reason: "link_invalid" | "lin
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get("code");
-  const next = safeRedirectPath(requestUrl.searchParams.get("next"));
+  const next = getSafeRedirectPath(requestUrl.searchParams.get("next"));
 
   if (!code) {
-    return NextResponse.redirect(failureUrl(next, requestUrl, "link_missing"));
+    return applyPrivateAuthCacheHeaders(
+      NextResponse.redirect(failureUrl(next, requestUrl, "link_missing")),
+    );
   }
 
-  const supabase = await createServerSupabaseClient();
-  const { error } = await supabase.auth.exchangeCodeForSession(code);
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.auth.exchangeCodeForSession(code);
 
-  if (error) {
-    return NextResponse.redirect(failureUrl(next, requestUrl, "link_invalid"));
+    if (error) {
+      return applyPrivateAuthCacheHeaders(
+        NextResponse.redirect(failureUrl(next, requestUrl, "link_invalid")),
+      );
+    }
+
+    return applyPrivateAuthCacheHeaders(NextResponse.redirect(new URL(next, requestUrl)));
+  } catch {
+    return applyPrivateAuthCacheHeaders(
+      NextResponse.redirect(failureUrl(next, requestUrl, "link_invalid")),
+    );
   }
-
-  return NextResponse.redirect(new URL(next, requestUrl));
 }

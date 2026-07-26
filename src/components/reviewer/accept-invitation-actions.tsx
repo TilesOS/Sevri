@@ -7,6 +7,7 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
+import { toUserFacingAuthError } from "@/lib/auth/ui-error";
 
 interface AcceptInvitationActionsProps {
   token: string;
@@ -37,32 +38,57 @@ export function AcceptInvitationActions({
     setError(null);
     setIsLoading(true);
 
-    const supabase = createClient();
-    const redirectUrl = new URL("/auth/callback", window.location.origin);
-    redirectUrl.searchParams.set("next", `/accept-invitation/${token}`);
+    try {
+      const supabase = createClient();
+      const redirectUrl = new URL("/auth/callback", window.location.origin);
+      redirectUrl.searchParams.set("next", `/accept-invitation/${token}`);
 
-    const { error: otpError } = await supabase.auth.signInWithOtp({
-      email: reviewerEmail,
-      options: {
-        emailRedirectTo: redirectUrl.toString(),
-        shouldCreateUser: true,
-      },
-    });
+      const { error: otpError } = await supabase.auth.signInWithOtp({
+        email: reviewerEmail,
+        options: {
+          emailRedirectTo: redirectUrl.toString(),
+          shouldCreateUser: true,
+        },
+      });
 
-    if (otpError) {
-      setError(otpError.message);
+      if (otpError) {
+        throw otpError;
+      }
+
+      setLinkSent(true);
+    } catch (authError) {
+      setError(
+        toUserFacingAuthError(
+          authError,
+          "We couldn't send that sign-in link. Check your connection and try again.",
+        ),
+      );
+    } finally {
       setIsLoading(false);
-      return;
     }
-
-    setLinkSent(true);
-    setIsLoading(false);
   }
 
   async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.refresh();
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      const supabase = createClient();
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) {
+        throw signOutError;
+      }
+      router.refresh();
+    } catch (authError) {
+      setError(
+        toUserFacingAuthError(
+          authError,
+          "We couldn't sign you out. Check your connection and try again.",
+        ),
+      );
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   async function handleAccept() {
@@ -78,7 +104,6 @@ export function AcceptInvitationActions({
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         setError(body.error ?? "Unable to accept invitation.");
-        setIsLoading(false);
         return;
       }
 
@@ -87,6 +112,7 @@ export function AcceptInvitationActions({
       router.refresh();
     } catch {
       setError("Unable to accept invitation.");
+    } finally {
       setIsLoading(false);
     }
   }
@@ -124,8 +150,8 @@ export function AcceptInvitationActions({
           You&rsquo;re signed in as <strong>{signedInEmail}</strong>. This invitation was sent to{" "}
           <strong>{reviewerEmail}</strong>. Sign out and use the invited address.
         </Alert>
-        <Button variant="outline" onClick={handleSignOut}>
-          Sign out
+        <Button variant="outline" onClick={handleSignOut} disabled={isLoading}>
+          {isLoading ? "Signing out..." : "Sign out"}
         </Button>
       </div>
     );
@@ -139,8 +165,8 @@ export function AcceptInvitationActions({
           reviewer account with the invited email, or ask the student to use a different address.
         </Alert>
         <div className="flex flex-wrap gap-3">
-          <Button variant="outline" onClick={handleSignOut}>
-            Sign out
+          <Button variant="outline" onClick={handleSignOut} disabled={isLoading}>
+            {isLoading ? "Signing out..." : "Sign out"}
           </Button>
           <Button variant="ghost" href="/">
             Go to Sevri

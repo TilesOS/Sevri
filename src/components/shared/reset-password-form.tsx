@@ -6,14 +6,13 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { PasswordInput } from "@/components/ui/password-input";
-import { toUserFacingError } from "@/lib/errors/user-messages";
+import { toUserFacingAuthError } from "@/lib/auth/ui-error";
 import { createClient } from "@/lib/supabase/client";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 type FormState =
   | { status: "idle" }
-  | { status: "submitting" }
   | { status: "saved" }
   | { status: "error"; message: string };
 
@@ -22,8 +21,7 @@ export function ResetPasswordForm() {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [state, setState] = useState<FormState>({ status: "idle" });
-
-  const isSubmitting = state.status === "submitting";
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -41,22 +39,30 @@ export function ResetPasswordForm() {
       return;
     }
 
-    setState({ status: "submitting" });
+    setIsSubmitting(true);
 
-    const supabase = createClient();
-    const { error } = await supabase.auth.updateUser({ password });
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password });
 
-    if (error) {
+      if (error) {
+        throw error;
+      }
+
+      setState({ status: "saved" });
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (error) {
       setState({
         status: "error",
-        message: toUserFacingError(error.message, "We couldn't save that password. Try again in a moment."),
+        message: toUserFacingAuthError(
+          error,
+          "We couldn't save that password. Check your connection and try again.",
+        ),
       });
-      return;
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setState({ status: "saved" });
-    router.push("/dashboard");
-    router.refresh();
   }
 
   if (state.status === "saved") {
