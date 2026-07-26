@@ -9,8 +9,8 @@ Sevri is a production-minded SaaS scaffold for helping students pick, scope, exe
 - Stripe Checkout + webhook sync
 - OpenAI structured JSON generation + Zod validation
 - Resend email abstraction
-- Sentry placeholder instrumentation
-- Netlify deployment target
+- Privacy-scrubbed Sentry error monitoring
+- Vercel deployment target
 
 ## Quick start
 
@@ -20,7 +20,39 @@ Sevri is a production-minded SaaS scaffold for helping students pick, scope, exe
 4. Apply Supabase migration: `supabase db push` (or run SQL manually)
 5. Configure Stripe webhook to `POST /api/billing/webhook`
 
-Do not set `NODE_ENV` in `.env.local` or in Netlify environment variables for this app. Let Next.js manage it during builds and runtime.
+Do not set `NODE_ENV` in `.env.local` or in Vercel environment variables for this app. Let Next.js manage it during builds and runtime.
+
+## Verification
+
+- `npm run lint` checks the whole repository.
+- `npm run typecheck` is the full strict check for application code, tests, and scripts.
+- `npm run typecheck:build` uses the narrower production Next.js config.
+- `npm run test:unit` runs the unit suite.
+- After `npm run build`, `npm run build:report` prints phase spans, the slowest
+  traced modules, the largest client/server bundles, and the local webpack
+  cache size.
+
+## Sentry
+
+Set `NEXT_PUBLIC_SENTRY_DSN` for browser reporting and `SENTRY_DSN` for the
+server and edge runtimes. The server safely falls back to the public DSN.
+Events retain stack locations and fixed operational labels, while request
+data, user data, identifiers, messages, source context, and arbitrary extras
+are removed before sending. Performance tracing and replay are disabled.
+
+Source-map upload is intentionally not configured. Enable it only after
+provisioning `SENTRY_AUTH_TOKEN`, organization/project identifiers, and an
+operational need that justifies the extra build work.
+
+For a controlled end-to-end check, set `SENTRY_TEST_ROUTE_ENABLED=true` and a
+high-entropy `SENTRY_TEST_ROUTE_TOKEN`, deploy, then send:
+
+```bash
+curl -X POST https://your-host.example/api/monitoring/sentry-test \
+  -H "x-sentry-test-token: $SENTRY_TEST_ROUTE_TOKEN"
+```
+
+Disable the route again after confirming the returned event ID in Sentry.
 
 ## Core flows
 

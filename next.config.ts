@@ -1,7 +1,12 @@
 import type { NextConfig } from "next";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  typescript: {
+    ignoreBuildErrors: false,
+    tsconfigPath: "tsconfig.build.json",
+  },
   async redirects() {
     return [
       // Focus mode used to be the one project surface under a `/projects/`
@@ -28,4 +33,21 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withSentryConfig(nextConfig, {
+  bundleSizeOptimizations: {
+    excludeDebugStatements: true,
+    excludeReplayIframe: true,
+    excludeReplayShadowDom: true,
+    excludeTracing: true,
+  },
+  disableLogger: true,
+  disableManifestInjection: true,
+  release: {
+    create: false,
+  },
+  silent: true,
+  sourcemaps: {
+    disable: true,
+  },
+  telemetry: false,
+});

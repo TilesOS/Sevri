@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
-import { Archivo, Instrument_Serif, JetBrains_Mono, Schibsted_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import { MotionProvider } from "@/components/theme/motion-provider";
 import { clientEnv } from "@/lib/env";
 import "@/app/globals.css";
@@ -41,27 +41,49 @@ export const metadata: Metadata = {
   },
 };
 
-const sans = Schibsted_Grotesk({
-  subsets: ["latin"],
+const sans = localFont({
+  src: "../assets/fonts/schibsted-grotesk/SchibstedGrotesk[wght].ttf",
+  weight: "400 900",
+  style: "normal",
   variable: "--font-sans",
+  display: "swap",
+  adjustFontFallback: "Arial",
 });
 
-const display = Archivo({
-  subsets: ["latin"],
+const display = localFont({
+  src: "../assets/fonts/archivo/Archivo[wdth,wght].ttf",
+  weight: "100 900",
+  style: "normal",
   variable: "--font-display",
+  display: "swap",
+  adjustFontFallback: "Arial",
 });
 
-const serif = Instrument_Serif({
-  subsets: ["latin"],
+const serif = localFont({
+  src: [
+    {
+      path: "../assets/fonts/instrument-serif/InstrumentSerif-Regular.ttf",
+      weight: "400",
+      style: "normal",
+    },
+    {
+      path: "../assets/fonts/instrument-serif/InstrumentSerif-Italic.ttf",
+      weight: "400",
+      style: "italic",
+    },
+  ],
   variable: "--font-serif",
-  weight: "400",
-  style: ["normal", "italic"],
+  display: "swap",
+  adjustFontFallback: "Times New Roman",
 });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
+const mono = localFont({
+  src: "../assets/fonts/jetbrains-mono/JetBrainsMono[wght].ttf",
+  weight: "400 700",
+  style: "normal",
   variable: "--font-mono",
-  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  adjustFontFallback: "Arial",
 });
 
 export default function RootLayout({

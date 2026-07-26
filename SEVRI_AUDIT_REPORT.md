@@ -744,5 +744,3 @@ Finish with a summary of: files changed (grouped by finding ID), tests added and
 results, the RISK-007 determination, any finding you could not safely implement and
 why, remaining risks, and product decisions still needed.
 ```
-
-
