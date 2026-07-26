@@ -2,7 +2,12 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  RateLimitUnavailableError,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
 import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { runRoadmapGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
 import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
@@ -45,6 +50,7 @@ function asProjectTrack(value: unknown): "software" | "research" {
 export async function POST(request: Request) {
   const routeStartedAt = performance.now();
   let stage = "start";
+  let rateLimitReservationId: string | null = null;
 
   try {
     stage = "auth";
@@ -57,27 +63,23 @@ export async function POST(request: Request) {
     const body = bodySchema.parse(await request.json().catch(() => ({})));
 
     stage = "rate-limit";
-    try {
-      const rateLimit = await enforceRateLimit({
-        userId: user.id,
-        endpoint: "roadmap",
-        maxRequests: 8,
-        windowMinutes: 60,
-      });
+    const rateLimit = await enforceRateLimit({
+      userId: user.id,
+      endpoint: "roadmap",
+      maxRequests: 8,
+      windowMinutes: 60,
+    });
 
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
-          { status: 429 },
-        );
-      }
-    } catch (rateLimitError) {
-      console.error("roadmap rate-limit failed", { stage, error: rateLimitError });
-      captureServerError(rateLimitError, {
-        route: "ai/roadmap",
-        stage: "rate-limit",
-      });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
     }
+    rateLimitReservationId = rateLimit.reservationId;
 
     stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();
@@ -286,6 +288,11 @@ export async function POST(request: Request) {
       cacheHit: false,
     });
 
+    stage = "consume-rate-limit";
+    const completedReservationId = rateLimitReservationId;
+    rateLimitReservationId = null;
+    await consumeRateLimitReservation(completedReservationId);
+
     stage = "post-generate";
     void trackEvent(user.id, "roadmap_generated", {
       project_id: project.id,
@@ -327,7 +334,9 @@ export async function POST(request: Request) {
     captureServerError(error, { route: "ai/roadmap", stage });
     const details = getErrorDetails(error);
     const status =
-      error instanceof z.ZodError && stage === "parse-request"
+      error instanceof RateLimitUnavailableError
+        ? 503
+        : error instanceof z.ZodError && stage === "parse-request"
         ? 400
         : stage === "generate-roadmap"
           ? getGenerationFailureStatus(error)
@@ -336,7 +345,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          status === 400
+          status === 503
+            ? "Roadmap generation is temporarily unavailable. Try again in a moment."
+            : status === 400
             ? "Invalid request payload"
             : stage === "generate-roadmap"
               ? getGenerationFailureMessage(error, "Failed to generate roadmap")
@@ -346,5 +357,14 @@ export async function POST(request: Request) {
       },
       { status },
     );
+  } finally {
+    if (rateLimitReservationId) {
+      await releaseRateLimitReservation(rateLimitReservationId).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "ai/roadmap",
+          stage: "release-rate-limit",
+        });
+      });
+    }
   }
 }

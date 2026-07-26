@@ -2,7 +2,12 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  RateLimitUnavailableError,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
 import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/feature-access";
 import { runStepGuidanceGeneration, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
@@ -77,6 +82,7 @@ function getStoredMetrics(rawModelOutput: unknown) {
 export async function POST(request: Request, context: { params: Promise<{ id: string }> }) {
   const routeStartedAt = performance.now();
   let stage = "start";
+  let rateLimitReservationId: string | null = null;
 
   try {
     stage = "auth";
@@ -223,32 +229,31 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     // Only generation is rate limited. Retrieval above never consumes budget, so
     // normal step-to-step navigation cannot trip this.
     stage = "rate-limit";
-    try {
-      const rateLimit = await enforceRateLimit({
-        userId: user.id,
-        endpoint: "milestone-guidance",
-        maxRequests: 8,
-        windowMinutes: 60,
-      });
+    const rateLimit = await enforceRateLimit({
+      userId: user.id,
+      endpoint: "milestone-guidance",
+      maxRequests: 8,
+      windowMinutes: 60,
+    });
 
-      if (!rateLimit.allowed) {
-        const cachedPayload = buildCachedPayload(true);
-        if (cachedPayload) {
-          return NextResponse.json(cachedPayload, { status: 200 });
-        }
-
-        return NextResponse.json(
-          { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
-          { status: 429 },
-        );
+    if (!rateLimit.allowed) {
+      const cachedPayload = buildCachedPayload(true);
+      if (cachedPayload) {
+        return NextResponse.json(cachedPayload, {
+          status: 200,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        });
       }
-    } catch (rateLimitError) {
-      console.error("milestone guidance rate-limit failed", { stage, error: rateLimitError });
-      captureServerError(rateLimitError, {
-        route: "ai/milestones/guidance",
-        stage: "rate-limit",
-      });
+
+      return NextResponse.json(
+        { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
     }
+    rateLimitReservationId = rateLimit.reservationId;
 
     stage = "fetch-roadmap";
     const { data: roadmap, error: roadmapError } = await supabase
@@ -369,6 +374,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       cacheHit: false,
     });
 
+    stage = "consume-rate-limit";
+    const completedReservationId = rateLimitReservationId;
+    rateLimitReservationId = null;
+    await consumeRateLimitReservation(completedReservationId);
+
     stage = "track-guidance";
     void trackEvent(user.id, "milestone_guidance_generated", {
       project_id: project.id,
@@ -399,7 +409,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     captureServerError(error, { route: "ai/milestones/guidance", stage });
     const details = getErrorDetails(error);
     const status =
-      error instanceof z.ZodError && stage === "parse-request"
+      error instanceof RateLimitUnavailableError
+        ? 503
+        : error instanceof z.ZodError && stage === "parse-request"
         ? 400
         : stage === "generate-guidance"
           ? getGenerationFailureStatus(error)
@@ -408,7 +420,9 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     return NextResponse.json(
       {
         error:
-          status === 400
+          status === 503
+            ? "Step guidance is temporarily unavailable. Try again in a moment."
+            : status === 400
             ? "Invalid request payload"
             : stage === "generate-guidance"
               ? getGenerationFailureMessage(error, "Failed to generate step guidance")
@@ -418,5 +432,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       },
       { status },
     );
+  } finally {
+    if (rateLimitReservationId) {
+      await releaseRateLimitReservation(rateLimitReservationId).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "ai/milestones/guidance",
+          stage: "release-rate-limit",
+        });
+      });
+    }
   }
 }

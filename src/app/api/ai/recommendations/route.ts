@@ -2,7 +2,12 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  RateLimitUnavailableError,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
 import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { getRouteGenerationMetadata, getWeeklyHoursForStorage, runOptionsGeneration, runProfileNormalization } from "@/lib/ai/pipelines";
 import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
@@ -11,7 +16,8 @@ import { getProfileIdentity } from "@/lib/db/queries/profile";
 import { getRecommendationGenerationCount, getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getRecommendationFeedback } from "@/lib/db/queries/generation-feedback";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
-import { canGenerateRecommendations, getGenerationLimit } from "@/lib/usage/limits";
+import { getGenerationLimit } from "@/lib/usage/limits";
+import { reserveRecommendationGeneration } from "@/lib/usage/recommendation-quota";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 import { asSentence } from "@/lib/text/prose";
@@ -38,6 +44,8 @@ function getErrorDetails(error: unknown) {
 export async function POST(request: Request) {
   const routeStartedAt = performance.now();
   let stage = "start";
+  let rateLimitReservationId: string | null = null;
+  let entitlementReservationId: string | null = null;
 
   try {
     stage = "auth";
@@ -50,49 +58,62 @@ export async function POST(request: Request) {
     const body = bodySchema.parse(await request.json().catch(() => ({})));
 
     stage = "rate-limit";
-    try {
-      const rateLimit = await enforceRateLimit({
-        userId: user.id,
-        endpoint: "recommendations",
-        maxRequests: 12,
-        windowMinutes: 60,
-      });
+    const rateLimit = await enforceRateLimit({
+      userId: user.id,
+      endpoint: "recommendations",
+      maxRequests: 12,
+      windowMinutes: 60,
+    });
 
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
-          { status: 429 },
-        );
-      }
-    } catch (rateLimitError) {
-      console.error("recommendations rate-limit failed", { stage, error: rateLimitError });
-      captureServerError(rateLimitError, {
-        route: "ai/recommendations",
-        stage: "rate-limit",
-      });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
     }
+    rateLimitReservationId = rateLimit.reservationId;
 
     stage = "load-plan-and-track";
-    const [plan, generatedCount, defaultTrack] = await Promise.all([
+    const [plan, defaultTrack] = await Promise.all([
       getUserPlan(user.id),
-      getRecommendationGenerationCount(user.id),
       getLatestProjectTrack(user.id),
     ]);
     const generationLimit = getGenerationLimit(plan);
+    let generationsUsedAfterSuccess: number;
 
-    if (!canGenerateRecommendations(plan, generatedCount)) {
-      return NextResponse.json(
-        {
-          code: "generation_limit_reached",
-          error:
-            generationLimit === null
-              ? "Generation limit reached."
+    if (generationLimit === null) {
+      const generatedCount = await getRecommendationGenerationCount(user.id);
+      generationsUsedAfterSuccess = generatedCount + 1;
+    } else {
+      stage = "reserve-generation-entitlement";
+      const entitlement = await reserveRecommendationGeneration(user.id, generationLimit);
+
+      if (!entitlement.allowed) {
+        const temporarilyReserved = entitlement.resetAt !== null;
+        return NextResponse.json(
+          {
+            code: temporarilyReserved ? "generation_in_progress" : "generation_limit_reached",
+            error: temporarilyReserved
+              ? "Another idea board is already being generated. Wait for it to finish, then try again."
               : `You've used your ${generationLimit} free idea boards. You've explored multiple directions. Upgrade to keep refining.`,
-          generations_used: generatedCount,
-          generation_limit: generationLimit,
-        },
-        { status: 403 },
-      );
+            generations_used: entitlement.generationsUsed,
+            generation_limit: generationLimit,
+            reset_at: entitlement.resetAt,
+          },
+          {
+            status: temporarilyReserved ? 429 : 403,
+            headers: temporarilyReserved
+              ? { "Retry-After": String(entitlement.retryAfterSeconds) }
+              : undefined,
+          },
+        );
+      }
+
+      entitlementReservationId = entitlement.reservationId;
+      generationsUsedAfterSuccess = entitlement.generationsUsed;
     }
 
     const activeTrack = body.project_track ?? defaultTrack;
@@ -197,6 +218,23 @@ export async function POST(request: Request) {
       throw new Error(insertError.message);
     }
 
+    stage = "consume-reservations";
+    const completedEntitlementReservationId = entitlementReservationId;
+    const completedRateLimitReservationId = rateLimitReservationId;
+    entitlementReservationId = null;
+    rateLimitReservationId = null;
+    await Promise.all([
+      ...(completedEntitlementReservationId
+        ? [
+            consumeRateLimitReservation(
+              completedEntitlementReservationId,
+              contextSnapshot.id,
+            ),
+          ]
+        : []),
+      consumeRateLimitReservation(completedRateLimitReservationId),
+    ]);
+
     const routeMetadata = getRouteGenerationMetadata({
       metrics: generated.metrics,
       routeTotalMs: performance.now() - routeStartedAt,
@@ -221,7 +259,7 @@ export async function POST(request: Request) {
       {
         project_track: activeTrack,
         normalized_profile_id: contextSnapshot.id,
-        generations_used: generatedCount + 1,
+        generations_used: generationsUsedAfterSuccess,
         generation_limit: generationLimit,
         recommendations: (insertedRecommendations ?? []).map((recommendation) => ({
           id: recommendation.id,
@@ -249,7 +287,9 @@ export async function POST(request: Request) {
     captureServerError(error, { route: "ai/recommendations", stage });
     const details = getErrorDetails(error);
     const status =
-      error instanceof z.ZodError && stage === "parse-request"
+      error instanceof RateLimitUnavailableError
+        ? 503
+        : error instanceof z.ZodError && stage === "parse-request"
         ? 400
         : stage === "normalize-context" || stage === "generate-options"
           ? getGenerationFailureStatus(error)
@@ -257,7 +297,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          status === 400
+          status === 503
+            ? "Idea generation is temporarily unavailable. Try again in a moment."
+            : status === 400
             ? "Invalid request payload"
             : stage === "normalize-context" || stage === "generate-options"
               ? getGenerationFailureMessage(error, "Failed to generate recommendations")
@@ -266,6 +308,20 @@ export async function POST(request: Request) {
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },
       { status },
+    );
+  } finally {
+    const reservations = [entitlementReservationId, rateLimitReservationId].filter(
+      (value): value is string => Boolean(value),
+    );
+    await Promise.all(
+      reservations.map((reservationId) =>
+        releaseRateLimitReservation(reservationId).catch((releaseError) => {
+          captureServerError(releaseError, {
+            route: "ai/recommendations",
+            stage: "release-reservation",
+          });
+        }),
+      ),
     );
   }
 }

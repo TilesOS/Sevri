@@ -2,7 +2,12 @@ import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  RateLimitUnavailableError,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
 import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { buildGenerationContext } from "@/lib/ai/generation-context";
 import { withProfileIdentity } from "@/lib/ai/intake-identity";
@@ -36,6 +41,7 @@ function asProjectTrack(value: unknown): ProjectTrack {
 
 export async function POST(request: Request) {
   let stage = "start";
+  let rateLimitReservationId: string | null = null;
   try {
     stage = "auth";
     const { user, response } = await requireApiUser();
@@ -47,27 +53,23 @@ export async function POST(request: Request) {
     const body = bodySchema.parse(await request.json().catch(() => ({})));
 
     stage = "rate-limit";
-    try {
-      const rateLimit = await enforceRateLimit({
-        userId: user.id,
-        endpoint: "normalize-profile",
-        maxRequests: 10,
-        windowMinutes: 60,
-      });
+    const rateLimit = await enforceRateLimit({
+      userId: user.id,
+      endpoint: "normalize-profile",
+      maxRequests: 10,
+      windowMinutes: 60,
+    });
 
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
-          { status: 429 },
-        );
-      }
-    } catch (rateLimitError) {
-      console.error("normalize-profile rate-limit failed", { stage, error: rateLimitError });
-      captureServerError(rateLimitError, {
-        route: "ai/normalize-profile",
-        stage: "rate-limit",
-      });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
     }
+    rateLimitReservationId = rateLimit.reservationId;
 
     stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();
@@ -127,19 +129,43 @@ export async function POST(request: Request) {
       throw new Error(error.message);
     }
 
+    stage = "consume-rate-limit";
+    const completedReservationId = rateLimitReservationId;
+    rateLimitReservationId = null;
+    await consumeRateLimitReservation(completedReservationId);
+
     return NextResponse.json({ normalized_profile_id: data.id, ...normalized }, { status: 200 });
   } catch (error) {
     console.error("normalize-profile failed", { stage, error });
     captureServerError(error, { route: "ai/normalize-profile", stage });
     const details = getErrorDetails(error);
-    const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
+    const status =
+      error instanceof RateLimitUnavailableError
+        ? 503
+        : error instanceof z.ZodError && stage === "parse-request"
+          ? 400
+          : 500;
     return NextResponse.json(
       {
-        error: status === 400 ? "Invalid request payload" : "Failed to build generation context",
+        error:
+          status === 503
+            ? "Profile preparation is temporarily unavailable. Try again in a moment."
+            : status === 400
+              ? "Invalid request payload"
+              : "Failed to build generation context",
         stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },
       { status },
     );
+  } finally {
+    if (rateLimitReservationId) {
+      await releaseRateLimitReservation(rateLimitReservationId).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "ai/normalize-profile",
+          stage: "release-rate-limit",
+        });
+      });
+    }
   }
 }

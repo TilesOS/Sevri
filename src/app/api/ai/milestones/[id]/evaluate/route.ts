@@ -3,7 +3,12 @@ import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
 import { createAdminSupabaseClient } from "@/lib/supabase/admin";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { enforceRateLimit } from "@/lib/usage/rate-limit";
+import {
+  consumeRateLimitReservation,
+  enforceRateLimit,
+  RateLimitUnavailableError,
+  releaseRateLimitReservation,
+} from "@/lib/usage/rate-limit";
 import { RATE_LIMITED_MESSAGE } from "@/lib/errors/user-messages";
 import { assertFeatureAccess, createUpgradeRequiredResponse } from "@/lib/usage/feature-access";
 import { runWorkEvaluation, getRouteGenerationMetadata } from "@/lib/ai/pipelines";
@@ -236,6 +241,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   let adminSupabase: AdminSupabaseClient | null = null;
   let recoveryMilestoneId: string | null = null;
   let savedEvaluationId: string | null = null;
+  let rateLimitReservationId: string | null = null;
 
   try {
     stage = "auth";
@@ -250,27 +256,23 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     recoveryMilestoneId = id;
 
     stage = "rate-limit";
-    try {
-      const rateLimit = await enforceRateLimit({
-        userId: user.id,
-        endpoint: "milestone-evaluate",
-        maxRequests: 8,
-        windowMinutes: 60,
-      });
+    const rateLimit = await enforceRateLimit({
+      userId: user.id,
+      endpoint: "milestone-evaluate",
+      maxRequests: 8,
+      windowMinutes: 60,
+    });
 
-      if (!rateLimit.allowed) {
-        return NextResponse.json(
-          { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
-          { status: 429 },
-        );
-      }
-    } catch (rateLimitError) {
-      console.error("work evaluation rate-limit failed", { stage, error: rateLimitError });
-      captureServerError(rateLimitError, {
-        route: "ai/milestones/evaluate",
-        stage: "rate-limit",
-      });
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: RATE_LIMITED_MESSAGE, code: "rate_limited", reset_at: rateLimit.resetAt },
+        {
+          status: 429,
+          headers: { "Retry-After": String(rateLimit.retryAfterSeconds) },
+        },
+      );
     }
+    rateLimitReservationId = rateLimit.reservationId;
 
     stage = "feature-access";
     const featureAccess = await assertFeatureAccess({
@@ -479,6 +481,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
         cacheHit: false,
       });
 
+      stage = "consume-rate-limit";
+      const completedReservationId = rateLimitReservationId;
+      rateLimitReservationId = null;
+      await consumeRateLimitReservation(completedReservationId);
+
       stage = "track-evaluation";
       const projectTrack = project.project_track === "research" ? "research" : "software";
       void trackEvent(user.id, "work_evaluation_completed", {
@@ -537,16 +544,35 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     }
 
     const details = getErrorDetails(error);
-    const status = error instanceof z.ZodError && stage === "parse-request" ? 400 : 500;
+    const status =
+      error instanceof RateLimitUnavailableError
+        ? 503
+        : error instanceof z.ZodError && stage === "parse-request"
+          ? 400
+          : 500;
 
     return NextResponse.json(
       {
-        error: status === 400 ? "Invalid request payload" : "Failed to evaluate submission",
+        error:
+          status === 503
+            ? "Work evaluation is temporarily unavailable. Try again in a moment."
+            : status === 400
+              ? "Invalid request payload"
+              : "Failed to evaluate submission",
         stage,
         details: process.env.NODE_ENV === "development" ? details : undefined,
       },
       { status },
     );
+  } finally {
+    if (rateLimitReservationId) {
+      await releaseRateLimitReservation(rateLimitReservationId).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "ai/milestones/evaluate",
+          stage: "release-rate-limit",
+        });
+      });
+    }
   }
 }
 

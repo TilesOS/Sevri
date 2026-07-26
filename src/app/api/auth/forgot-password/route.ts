@@ -3,7 +3,11 @@ import { z } from "zod";
 import { clientEnv } from "@/lib/env";
 import { captureServerError } from "@/lib/sentry/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { enforceAuthRateLimit } from "@/lib/usage/auth-rate-limit";
+import {
+  consumePasswordRecoveryRateLimits,
+  releasePasswordRecoveryRateLimits,
+  reservePasswordRecoveryRateLimits,
+} from "@/lib/usage/auth-rate-limit";
 
 export const runtime = "nodejs";
 
@@ -63,22 +67,25 @@ export async function POST(request: Request) {
   }
 
   const email = payload.email.toLowerCase();
+  let reservationIds: string[] = [];
 
-  // A limiter that cannot be reached must not silently disable itself, but it
-  // also must not lock every student out of recovery. Email-keyed counting is
-  // the limit that matters, so only that one is treated as required.
+  // IP and email are checked and reserved in one transaction. The RPC checks
+  // IP first, so a blocked client cannot consume arbitrary address quotas.
   try {
-    const emailLimit = await enforceAuthRateLimit({
-      bucket: "password_recovery_email",
-      key: email,
-      ...EMAIL_LIMIT,
+    const limit = await reservePasswordRecoveryRateLimits({
+      email,
+      ip: getClientIp(request),
+      emailLimit: EMAIL_LIMIT,
+      ipLimit: IP_LIMIT,
     });
 
-    if (!emailLimit.allowed) {
-      return rateLimitedResponse(emailLimit.retryAfterSeconds);
+    if (!limit.allowed) {
+      return rateLimitedResponse(limit.retryAfterSeconds);
     }
+
+    reservationIds = limit.reservationIds;
   } catch (rateLimitError) {
-    captureServerError(rateLimitError, { route: "auth/forgot-password", stage: "rate-limit-email" });
+    captureServerError(rateLimitError, { route: "auth/forgot-password", stage: "rate-limit" });
 
     return NextResponse.json(
       {
@@ -87,20 +94,6 @@ export async function POST(request: Request) {
       },
       { status: 503 },
     );
-  }
-
-  try {
-    const ipLimit = await enforceAuthRateLimit({
-      bucket: "password_recovery_ip",
-      key: getClientIp(request),
-      ...IP_LIMIT,
-    });
-
-    if (!ipLimit.allowed) {
-      return rateLimitedResponse(ipLimit.retryAfterSeconds);
-    }
-  } catch (rateLimitError) {
-    captureServerError(rateLimitError, { route: "auth/forgot-password", stage: "rate-limit-ip" });
   }
 
   try {
@@ -123,6 +116,10 @@ export async function POST(request: Request) {
       // so beats a cheerful "check your inbox" for mail that never arrives.
       throw new Error(`Failed to send recovery email: ${error.message}`);
     }
+
+    const completedReservationIds = reservationIds;
+    reservationIds = [];
+    await consumePasswordRecoveryRateLimits(completedReservationIds);
   } catch (error) {
     captureServerError(error, { route: "auth/forgot-password", stage: "send-recovery-email" });
 
@@ -133,6 +130,15 @@ export async function POST(request: Request) {
       },
       { status: 502 },
     );
+  } finally {
+    if (reservationIds.length > 0) {
+      await releasePasswordRecoveryRateLimits(reservationIds).catch((releaseError) => {
+        captureServerError(releaseError, {
+          route: "auth/forgot-password",
+          stage: "release-rate-limit",
+        });
+      });
+    }
   }
 
   return NextResponse.json({ message: NEUTRAL_MESSAGE }, { status: 200 });
