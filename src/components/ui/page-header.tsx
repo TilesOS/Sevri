@@ -17,7 +17,7 @@ export function PageHeader({ eyebrow, breadcrumbs, metadata, title, description,
       <div className="max-w-3xl space-y-2.5">
         {breadcrumbs}
         {eyebrow ? (
-          <p className="flex items-center gap-2 font-serif text-lg italic text-ink-soft">
+          <p className="flex items-center gap-2 font-serif text-xl italic text-ink-soft">
             <span className="h-1.5 w-1.5 rounded-full bg-coral" aria-hidden="true" />
             {eyebrow}
           </p>

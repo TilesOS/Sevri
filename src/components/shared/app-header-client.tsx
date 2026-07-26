@@ -287,7 +287,10 @@ export function AppShellClient({ children, displayName, email }: AppShellClientP
           ) : null}
           <HeaderBreadcrumbs pathname={pathname} />
         </header>
-        <main id={MAIN_CONTENT_ID} className="min-h-[calc(100vh-3.5rem)] py-7 sm:py-10">
+        <main
+          id={MAIN_CONTENT_ID}
+          className="min-h-[calc(100vh-3.5rem)] pb-7 pt-5 sm:pb-10 sm:pt-8"
+        >
           <Container>
             <PageTransition transitionKey={pathname}>{children}</PageTransition>
           </Container>
@@ -390,7 +393,7 @@ function SidebarContent({
   return (
     <div className="flex h-full min-h-0 flex-col px-3 py-3">
       <Link href="/dashboard" className="mb-3 flex min-h-10 items-center rounded-xl px-2 text-ink" onClick={onNavigate}>
-        <span className="font-serif text-[1.35rem] leading-none">Sevri</span>
+        <span className="font-serif text-[2rem] leading-none">Sevri</span>
       </Link>
 
       <Link
