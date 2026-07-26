@@ -114,17 +114,17 @@ function isPortfolioStatusOverride(value: unknown): value is PortfolioStatusOver
   return value === "in_progress" || value === "paused" || value === "completed" || value === "abandoned";
 }
 
-function normalizeProjectStatus(projectStatus: unknown): PortfolioStatus {
+function normalizeProjectStatus(projectStatus: unknown, archivedAt: unknown): PortfolioStatus {
+  if (typeof archivedAt === "string" && archivedAt.length > 0) return "abandoned";
   if (projectStatus === "completed") return "completed";
   if (projectStatus === "paused") return "paused";
-  if (projectStatus === "archived") return "abandoned";
   return "in_progress";
 }
 
 function getEffectiveStatus(entry: PortfolioEntryRow, project: PortfolioProjectRow): PortfolioStatus {
   return isPortfolioStatusOverride(entry.status_override)
     ? entry.status_override
-    : normalizeProjectStatus(project.status);
+    : normalizeProjectStatus(project.status, project.archived_at);
 }
 
 export function getPortfolioStatusLabel(status: PortfolioStatus): string {

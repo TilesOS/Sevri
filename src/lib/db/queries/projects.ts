@@ -13,6 +13,7 @@ export async function getActiveProject(userId: string) {
     .select("*")
     .eq("user_id", userId)
     .in("status", ["active", "paused"])
+    .is("archived_at", null)
     .order("selected_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -35,7 +36,7 @@ export async function getArchivedProjectsForDashboard(userId: string) {
     .from("projects")
     .select("id, title, project_track, selected_at")
     .eq("user_id", userId)
-    .eq("status", "archived")
+    .not("archived_at", "is", null)
     .order("selected_at", { ascending: false });
 
   if (error) {
@@ -55,6 +56,7 @@ export async function getProjectsForDashboard(userId: string) {
     .select("id, title, status, project_track, selected_at")
     .eq("user_id", userId)
     .in("status", ["active", "paused", "completed"])
+    .is("archived_at", null)
     .order("selected_at", { ascending: false });
 
   if (projectError) {
@@ -66,6 +68,7 @@ export async function getProjectsForDashboard(userId: string) {
   let milestoneCountsByProjectId = new Map<string, { total: number; completed: number }>();
   let currentStepNumberByProjectId = new Map<string, number>();
   let outputMetricsByProjectId = new Map<string, ReturnType<typeof emptyProjectOutputMetrics>>();
+  const projectById = new Map((projects ?? []).map((project) => [project.id, project]));
 
   if (projectIds.length > 0) {
     const [
@@ -123,7 +126,7 @@ export async function getProjectsForDashboard(userId: string) {
     }, new Map<string, ReturnType<typeof emptyProjectOutputMetrics>>());
 
     for (const link of githubLinks ?? []) {
-      const project = (projects ?? []).find((candidate) => candidate.id === link.project_id);
+      const project = projectById.get(link.project_id);
       if (!project || project.project_track !== "software") continue;
 
       const current = outputMetricsByProjectId.get(project.id) ?? emptyProjectOutputMetrics();
@@ -133,7 +136,7 @@ export async function getProjectsForDashboard(userId: string) {
 
     const researchMilestoneIds = (milestones ?? [])
       .filter((milestone) => {
-        const project = (projects ?? []).find((candidate) => candidate.id === milestone.project_id);
+        const project = projectById.get(milestone.project_id);
         return project?.project_track === "research";
       })
       .map((milestone) => milestone.id);

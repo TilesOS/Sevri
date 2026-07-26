@@ -234,7 +234,7 @@ function PortfolioEmptyState({
     activeTab === "completed"
       ? "Completed projects will appear here once a project is marked complete. Use All to see work already in progress."
       : activeTab === "abandoned"
-        ? "Cut projects will appear here when archived projects are normalized into the Portfolio record."
+        ? "Archived projects appear here as Cut while their active, paused, or completed state stays preserved."
         : "No projects match this status yet. Use All to see the rest of your private Portfolio.";
 
   return (

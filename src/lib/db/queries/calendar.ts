@@ -205,6 +205,7 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
     .select("id, title, status, project_track, selected_at")
     .eq("user_id", userId)
     .in("status", ["active", "paused", "completed"])
+    .is("archived_at", null)
     .order("selected_at", { ascending: false });
 
   if (projectError) {
@@ -330,6 +331,7 @@ export async function getProjectScheduleGenerationContext(
     .select("id, title, status, project_track, recommendation_id")
     .eq("id", projectId)
     .eq("user_id", userId)
+    .is("archived_at", null)
     .single();
 
   if (projectError || !project) {

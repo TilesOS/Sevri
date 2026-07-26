@@ -166,6 +166,7 @@ export function RecommendationsClient({
   const [error, setError] = useState<string | null>(null);
   const [duplicatePrompt, setDuplicatePrompt] = useState<DuplicatePrompt | null>(null);
   const selectionInFlightRef = useRef(false);
+  const selectionOperationIdsRef = useRef(new Map<string, string>());
 
   // Adopt server data during render rather than in an effect, so a track switch
   // never commits a frame where the board and the header disagree. A locally
@@ -252,6 +253,9 @@ export function RecommendationsClient({
       setDuplicatePrompt(null);
     }
     setIsSelectingId(recommendationId);
+    const operationKey = `${recommendationId}:${allowDuplicate ? "confirmed-duplicate" : "default"}`;
+    const operationId = selectionOperationIdsRef.current.get(operationKey) ?? crypto.randomUUID();
+    selectionOperationIdsRef.current.set(operationKey, operationId);
 
     function release() {
       selectionInFlightRef.current = false;
@@ -266,6 +270,7 @@ export function RecommendationsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           recommendation_id: recommendationId,
+          operation_id: operationId,
           ...(allowDuplicate ? { allow_duplicate: true } : {}),
         }),
       });
@@ -281,6 +286,7 @@ export function RecommendationsClient({
     // This idea already has a project. Starting a second copy is a real choice,
     // so it is asked for explicitly rather than done silently.
     if (response.status === 409 && body?.code === "duplicate_project" && body.project_id) {
+      selectionOperationIdsRef.current.delete(operationKey);
       setDuplicatePrompt({
         recommendationId,
         projectId: body.project_id,
@@ -298,6 +304,7 @@ export function RecommendationsClient({
 
     // The guard is deliberately left engaged here: the buttons stay disabled
     // while the router navigates to the project that was just created.
+    selectionOperationIdsRef.current.delete(operationKey);
     router.push(`/project/${body.project_id}`);
     router.refresh();
   }

@@ -147,6 +147,8 @@ export interface Database {
           project_track: string;
           title: string;
           status: string;
+          archived_at: string | null;
+          selection_operation_id: string;
           selected_at: string;
           created_at: string;
           updated_at: string;
@@ -158,6 +160,8 @@ export interface Database {
           project_track?: string;
           title: string;
           status?: string;
+          archived_at?: string | null;
+          selection_operation_id?: string;
           selected_at?: string;
           created_at?: string;
           updated_at?: string;
@@ -687,6 +691,19 @@ export interface Database {
       };
     };
     Functions: {
+      select_project_from_recommendation: {
+        Args: {
+          p_recommendation_id: string;
+          p_operation_id: string;
+          p_allow_duplicate?: boolean;
+        };
+        Returns: {
+          project_id: string;
+          project_title: string;
+          project_track: string;
+          selection_outcome: "created" | "replayed" | "duplicate";
+        }[];
+      };
       create_milestone_submission_with_pending_evaluation: {
         Args: {
           p_milestone_id: string;

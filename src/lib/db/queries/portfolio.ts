@@ -26,7 +26,9 @@ export interface PortfolioProjectRow {
   user_id: string;
   recommendation_id: string;
   title: string;
-  status: "active" | "paused" | "completed" | "archived" | string;
+  status: "active" | "paused" | "completed" | string;
+  archived_at: string | null;
+  selection_operation_id: string;
   project_track: "software" | "research" | string;
   selected_at: string;
   created_at: string;

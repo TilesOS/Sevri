@@ -30,7 +30,14 @@ export async function PATCH(request: Request, context: { params: Promise<{ id: s
       project_id: id,
     }).catch(() => undefined);
 
-    return NextResponse.json({ project_id: project.id, status: project.status }, { status: 200 });
+    return NextResponse.json(
+      {
+        project_id: project.id,
+        status: project.status,
+        archived_at: project.archived_at,
+      },
+      { status: 200 },
+    );
   } catch (error) {
     captureServerError(error, { route: "projects/archive" });
     return NextResponse.json(

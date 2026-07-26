@@ -1,76 +1,48 @@
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
-/** Statuses that still count as "you already started this idea". */
-const LIVE_PROJECT_STATUSES = ["active", "paused", "completed"] as const;
-
-export interface ExistingProjectForRecommendation {
+export interface ProjectSelectionResult {
   id: string;
   title: string;
-  status: string;
   project_track: string;
+  outcome: "created" | "replayed" | "duplicate";
 }
 
 /**
- * The project a recommendation has already produced, if any. Archived copies do
- * not count — archiving is how a student says "hide this one", so re-selecting
- * afterwards should just work.
+ * Select a recommendation through the database transaction that owns the
+ * duplicate decision, idempotency lookup, ownership check, and insert.
  */
-export async function findProjectForRecommendation(
-  userId: string,
+export async function selectProjectFromRecommendation(
   recommendationId: string,
-): Promise<ExistingProjectForRecommendation | null> {
+  operationId: string,
+  allowDuplicate: boolean,
+): Promise<ProjectSelectionResult> {
   const supabase = await createServerSupabaseClient();
 
   const { data, error } = await supabase
-    .from("projects")
-    .select("id, title, status, project_track")
-    .eq("user_id", userId)
-    .eq("recommendation_id", recommendationId)
-    .in("status", LIVE_PROJECT_STATUSES)
-    .order("selected_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    throw new Error(`Failed to check for an existing project: ${error.message}`);
-  }
-
-  return data ?? null;
-}
-
-export async function createProjectFromRecommendation(userId: string, recommendationId: string) {
-  const supabase = await createServerSupabaseClient();
-
-  const { data: recommendation, error: recommendationError } = await supabase
-    .from("project_recommendations")
-    .select("id, title, project_track")
-    .eq("id", recommendationId)
-    .eq("user_id", userId)
-    .single();
-
-  if (recommendationError) {
-    throw new Error(`Failed to load recommendation: ${recommendationError.message}`);
-  }
-
-  const projectTrack = recommendation.project_track === "research" ? "research" : "software";
-
-  const { data: project, error: projectError } = await supabase
-    .from("projects")
-    .insert({
-      user_id: userId,
-      recommendation_id: recommendation.id,
-      project_track: projectTrack,
-      title: recommendation.title,
-      status: "active",
+    .rpc("select_project_from_recommendation", {
+      p_recommendation_id: recommendationId,
+      p_operation_id: operationId,
+      p_allow_duplicate: allowDuplicate,
     })
-    .select("id, project_track")
     .single();
 
-  if (projectError) {
-    throw new Error(`Failed to create project: ${projectError.message}`);
+  if (error || !data) {
+    throw new Error(`Failed to select recommendation: ${error?.message ?? "unknown error"}`);
   }
 
-  return project;
+  const row = data as {
+    project_id: string;
+    project_title: string;
+    project_track: string;
+    selection_outcome: ProjectSelectionResult["outcome"];
+  };
+
+  return {
+    id: row.project_id,
+    title: row.project_title,
+    project_track: row.project_track,
+    outcome: row.selection_outcome,
+  };
 }
 
 /**
@@ -84,7 +56,7 @@ export async function setProjectArchived(userId: string, projectId: string, arch
 
   const { data: project, error: readError } = await supabase
     .from("projects")
-    .select("id, status")
+    .select("id, status, archived_at")
     .eq("id", projectId)
     .eq("user_id", userId)
     .single();
@@ -93,20 +65,16 @@ export async function setProjectArchived(userId: string, projectId: string, arch
     throw new Error("Project not found");
   }
 
-  if (archived && project.status === "archived") {
-    return { id: project.id, status: project.status };
+  if (archived === Boolean(project.archived_at)) {
+    return project;
   }
-
-  // Restoring returns the project to active rather than guessing at the status
-  // it held before; completed projects keep their completed status.
-  const nextStatus = archived ? "archived" : project.status === "archived" ? "active" : project.status;
 
   const { data: updated, error: updateError } = await supabase
     .from("projects")
-    .update({ status: nextStatus })
+    .update({ archived_at: archived ? new Date().toISOString() : null })
     .eq("id", projectId)
     .eq("user_id", userId)
-    .select("id, status")
+    .select("id, status, archived_at")
     .single();
 
   if (updateError || !updated) {

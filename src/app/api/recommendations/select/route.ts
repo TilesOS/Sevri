@@ -1,15 +1,13 @@
 import { z } from "zod";
 import { NextResponse } from "next/server";
 import { requireApiUser } from "@/lib/auth/api";
-import {
-  createProjectFromRecommendation,
-  findProjectForRecommendation,
-} from "@/lib/db/mutations/projects";
+import { selectProjectFromRecommendation } from "@/lib/db/mutations/projects";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
 
 const bodySchema = z.object({
   recommendation_id: z.string().uuid(),
+  operation_id: z.string().uuid(),
   /**
    * Set only after the student confirms a second copy in the UI. Without it, a
    * repeat selection is answered with the project that already exists, so a
@@ -27,28 +25,33 @@ export async function POST(request: Request) {
   try {
     const body = bodySchema.parse(await request.json());
 
-    const existing = await findProjectForRecommendation(user.id, body.recommendation_id);
-    if (existing && !body.allow_duplicate) {
+    const project = await selectProjectFromRecommendation(
+      body.recommendation_id,
+      body.operation_id,
+      Boolean(body.allow_duplicate),
+    );
+
+    if (project.outcome === "duplicate") {
       return NextResponse.json(
         {
           code: "duplicate_project",
-          project_id: existing.id,
-          project_title: existing.title,
-          project_track: existing.project_track,
+          project_id: project.id,
+          project_title: project.title,
+          project_track: project.project_track,
           error: "You already started this idea.",
         },
         { status: 409 },
       );
     }
 
-    const project = await createProjectFromRecommendation(user.id, body.recommendation_id);
-
-    await trackEvent(user.id, "recommendation_selected", {
-      recommendation_id: body.recommendation_id,
-      project_id: project.id,
-      project_track: project.project_track,
-      duplicate_confirmed: Boolean(existing && body.allow_duplicate),
-    });
+    if (project.outcome === "created") {
+      await trackEvent(user.id, "recommendation_selected", {
+        recommendation_id: body.recommendation_id,
+        project_id: project.id,
+        project_track: project.project_track,
+        duplicate_confirmed: Boolean(body.allow_duplicate),
+      });
+    }
 
     return NextResponse.json({ project_id: project.id, project_track: project.project_track }, { status: 200 });
   } catch (error) {

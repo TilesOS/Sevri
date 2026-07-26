@@ -29,6 +29,8 @@ function makeProject(overrides: Partial<PortfolioProjectRow> = {}): PortfolioPro
     recommendation_id: RECOMMENDATION_ID,
     title: "Interactive Portfolio Demo",
     status: "active",
+    archived_at: null,
+    selection_operation_id: "55555555-5555-4555-8555-555555555555",
     project_track: "software",
     selected_at: "2026-04-23T18:12:00.000Z",
     created_at: "2026-04-23T18:12:00.000Z",
@@ -36,6 +38,29 @@ function makeProject(overrides: Partial<PortfolioProjectRow> = {}): PortfolioPro
     ...overrides,
   };
 }
+
+test("Portfolio keeps archived projects visible as cut without losing lifecycle status", () => {
+  const archivedAt = "2026-05-05T12:00:00.000Z";
+
+  for (const status of ["active", "paused", "completed"] as const) {
+    const archived = buildPortfolioEntryDetailViewFromData(
+      makeDetailData({
+        project: makeProject({ status, archived_at: archivedAt }),
+      }),
+    );
+    assert.equal(archived.effectiveStatus, "abandoned");
+
+    const restored = buildPortfolioEntryDetailViewFromData(
+      makeDetailData({
+        project: makeProject({ status, archived_at: null }),
+      }),
+    );
+    assert.equal(
+      restored.effectiveStatus,
+      status === "active" ? "in_progress" : status,
+    );
+  }
+});
 
 function makeEntry(overrides: Partial<PortfolioEntryRow> = {}): PortfolioEntryRow {
   return {
