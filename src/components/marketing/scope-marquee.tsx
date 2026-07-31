@@ -37,7 +37,7 @@ export function ScopeMarquee({ items }: { items: ScopeCard[] }) {
     <div className="relative overflow-hidden">
       <motion.div
         className="flex w-max"
-        animate={reduce ? undefined : { x: ["-50%", "0%"] }}
+        animate={reduce ? undefined : { x: ["0%", "-50%"] }}
         transition={{ duration: 34, ease: "linear", repeat: Infinity }}
       >
         {passes.map((pass) => (
