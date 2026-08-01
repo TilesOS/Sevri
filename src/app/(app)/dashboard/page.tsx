@@ -8,6 +8,7 @@ import { getArchivedProjectsForDashboard, getProjectsForDashboard } from "@/lib/
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getRecommendationGenerationCount, getTrackAvailability } from "@/lib/db/queries/recommendations";
 import { PLAN_LIMITS } from "@/lib/usage/limits";
+import { projectPath } from "@/lib/copy/glossary";
 import { getPlanLabel, getTrackLabel, trackThemes } from "@/components/theme/theme-utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ export default async function DashboardPage() {
     { softwareCommits: 0, researchWords: 0 },
   );
   const activeProject = projects.find((project) => project.status === "active" || project.status === "paused") ?? projects[0] ?? null;
+  const activeProjectOverviewHref = activeProject ? projectPath(activeProject.id) : null;
   const displayName = resolveDisplayName({
     profileFullName: profile?.full_name,
     userMetadata: user.user_metadata,
@@ -55,8 +57,8 @@ export default async function DashboardPage() {
   const nextAction = activeProject
     ? {
         href: activeProject.hasRoadmap && activeProject.currentStepNumber
-          ? `/project/${activeProject.id}/steps/${activeProject.currentStepNumber}`
-          : `/project/${activeProject.id}`,
+          ? projectPath(activeProject.id, `steps/${activeProject.currentStepNumber}`)
+          : projectPath(activeProject.id),
         label: activeProject.hasRoadmap ? "Continue project" : "Generate roadmap",
       }
     : trackAvailability.software.hasIntake || trackAvailability.research.hasIntake
@@ -117,7 +119,7 @@ export default async function DashboardPage() {
           ) : null}
 
           <div className="mt-7 flex flex-wrap gap-2.5">
-            <Button href={nextAction.href} variant="contrast" trailingIcon={<ArrowRight className="h-4 w-4" />}>{nextAction.label}</Button>
+            <Button href={activeProjectOverviewHref ?? nextAction.href} variant="contrast" trailingIcon={<ArrowRight className="h-4 w-4" />}>{nextAction.label}</Button>
             <Button
               href="/recommendations"
               variant="outline"

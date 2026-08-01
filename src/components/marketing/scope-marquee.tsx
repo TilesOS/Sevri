@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { useEffect, useRef } from "react";
+import { motion, useAnimationFrame, useMotionValue, useReducedMotion } from "motion/react";
 
 interface ScopeCard {
   k: string;
@@ -19,8 +20,47 @@ const GRADIENTS = [
   `radial-gradient(130% 120% at 85% 55%, rgba(70,211,192,0.9), transparent 55%), radial-gradient(120% 120% at 12% 30%, rgba(255,107,76,0.6), transparent 60%), ${BASE}`,
 ];
 
+const LOOP_DURATION_MS = 34_000;
+
 export function ScopeMarquee({ items }: { items: ScopeCard[] }) {
   const reduce = useReducedMotion();
+  const firstPassRef = useRef<HTMLDivElement>(null);
+  const loopWidthRef = useRef(0);
+  const x = useMotionValue(0);
+
+  useEffect(() => {
+    const firstPass = firstPassRef.current;
+    if (!firstPass) return;
+
+    const measure = () => {
+      loopWidthRef.current = firstPass.getBoundingClientRect().width;
+    };
+
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(firstPass);
+
+    return () => observer.disconnect();
+  }, []);
+
+  useAnimationFrame((time) => {
+    const loopWidth = loopWidthRef.current;
+
+    if (reduce || loopWidth === 0) {
+      if (x.get() !== 0) x.set(0);
+      return;
+    }
+
+    const rawX = -((time % LOOP_DURATION_MS) / LOOP_DURATION_MS) * loopWidth;
+    const devicePixelRatio = window.devicePixelRatio || 1;
+
+    // Percentage transforms land the whole strip at a different fractional
+    // pixel on nearly every frame. macOS then re-rasterizes the light text at
+    // each subpixel phase, which reads as a faint shimmer. Keep the same
+    // continuous loop, but composite it only on physical-pixel boundaries.
+    x.set(Math.round(rawX * devicePixelRatio) / devicePixelRatio);
+  });
+
   // Cards are numbered by their position in the strip, which is also their
   // reading order. The previous version numbered them before reversing, so the
   // row read 05 → 01 from left to right.
@@ -37,11 +77,16 @@ export function ScopeMarquee({ items }: { items: ScopeCard[] }) {
     <div className="relative overflow-hidden">
       <motion.div
         className="flex w-max"
-        animate={reduce ? undefined : { x: ["0%", "-50%"] }}
-        transition={{ duration: 34, ease: "linear", repeat: Infinity }}
+        data-marquee-track
+        style={{ x }}
       >
         {passes.map((pass) => (
-          <div key={pass.key} className="flex" aria-hidden={pass.hidden || undefined}>
+          <div
+            key={pass.key}
+            ref={pass.hidden ? undefined : firstPassRef}
+            className="flex"
+            aria-hidden={pass.hidden || undefined}
+          >
             {ordered.map((item, index) => (
               <article
                 key={`${pass.key}-${item.k}`}
