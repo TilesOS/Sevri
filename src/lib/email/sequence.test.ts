@@ -5,6 +5,7 @@ import { activationStage, activityCycleKey, elapsedDays, inactivityStage } from 
 test("activation sends day 3 then day 7 once", () => {
   assert.equal(activationStage(2, new Set()), null);
   assert.equal(activationStage(3, new Set()), 3);
+  assert.equal(activationStage(7, new Set()), 3);
   assert.equal(activationStage(7, new Set([3])), 7);
   assert.equal(activationStage(14, new Set([3, 7])), null);
 });

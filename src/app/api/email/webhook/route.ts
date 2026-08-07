@@ -22,6 +22,15 @@ const STATUS_BY_EVENT: Record<string, string> = {
   "email.suppressed": "suppressed",
 };
 
+async function markProcessed(eventId: string) {
+  const supabase = createAdminSupabaseClient();
+  const { error } = await supabase
+    .from("email_webhook_events")
+    .update({ processed_at: new Date().toISOString() })
+    .eq("provider_event_id", eventId);
+  if (error) throw new Error(`Failed to mark webhook processed: ${error.message}`);
+}
+
 export async function POST(request: Request) {
   const rawBody = await request.text();
   let event: ResendWebhookEvent;
@@ -48,14 +57,35 @@ export async function POST(request: Request) {
     event_type: event.type,
     occurred_at: event.created_at,
   });
-  if (insertError?.code === "23505") return NextResponse.json({ ok: true, duplicate: true });
+  if (insertError?.code === "23505") {
+    const { data: existing, error: existingError } = await supabase
+      .from("email_webhook_events")
+      .select("processed_at")
+      .eq("provider_event_id", eventId)
+      .single();
+    if (existingError) {
+      captureServerError(existingError, { route: "email/webhook", stage: "dedupe_lookup" });
+      return NextResponse.json({ error: "Webhook persistence failed" }, { status: 500 });
+    }
+    if (existing.processed_at) return NextResponse.json({ ok: true, duplicate: true });
+  }
   if (insertError) {
-    captureServerError(insertError, { route: "email/webhook", stage: "dedupe" });
-    return NextResponse.json({ error: "Webhook persistence failed" }, { status: 500 });
+    if (insertError.code !== "23505") {
+      captureServerError(insertError, { route: "email/webhook", stage: "dedupe" });
+      return NextResponse.json({ error: "Webhook persistence failed" }, { status: 500 });
+    }
   }
 
   const status = STATUS_BY_EVENT[event.type];
-  if (!status || !providerEmailId) return NextResponse.json({ ok: true });
+  if (!status || !providerEmailId) {
+    try {
+      await markProcessed(eventId);
+      return NextResponse.json({ ok: true });
+    } catch (error) {
+      captureServerError(error, { route: "email/webhook", stage: "mark_processed" });
+      return NextResponse.json({ error: "Webhook persistence failed" }, { status: 500 });
+    }
+  }
   const { data: message, error: messageError } = await supabase
     .from("email_messages")
     .select("id, user_id, last_event_at")
@@ -65,9 +95,17 @@ export async function POST(request: Request) {
     captureServerError(messageError, { route: "email/webhook", stage: "message_lookup" });
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
-  if (!message) return NextResponse.json({ ok: true, unmatched: true });
+  if (!message) {
+    return NextResponse.json({ error: "Email message not ready", unmatched: true }, { status: 503 });
+  }
   if (message.last_event_at && new Date(message.last_event_at) > new Date(event.created_at)) {
-    return NextResponse.json({ ok: true, stale: true });
+    try {
+      await markProcessed(eventId);
+      return NextResponse.json({ ok: true, stale: true });
+    } catch (error) {
+      captureServerError(error, { route: "email/webhook", stage: "mark_processed" });
+      return NextResponse.json({ error: "Webhook persistence failed" }, { status: 500 });
+    }
   }
 
   const { error: updateError } = await supabase
@@ -79,9 +117,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
   }
   if (["bounced", "complained", "suppressed"].includes(status)) {
-    await suppressLifecycleEmail(message.user_id, status).catch((error) => {
+    try {
+      await suppressLifecycleEmail(message.user_id, status);
+    } catch (error) {
       captureServerError(error, { route: "email/webhook", stage: "recipient_suppression" });
-    });
+      return NextResponse.json({ error: "Webhook processing failed" }, { status: 500 });
+    }
+  }
+  try {
+    await markProcessed(eventId);
+  } catch (error) {
+    captureServerError(error, { route: "email/webhook", stage: "mark_processed" });
+    return NextResponse.json({ error: "Webhook persistence failed" }, { status: 500 });
   }
   return NextResponse.json({ ok: true });
 }

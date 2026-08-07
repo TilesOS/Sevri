@@ -9,6 +9,49 @@ interface EnabledPreference {
   enrolled_at: string;
 }
 
+const LIFECYCLE_PLANNER_KEY = "lifecycle";
+const LIFECYCLE_RECIPIENT_BATCH_SIZE = 50;
+const LIFECYCLE_PLANNING_BUDGET_MS = 40_000;
+
+async function loadPlannerCursor() {
+  const supabase = createAdminSupabaseClient();
+  const { data, error } = await supabase
+    .from("email_planner_state")
+    .select("cursor_user_id")
+    .eq("planner_key", LIFECYCLE_PLANNER_KEY)
+    .maybeSingle();
+  if (error) throw new Error(`Failed to load lifecycle planner cursor: ${error.message}`);
+  return data?.cursor_user_id ?? null;
+}
+
+async function savePlannerCursor(cursorUserId: string | null) {
+  const supabase = createAdminSupabaseClient();
+  const { error } = await supabase.from("email_planner_state").upsert(
+    {
+      planner_key: LIFECYCLE_PLANNER_KEY,
+      cursor_user_id: cursorUserId,
+    },
+    { onConflict: "planner_key" },
+  );
+  if (error) throw new Error(`Failed to save lifecycle planner cursor: ${error.message}`);
+}
+
+async function loadEnabledPreferences(afterUserId: string | null) {
+  const supabase = createAdminSupabaseClient();
+  let query = supabase
+    .from("email_preferences")
+    .select("user_id, enrolled_at")
+    .eq("lifecycle_enabled", true)
+    .is("delivery_suppressed_at", null)
+    .not("enrolled_at", "is", null)
+    .order("user_id", { ascending: true })
+    .limit(LIFECYCLE_RECIPIENT_BATCH_SIZE);
+  if (afterUserId) query = query.gt("user_id", afterUserId);
+  const { data, error } = await query;
+  if (error) throw new Error(`Failed to load lifecycle enrollment: ${error.message}`);
+  return (data ?? []) as EnabledPreference[];
+}
+
 async function userEmail(userId: string) {
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase.auth.admin.getUserById(userId);
@@ -206,27 +249,37 @@ async function planCoach(preference: EnabledPreference, now: Date) {
 }
 
 export async function planLifecycleEmails(now = new Date()) {
-  const supabase = createAdminSupabaseClient();
-  const { data, error } = await supabase
-    .from("email_preferences")
-    .select("user_id, enrolled_at")
-    .eq("lifecycle_enabled", true)
-    .is("delivery_suppressed_at", null)
-    .not("enrolled_at", "is", null)
-    .limit(500);
-  if (error) throw new Error(`Failed to load lifecycle enrollment: ${error.message}`);
+  const startedAt = Date.now();
+  let cursor = await loadPlannerCursor();
+  let preferences = await loadEnabledPreferences(cursor);
+  if (preferences.length === 0 && cursor) {
+    cursor = null;
+    await savePlannerCursor(null);
+    preferences = await loadEnabledPreferences(null);
+  }
 
   let activation = 0;
   let coach = 0;
   let errors = 0;
-  for (const preference of (data ?? []) as EnabledPreference[]) {
+  let recipients = 0;
+  for (const preference of preferences) {
+    if (recipients > 0 && Date.now() - startedAt >= LIFECYCLE_PLANNING_BUDGET_MS) break;
     try {
       if (await planActivation(preference, now)) activation += 1;
       if (await planCoach(preference, now)) coach += 1;
     } catch (error) {
       errors += 1;
       captureServerError(error, { stage: "lifecycle_planning", user_id: preference.user_id });
+    } finally {
+      recipients += 1;
+      cursor = preference.user_id;
+      await savePlannerCursor(cursor);
     }
   }
-  return { activation, coach, errors };
+
+  if (recipients === preferences.length && preferences.length < LIFECYCLE_RECIPIENT_BATCH_SIZE) {
+    cursor = null;
+    await savePlannerCursor(null);
+  }
+  return { activation, coach, errors, recipients };
 }

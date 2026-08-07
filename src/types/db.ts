@@ -260,6 +260,7 @@ export interface Database {
           event_type: string;
           occurred_at: string;
           received_at: string;
+          processed_at: string | null;
         };
         Insert: {
           provider_event_id: string;
@@ -267,7 +268,22 @@ export interface Database {
           event_type: string;
           occurred_at: string;
           received_at?: string;
+          processed_at?: string | null;
         };
+        Update: Partial<Database["public"]["Tables"]["email_webhook_events"]["Insert"]>;
+      };
+      email_planner_state: {
+        Row: {
+          planner_key: string;
+          cursor_user_id: string | null;
+          updated_at: string;
+        };
+        Insert: {
+          planner_key: string;
+          cursor_user_id?: string | null;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["email_planner_state"]["Insert"]>;
       };
       project_roadmaps: {
         Row: {

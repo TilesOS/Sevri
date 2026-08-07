@@ -6,8 +6,8 @@ export function elapsedDays(from: string | Date, now: Date = new Date()) {
 }
 
 export function activationStage(days: number, sent: Set<3 | 7>): 3 | 7 | null {
-  if (days >= 7 && !sent.has(7)) return 7;
   if (days >= 3 && !sent.has(3)) return 3;
+  if (days >= 7 && sent.has(3) && !sent.has(7)) return 7;
   return null;
 }
 

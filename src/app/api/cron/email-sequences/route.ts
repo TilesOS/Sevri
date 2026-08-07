@@ -22,8 +22,10 @@ export async function GET(request: Request) {
   }
 
   try {
-    const planned = readiness.ready ? await planLifecycleEmails() : { activation: 0, coach: 0, errors: 0 };
     const delivered = await dispatchDueEmailMessages(50);
+    const planned = readiness.ready
+      ? await planLifecycleEmails()
+      : { activation: 0, coach: 0, errors: 0, recipients: 0 };
     return NextResponse.json({
       ok: true,
       lifecycle_ready: readiness.ready,
