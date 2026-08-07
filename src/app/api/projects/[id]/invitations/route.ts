@@ -205,7 +205,14 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     });
 
     try {
-      await sendEmail(payload.reviewer_email.trim(), template.subject, template.html);
+      await sendEmail({
+        to: payload.reviewer_email.trim(),
+        sender: "hello",
+        template,
+        replyTo: user.email ?? "support@sevri.co",
+        idempotencyKey: `reviewer-invitation/${invitation.id}`,
+        tags: [{ name: "message_type", value: "reviewer_invitation" }],
+      });
     } catch (error) {
       captureServerError(error, {
         route: "invitations/create",

@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "test:email": "node --experimental-strip-types --test src/lib/email/sequence.test.ts src/lib/email/templates.test.ts",
     "build": "next build",
     "build:report": "node --experimental-strip-types scripts/report-build-metrics.ts",
     "start": "next start",
@@ -33,6 +34,7 @@
     "react-hook-form": "^7.55.0",
     "resend": "^4.1.2",
     "stripe": "^17.7.0",
+    "svix": "1.99.1",
     "tailwind-merge": "^2.6.0",
     "zod": "^3.24.2"
   },

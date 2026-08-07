@@ -31,6 +31,18 @@ const emailEnvSchema = z.object({
   RESEND_API_KEY: z.string().min(1),
 });
 
+const emailWebhookEnvSchema = z.object({
+  RESEND_WEBHOOK_SECRET: z.string().min(1),
+});
+
+const lifecycleEmailEnvSchema = z.object({
+  CRON_SECRET: z.string().min(16),
+  EMAIL_UNSUBSCRIBE_SECRET: z.string().min(32),
+  EMAIL_POSTAL_ADDRESS: z.string().trim().min(1),
+});
+
+const lifecycleEmailLaunchEnvSchema = lifecycleEmailEnvSchema.merge(emailWebhookEnvSchema);
+
 const sentryEnvSchema = z.object({
   SENTRY_DSN: z.string().optional(),
 });
@@ -73,6 +85,8 @@ let cachedAIEnv: z.infer<typeof aiEnvSchema> | null = null;
 let cachedSupabaseAdminEnv: z.infer<typeof supabaseAdminEnvSchema> | null = null;
 let cachedStripeEnv: z.infer<typeof stripeEnvSchema> | null = null;
 let cachedEmailEnv: z.infer<typeof emailEnvSchema> | null = null;
+let cachedEmailWebhookEnv: z.infer<typeof emailWebhookEnvSchema> | null = null;
+let cachedLifecycleEmailEnv: z.infer<typeof lifecycleEmailEnvSchema> | null = null;
 let cachedSentryEnv: z.infer<typeof sentryEnvSchema> | null = null;
 let cachedGithubEnv: z.infer<typeof githubEnvSchema> | null = null;
 let cachedGoogleCalendarEnv: z.infer<typeof googleCalendarEnvSchema> | null = null;
@@ -124,6 +138,32 @@ export function getGithubEnv() {
   }
 
   return cachedGithubEnv;
+}
+
+export function getEmailWebhookEnv() {
+  if (!cachedEmailWebhookEnv) {
+    cachedEmailWebhookEnv = emailWebhookEnvSchema.parse(process.env);
+  }
+
+  return cachedEmailWebhookEnv;
+}
+
+export function getLifecycleEmailEnv() {
+  if (!cachedLifecycleEmailEnv) {
+    cachedLifecycleEmailEnv = lifecycleEmailEnvSchema.parse(process.env);
+  }
+
+  return cachedLifecycleEmailEnv;
+}
+
+export function getLifecycleEmailReadiness() {
+  const parsed = lifecycleEmailLaunchEnvSchema.safeParse(process.env);
+  return parsed.success
+    ? { ready: true as const, env: parsed.data }
+    : {
+        ready: false as const,
+        missing: parsed.error.issues.map((issue) => String(issue.path[0] ?? "unknown")),
+      };
 }
 
 export function getGoogleCalendarEnv() {

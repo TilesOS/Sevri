@@ -21,8 +21,7 @@ import { getRoadmapFeedback } from "@/lib/db/queries/generation-feedback";
 import { syncProjectToGoogleCalendar } from "@/lib/integrations/google-calendar/sync";
 import { trackEvent } from "@/lib/analytics/track";
 import { captureServerError } from "@/lib/sentry/server";
-import { sendEmail } from "@/lib/email/resend";
-import { roadmapReadyTemplate } from "@/lib/email/templates";
+import { enqueueAndDispatchEmail } from "@/lib/email/outbox";
 
 export const runtime = "nodejs";
 
@@ -309,8 +308,15 @@ export async function POST(request: Request) {
     });
 
     if (user.email) {
-      const template = roadmapReadyTemplate(project.title);
-      void sendEmail(user.email, template.subject, template.html).catch((emailError) => {
+      void enqueueAndDispatchEmail({
+        userId: user.id,
+        projectId: project.id,
+        messageType: "roadmap_ready",
+        dedupeKey: `roadmap-ready:${project.id}`,
+        toEmail: user.email,
+        sender: "coach",
+        payload: { projectTitle: project.title },
+      }).catch((emailError) => {
         console.error("roadmap email failed", { stage, error: emailError });
         captureServerError(emailError, {
           route: "ai/roadmap",
