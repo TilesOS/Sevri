@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
+import { z, ZodError } from "zod";
 import { requireApiUser } from "@/lib/auth/api";
 import { onboardingInputSchema, upsertOnboardingData } from "@/lib/db/mutations/onboarding";
 import { trackEvent } from "@/lib/analytics/track";
-import { sendEmail } from "@/lib/email/resend";
-import { welcomeEmailTemplate } from "@/lib/email/templates";
+import { enqueueAndDispatchEmail } from "@/lib/email/outbox";
+import { setLifecycleEmailPreference } from "@/lib/email/preferences";
 import { captureServerError } from "@/lib/sentry/server";
 import { resolveDisplayName } from "@/lib/auth/names";
 
@@ -32,21 +32,30 @@ export async function POST(request: Request) {
   try {
     const json = await request.json();
     const payload = onboardingInputSchema.parse(json);
+    const { lifecycle_emails_enabled: lifecycleEmailsEnabled } = z
+      .object({ lifecycle_emails_enabled: z.boolean().default(true) })
+      .parse(json);
 
     const intake = await upsertOnboardingData(user, payload);
 
     const postSaveTasks: Promise<unknown>[] = [
       trackEvent(user.id, "onboarding_completed", { intake_id: intake.id, project_track: payload.project_track }),
+      setLifecycleEmailPreference(user.id, lifecycleEmailsEnabled),
     ];
 
     if (user.email) {
-      const template = welcomeEmailTemplate(
-        resolveDisplayName({
+      postSaveTasks.push(enqueueAndDispatchEmail({
+        userId: user.id,
+        intakeId: intake.id,
+        messageType: "welcome",
+        dedupeKey: `welcome:${user.id}`,
+        toEmail: user.email,
+        sender: "hello",
+        payload: { fullName: resolveDisplayName({
           userMetadata: user.user_metadata,
           email: user.email,
-        }),
-      );
-      postSaveTasks.push(sendEmail(user.email, template.subject, template.html));
+        }) },
+      }));
     }
 
     const taskResults = await Promise.allSettled(postSaveTasks);

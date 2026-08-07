@@ -23,7 +23,7 @@ export default function PrivacyPage() {
       />
       <Card className="max-w-4xl">
         <div className="space-y-8 text-sm leading-7 text-ink-soft">
-          <p className="text-xs uppercase tracking-wide text-ink-soft/70">Last updated: June 2, 2026</p>
+          <p className="text-xs uppercase tracking-wide text-ink-soft/70">Last updated: August 7, 2026</p>
 
           <p>
             Sevri (&ldquo;we&rdquo;, &ldquo;us&rdquo;) helps students choose, scope, and finish meaningful
@@ -78,8 +78,9 @@ export default function PrivacyPage() {
               We use your information to create and secure accounts, generate recommendations and project
               guidance, keep your workspace coherent, evaluate submitted work, package portfolio materials,
               publish portfolio pages when you ask us to, enforce plan limits and fair-use controls, process
-              payments, send service emails, debug the service, prevent abuse, comply with law, and respond to
-              support requests. We do not use your private workspace content to train public models.
+              payments, send service emails, and—when you choose them—send activation and project-coaching
+              reminders, debug the service, prevent abuse, comply with law, and respond to support requests. We
+              do not use your private workspace content to train public models.
             </p>
             <p>
               AI features process your profile, onboarding answers, project context, submissions, and portfolio
@@ -94,7 +95,7 @@ export default function PrivacyPage() {
               We share information with service providers only as needed to operate Sevri. Current provider
               categories include Supabase for hosting, database, storage, authentication, and row-level access
               controls; OpenAI for AI generation and evaluation; Stripe for checkout, subscriptions, and payment
-              processing; Resend for transactional email; GitHub when you connect a repository or sign in with
+              processing; Resend for transactional and optional coaching email; GitHub when you connect a repository or sign in with
               GitHub; and Sentry for error monitoring. We may also disclose information if required by law, to
               protect rights and safety, or in connection with a business transfer.
             </p>
@@ -183,6 +184,12 @@ export default function PrivacyPage() {
               You can access and update profile data in settings, disconnect GitHub or other third-party sign-in
               providers, unpublish portfolio pages, and request access, correction, deletion, or a copy of your
               data by contacting us.
+            </p>
+            <p>
+              Activation and project-coaching emails are optional. You can turn them off in Settings or use the
+              unsubscribe link in any such email. Essential account, security, invitation, billing, and requested
+              project-service messages may still be sent. Coaching reminders use recorded workspace progress and,
+              when you connect a repository, recent GitHub commit activity to decide whether a project appears idle.
             </p>
           </div>
 

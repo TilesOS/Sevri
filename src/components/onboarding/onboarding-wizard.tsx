@@ -70,6 +70,7 @@ const wizardSchema = z.object({
 
   constraints: z.string().optional(),
   additional_context: z.string().optional(),
+  lifecycle_emails_enabled: z.boolean(),
 }).superRefine((values, context) => {
   // Track-specific fields are only required for the track actually chosen, so
   // they are validated here rather than on the field itself.
@@ -108,6 +109,7 @@ const sharedDefaults: WizardValues = {
   data_or_resource_access: "",
   constraints: "",
   additional_context: "",
+  lifecycle_emails_enabled: true,
 };
 
 const experienceOptions = [
@@ -238,7 +240,7 @@ const stepConfig = {
       key: "constraints",
       title: "Constraints",
       description: "Name the tradeoffs, limits, and critical extra context that will keep your plan honest.",
-      fields: ["constraints", "additional_context"] as WizardField[],
+      fields: ["constraints", "additional_context", "lifecycle_emails_enabled"] as WizardField[],
     },
   ],
   research: [
@@ -270,17 +272,26 @@ const stepConfig = {
       key: "constraints",
       title: "Constraints",
       description: "Name the tradeoffs, limits, and critical extra context that will keep your plan honest.",
-      fields: ["constraints", "additional_context"] as WizardField[],
+      fields: ["constraints", "additional_context", "lifecycle_emails_enabled"] as WizardField[],
     },
   ],
 } as const;
 
-export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { initialAnswers?: LatestOnboardingAnswers }) {
+export function OnboardingWizard({
+  initialAnswers = emptyInitialAnswers,
+  initialLifecycleEmailEnabled = true,
+}: {
+  initialAnswers?: LatestOnboardingAnswers;
+  initialLifecycleEmailEnabled?: boolean;
+}) {
   const router = useRouter();
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const initialDefaultValues = useMemo(() => getInitialWizardValues(initialAnswers), [initialAnswers]);
+  const initialDefaultValues = useMemo(
+    () => ({ ...getInitialWizardValues(initialAnswers), lifecycle_emails_enabled: initialLifecycleEmailEnabled }),
+    [initialAnswers, initialLifecycleEmailEnabled],
+  );
   const savedAnswerValues = useMemo(
     () => ({
       software: initialAnswers.answersByTrack.software
@@ -345,6 +356,7 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
       // them. Carrying it across keeps the answer on screen consistent with the
       // profile that both tracks read from.
       student_stage: currentValues.student_stage,
+      lifecycle_emails_enabled: currentValues.lifecycle_emails_enabled,
     });
     setError(null);
     setStep(0);
@@ -388,7 +400,7 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
       const response = await fetch("/api/onboarding/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, lifecycle_emails_enabled: values.lifecycle_emails_enabled }),
       });
 
       if (!response.ok) {
@@ -719,6 +731,18 @@ export function OnboardingWizard({ initialAnswers = emptyInitialAnswers }: { ini
                       placeholder="I want something that feels polished and tangible enough for college applications, but I need it to fit around a summer job."
                     />
                   </FormField>
+
+                  <label className="flex items-start gap-3 rounded-xl border border-line bg-surface/50 p-4 text-sm leading-6 text-ink-soft">
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-line-strong accent-primary"
+                      {...form.register("lifecycle_emails_enabled")}
+                    />
+                    <span>
+                      <strong className="block text-ink">Send me useful project reminders</strong>
+                      Get a couple of onboarding nudges and, after you start a project, a coach email if no progress is recorded for 7–14 days. You can turn these off anytime.
+                    </span>
+                  </label>
                 </>
               ) : null}
 

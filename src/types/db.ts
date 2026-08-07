@@ -149,6 +149,7 @@ export interface Database {
           status: string;
           archived_at: string | null;
           selection_operation_id: string;
+          last_meaningful_activity_at: string;
           selected_at: string;
           created_at: string;
           updated_at: string;
@@ -162,9 +163,110 @@ export interface Database {
           status?: string;
           archived_at?: string | null;
           selection_operation_id?: string;
+          last_meaningful_activity_at?: string;
           selected_at?: string;
           created_at?: string;
           updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          recommendation_id?: string;
+          project_track?: string;
+          title?: string;
+          status?: string;
+          archived_at?: string | null;
+          selection_operation_id?: string;
+          last_meaningful_activity_at?: string;
+          selected_at?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      email_preferences: {
+        Row: {
+          user_id: string;
+          lifecycle_enabled: boolean;
+          onboarding_default_enabled: boolean;
+          enrolled_at: string | null;
+          unsubscribed_at: string | null;
+          delivery_suppressed_at: string | null;
+          delivery_suppression_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          user_id: string;
+          lifecycle_enabled?: boolean;
+          onboarding_default_enabled?: boolean;
+          enrolled_at?: string | null;
+          unsubscribed_at?: string | null;
+          delivery_suppressed_at?: string | null;
+          delivery_suppression_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["email_preferences"]["Insert"]>;
+      };
+      email_messages: {
+        Row: {
+          id: string;
+          user_id: string;
+          project_id: string | null;
+          intake_id: string | null;
+          message_type: string;
+          dedupe_key: string;
+          to_email: string;
+          from_alias: "hello" | "coach";
+          payload_json: Json;
+          status: string;
+          scheduled_for: string;
+          next_attempt_at: string;
+          attempt_count: number;
+          provider_email_id: string | null;
+          last_error: string | null;
+          last_event_at: string | null;
+          sent_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          project_id?: string | null;
+          intake_id?: string | null;
+          message_type: string;
+          dedupe_key: string;
+          to_email: string;
+          from_alias: "hello" | "coach";
+          payload_json?: Json;
+          status?: string;
+          scheduled_for?: string;
+          next_attempt_at?: string;
+          attempt_count?: number;
+          provider_email_id?: string | null;
+          last_error?: string | null;
+          last_event_at?: string | null;
+          sent_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["email_messages"]["Insert"]>;
+      };
+      email_webhook_events: {
+        Row: {
+          provider_event_id: string;
+          provider_email_id: string | null;
+          event_type: string;
+          occurred_at: string;
+          received_at: string;
+        };
+        Insert: {
+          provider_event_id: string;
+          provider_email_id?: string | null;
+          event_type: string;
+          occurred_at: string;
+          received_at?: string;
         };
       };
       project_roadmaps: {
@@ -691,6 +793,10 @@ export interface Database {
       };
     };
     Functions: {
+      claim_email_messages: {
+        Args: { p_limit?: number; p_now?: string };
+        Returns: Database["public"]["Tables"]["email_messages"]["Row"][];
+      };
       select_project_from_recommendation: {
         Args: {
           p_recommendation_id: string;

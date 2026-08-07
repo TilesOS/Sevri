@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { SettingsForm } from "@/components/settings/settings-form";
+import { EmailPreferencesCard } from "@/components/settings/email-preferences-card";
 import { SettingsNav } from "@/components/settings/settings-nav";
 import { Card } from "@/components/ui/card";
 import { PageHeader } from "@/components/ui/page-header";
@@ -8,6 +9,7 @@ import { getRequiredUser } from "@/lib/auth/guard";
 import { resolveStoredFullName } from "@/lib/auth/names";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { settingsProfileSchema, type SettingsProfileInput } from "@/lib/validators/settings";
+import { getEmailPreference } from "@/lib/email/preferences";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -17,11 +19,14 @@ export default async function SettingsPage() {
   const user = await getRequiredUser();
   const supabase = await createServerSupabaseClient();
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("full_name, student_stage, target_outcome, project_track")
-    .eq("user_id", user.id)
-    .maybeSingle();
+  const [{ data: profile }, emailPreference] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("full_name, student_stage, target_outcome, project_track")
+      .eq("user_id", user.id)
+      .maybeSingle(),
+    getEmailPreference(user.id),
+  ]);
 
   const initialSettings = settingsProfileSchema.safeParse({
     full_name: resolveStoredFullName({
@@ -64,6 +69,11 @@ export default async function SettingsPage() {
           </ul>
         </Card>
       </div>
+
+      <EmailPreferencesCard
+        initialEnabled={emailPreference.lifecycleEnabled}
+        suppressed={Boolean(emailPreference.suppressedAt)}
+      />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="space-y-3" tone="blush" elevation="soft">
