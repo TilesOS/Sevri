@@ -321,7 +321,7 @@ function buildRepairPrompt(feedback: string, escalate = false) {
   const lines = ["The previous attempt failed validation.", feedback];
   if (escalate) {
     lines.push(
-      "IMPORTANT: Previous attempts produced truncated or contaminated content. Every field MUST be a complete sentence ending in terminal punctuation (. ! ?). Do not truncate mid-word. Write in English only. If a field would exceed its length budget, write a shorter but COMPLETE version instead of cutting mid-sentence.",
+      "IMPORTANT: Previous attempts produced truncated or contaminated content. Every prose or bullet field MUST be a complete sentence ending in terminal punctuation (. ! ?). Titles, labels, identifiers, URLs, provider names, and compact descriptors do not need terminal punctuation. Do not truncate mid-word. Write in English only. If a field would exceed its length budget, write a shorter complete version instead of cutting mid-sentence.",
     );
   }
   lines.push("Regenerate the full JSON from scratch and fix every issue.");
@@ -499,6 +499,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
     let repairFeedback: string | null = null;
     let tokenBudget = maxCompletionTokens;
     let tokenBudgetRetried = false;
+    let modelQualityEscalationUsed = false;
 
     logGenerationAttempt("model-start", {
       stage,
@@ -518,7 +519,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       ];
 
       if (repairFeedback) {
-        messages.push({ role: "user", content: buildRepairPrompt(repairFeedback, qualityEscalationUsed) });
+        messages.push({ role: "user", content: buildRepairPrompt(repairFeedback, modelQualityEscalationUsed) });
       }
 
       const request = {
@@ -707,6 +708,68 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         const validationIssues = [...semanticIssues, ...qualityFeedback];
         totalValidationMs += performance.now() - validationStartedAt;
 
+        // Presentation-only problems such as a missing final period have a
+        // deterministic repair path. Revalidate the cleaned object immediately
+        // instead of spending another model call (and risking a malformed
+        // fallback response) when semantics and schema already passed.
+        if (
+          input.qualitySpec &&
+          semanticIssues.length === 0 &&
+          qualityReport.issues.length > 0 &&
+          qualityReport.severity === "repairable"
+        ) {
+          const cleanupStartedAt = performance.now();
+          const cleanup = applyAndValidateStructuredCleanup({
+            parsed,
+            schema: input.schema,
+            qualitySpec: input.qualitySpec,
+            qualityAllowedTerms: input.qualityAllowedTerms,
+            validator: input.validator,
+          });
+          totalValidationMs += performance.now() - cleanupStartedAt;
+
+          if (cleanup.parsed !== null) {
+            qualityFallbackUsed = true;
+            console.info("[ai] immediate quality cleanup applied", {
+              stage,
+              attempt: attemptCount,
+              requested_model: modelName,
+              actual_model: response.model,
+              changed_paths: cleanup.changedPaths,
+            });
+            return {
+              parsed: cleanup.parsed,
+              raw,
+              citations,
+              refusal,
+              metrics: {
+                stage,
+                generation_version: GENERATION_VERSION,
+                model: response.model,
+                attempt_count: attemptCount,
+                ai_total_ms: Math.round(totalAiMs),
+                validation_ms: Math.round(totalValidationMs),
+                prompt_chars: lastPromptChars,
+                output_chars: lastOutputChars,
+                fallback_used: modelName !== primaryModel,
+                fallback_model_used: modelName !== primaryModel ? modelName : null,
+                validator_failed: validatorFailed,
+                validator_issue_count: validatorIssueCount,
+                tool_used: toolUsed,
+                web_search_used: toolUsed,
+                citation_count: citations.length,
+                refusal_detected: refusalDetected,
+                quality_issue_count: qualityIssueCount,
+                quality_issue_kinds: Array.from(qualityIssueKindSet),
+                quality_repair_used: qualityRepairUsed,
+                quality_escalation_used: qualityEscalationUsed,
+                quality_fallback_used: true,
+                title_regenerated: false,
+              },
+            };
+          }
+        }
+
         if (validationIssues.length > 0) {
           if (semanticIssues.length > 0) {
             validatorFailed = true;
@@ -721,10 +784,14 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
             semantic_issue_count: semanticIssues.length,
             quality_issue_count: qualityReport.issues.length,
             quality_kinds: Array.from(new Set(qualityReport.issues.map((i) => i.kind))),
+            quality_paths: qualityReport.issues.map((issue) => `${issue.path}:${issue.kind}`),
           });
 
-          // Tier 2: on repeat quality failure, escalate system message and bump token budget once.
-          if (qualityReport.issues.length > 0 && attempt >= 1 && !qualityEscalationUsed) {
+          // Give the repair attempt the larger budget. Previously this happened
+          // only after the last permitted retry, so the extra tokens were never
+          // used and a fallback could end with unterminated JSON.
+          if (qualityReport.issues.length > 0 && attempt < maxRetries && !modelQualityEscalationUsed) {
+            modelQualityEscalationUsed = true;
             qualityEscalationUsed = true;
             if (!tokenBudgetRetried) {
               const bumped = getRetryTokenBudget(tokenBudget);

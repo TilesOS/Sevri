@@ -63,6 +63,28 @@ test("OPTIONS_QUALITY_SPEC flags bad recommendation titles and summaries", () =>
   assert.ok(paths.has("recommendations[1].track_payload_json.target_user"));
 });
 
+test("option seed descriptors do not require sentence punctuation", () => {
+  const parsed = {
+    recommendations: [
+      {
+        title: "Community Heat Mapper",
+        summary: "Map neighborhood heat exposure and turn the pattern into a concrete local planning case.",
+        why_it_fits: "This direction connects geographic analysis to a practical public-health decision.",
+        track_payload_json: {
+          target_user: "Community health coordinators",
+          problem_statement: "Heat-risk evidence is scattered across incompatible public datasets",
+          core_workflow: "Join neighborhood data, score exposure, and inspect the highest-risk blocks",
+          mvp_boundary: "One city, two datasets, and one comparison map",
+          validation_plan: "Compare the resulting hotspots with a published municipal heat assessment",
+        },
+      },
+    ],
+  };
+
+  const report = checkStructured(parsed, OPTIONS_QUALITY_SPEC);
+  assert.deepEqual(report.issues, []);
+});
+
 test("ROADMAP_QUALITY_SPEC flags broken project title and step objective", () => {
   const parsed = {
     project_title: "Short",
