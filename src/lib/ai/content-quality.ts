@@ -370,6 +370,13 @@ function lookupSpec(specs: FieldSpecMap, concretePath: string): FieldSpec | unde
   return undefined;
 }
 
+export function getFieldSpecForPath(
+  specs: FieldSpecMap,
+  concretePath: string,
+): FieldSpec | undefined {
+  return lookupSpec(specs, concretePath);
+}
+
 function walkStrings(
   node: unknown,
   path: string,

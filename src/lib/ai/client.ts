@@ -10,6 +10,15 @@ import {
   type FieldSpecMap,
   type QualityIssueKind,
 } from "@/lib/ai/content-quality";
+import {
+  QualityFieldRepairBatchSchema,
+  applyQualityFieldRepairs,
+  buildQualityRepairPrompts,
+  buildQualityRepairTargets,
+  canUseDeterministicQualityCleanup,
+  shouldSkipCrossModelFallbackForQuality,
+  type QualityRepairTarget,
+} from "@/lib/ai/quality-repair";
 import { applyAndValidateStructuredCleanup } from "@/lib/ai/structured-cleanup";
 
 const env = getAIEnv();
@@ -101,7 +110,7 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   qualityAllowedTerms?: readonly string[];
 }
 
-const GENERATION_VERSION = "responses-v2-sourced-learning";
+const GENERATION_VERSION = "responses-v3-targeted-quality-repair";
 const ACCESS_DENIED_PATTERN = /does not have access to model/i;
 const RATE_LIMIT_PATTERN = /\b429\b|rate limit/i;
 const AUTH_PATTERN = /\b401\b|invalid api key|incorrect api key|authentication/i;
@@ -453,6 +462,37 @@ function buildRawResponse<TParsed>(
   };
 }
 
+async function requestTargetedQualityRepair(input: {
+  stage: GenerationStage | string;
+  schemaName: string;
+  model: string;
+  original: unknown;
+  targets: QualityRepairTarget[];
+}) {
+  const prompts = buildQualityRepairPrompts({
+    stage: String(input.stage),
+    original: input.original,
+    targets: input.targets,
+  });
+  const maxOutputTokens = Math.min(1200 + input.targets.length * 300, 4000);
+  const response = (await openai.responses.parse({
+    model: input.model,
+    input: [
+      { role: "system", content: prompts.systemPrompt },
+      { role: "user", content: prompts.userPrompt },
+    ],
+    max_output_tokens: maxOutputTokens,
+    ...(supportsReasoningEffort(input.model)
+      ? { reasoning: { effort: "low" as const } }
+      : {}),
+    text: {
+      format: zodTextFormat(QualityFieldRepairBatchSchema, input.schemaName),
+    },
+  } as never)) as ParsedResponse<z.infer<typeof QualityFieldRepairBatchSchema>>;
+
+  return { response, prompts };
+}
+
 export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   input: StructuredGenerationInput<TSchema>,
 ): Promise<{
@@ -495,6 +535,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   let lastCitations: GenerationCitation[] = [];
   let lastToolUsed = false;
 
+  modelLoop:
   for (const modelName of modelsToTry) {
     let repairFeedback: string | null = null;
     let tokenBudget = maxCompletionTokens;
@@ -684,11 +725,12 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
 
         lastValidParsed = parsed;
 
-        const validationStartedAt = performance.now();
-        const semanticIssues = [
-          ...(input.validator ? input.validator(parsed) : []),
-          ...(input.evidenceValidator ? input.evidenceValidator(parsed, citations) : []),
+        const validateCandidateSemantics = (candidate: z.infer<TSchema>) => [
+          ...(input.validator ? input.validator(candidate) : []),
+          ...(input.evidenceValidator ? input.evidenceValidator(candidate, citations) : []),
         ];
+        const validationStartedAt = performance.now();
+        const semanticIssues = validateCandidateSemantics(parsed);
         let qualityReport: ContentQualityReport = { issues: [], severity: "clean" };
         if (input.qualitySpec) {
           qualityReport = checkStructured(parsed, input.qualitySpec, {
@@ -707,66 +749,249 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         const qualityFeedback = buildRepairFeedback(qualityReport);
         const validationIssues = [...semanticIssues, ...qualityFeedback];
         totalValidationMs += performance.now() - validationStartedAt;
+        let qualityRepairAllowsModelFallback = false;
 
-        // Presentation-only problems such as a missing final period have a
-        // deterministic repair path. Revalidate the cleaned object immediately
-        // instead of spending another model call (and risking a malformed
-        // fallback response) when semantics and schema already passed.
+        // Keep a schema- and semantics-valid creative response intact. First
+        // attempt conservative local cleanup; if meaning-sensitive defects
+        // remain, ask the same model for replacements for only those fields.
         if (
           input.qualitySpec &&
           semanticIssues.length === 0 &&
-          qualityReport.issues.length > 0 &&
-          qualityReport.severity === "repairable"
+          qualityReport.issues.length > 0
         ) {
-          const cleanupStartedAt = performance.now();
-          const cleanup = applyAndValidateStructuredCleanup({
-            parsed,
-            schema: input.schema,
-            qualitySpec: input.qualitySpec,
-            qualityAllowedTerms: input.qualityAllowedTerms,
-            validator: input.validator,
-          });
-          totalValidationMs += performance.now() - cleanupStartedAt;
+          let repairBase = parsed;
 
-          if (cleanup.parsed !== null) {
-            qualityFallbackUsed = true;
-            console.info("[ai] immediate quality cleanup applied", {
+          if (canUseDeterministicQualityCleanup(qualityReport)) {
+            const cleanupStartedAt = performance.now();
+            const cleanup = applyAndValidateStructuredCleanup({
+              parsed,
+              schema: input.schema,
+              qualitySpec: input.qualitySpec,
+              qualityAllowedTerms: input.qualityAllowedTerms,
+              validator: validateCandidateSemantics,
+            });
+            totalValidationMs += performance.now() - cleanupStartedAt;
+            repairBase = cleanup.cleaned;
+
+            if (cleanup.parsed !== null) {
+              qualityFallbackUsed = true;
+              console.info("[ai] immediate quality cleanup applied", {
+                stage,
+                attempt: attemptCount,
+                requested_model: modelName,
+                actual_model: response.model,
+                changed_paths: cleanup.changedPaths,
+              });
+              return {
+                parsed: cleanup.parsed,
+                raw,
+                citations,
+                refusal,
+                metrics: {
+                  stage,
+                  generation_version: GENERATION_VERSION,
+                  model: response.model,
+                  attempt_count: attemptCount,
+                  ai_total_ms: Math.round(totalAiMs),
+                  validation_ms: Math.round(totalValidationMs),
+                  prompt_chars: lastPromptChars,
+                  output_chars: JSON.stringify(cleanup.parsed).length,
+                  fallback_used: modelName !== primaryModel,
+                  fallback_model_used: modelName !== primaryModel ? modelName : null,
+                  validator_failed: validatorFailed,
+                  validator_issue_count: validatorIssueCount,
+                  tool_used: toolUsed,
+                  web_search_used: toolUsed,
+                  citation_count: citations.length,
+                  refusal_detected: refusalDetected,
+                  quality_issue_count: qualityIssueCount,
+                  quality_issue_kinds: Array.from(qualityIssueKindSet),
+                  quality_repair_used: qualityRepairUsed,
+                  quality_escalation_used: qualityEscalationUsed,
+                  quality_fallback_used: true,
+                  title_regenerated: false,
+                },
+              };
+            }
+
+            console.warn("[ai] immediate quality cleanup rejected", {
               stage,
               attempt: attemptCount,
               requested_model: modelName,
-              actual_model: response.model,
+              schema_issues: cleanup.schemaIssues,
+              semantic_issues: cleanup.semanticIssues,
+              remaining_quality_paths: cleanup.qualityReport.issues.map(
+                (issue) => `${issue.path}:${issue.kind}`,
+              ),
               changed_paths: cleanup.changedPaths,
             });
-            return {
-              parsed: cleanup.parsed,
-              raw,
-              citations,
-              refusal,
-              metrics: {
+          }
+
+          const targets = buildQualityRepairTargets(parsed, qualityReport, input.qualitySpec);
+          if (targets.length > 0) {
+            qualityEscalationUsed = true;
+            attemptCount += 1;
+            const targetedAttempt = attemptCount;
+            const targetedStartedAt = performance.now();
+            console.info("[ai] targeted-quality-repair-start", {
+              stage,
+              attempt: targetedAttempt,
+              requested_model: modelName,
+              target_count: targets.length,
+              target_paths: targets.map((target) => target.path),
+            });
+
+            try {
+              const repairResult = await requestTargetedQualityRepair({
                 stage,
-                generation_version: GENERATION_VERSION,
-                model: response.model,
-                attempt_count: attemptCount,
-                ai_total_ms: Math.round(totalAiMs),
-                validation_ms: Math.round(totalValidationMs),
-                prompt_chars: lastPromptChars,
-                output_chars: lastOutputChars,
-                fallback_used: modelName !== primaryModel,
-                fallback_model_used: modelName !== primaryModel ? modelName : null,
-                validator_failed: validatorFailed,
-                validator_issue_count: validatorIssueCount,
-                tool_used: toolUsed,
-                web_search_used: toolUsed,
-                citation_count: citations.length,
-                refusal_detected: refusalDetected,
-                quality_issue_count: qualityIssueCount,
-                quality_issue_kinds: Array.from(qualityIssueKindSet),
-                quality_repair_used: qualityRepairUsed,
-                quality_escalation_used: qualityEscalationUsed,
-                quality_fallback_used: true,
-                title_regenerated: false,
-              },
-            };
+                schemaName: `${input.schemaName ?? `sevri_${String(stage)}`}_quality_repairs`
+                  .replace(/[^A-Za-z0-9_-]/gu, "_")
+                  .slice(0, 64),
+                model: modelName,
+                original: parsed,
+                targets,
+              });
+              totalAiMs += performance.now() - targetedStartedAt;
+              lastPromptChars =
+                repairResult.prompts.systemPrompt.length + repairResult.prompts.userPrompt.length;
+              const repairResponse = repairResult.response;
+              const repairRefusal = extractRefusal(repairResponse);
+              const repairRaw = buildRawResponse(repairResponse, [], repairRefusal);
+              const targetedRaw = {
+                initial_response: raw,
+                targeted_quality_repair: repairRaw,
+                repaired_paths: targets.map((target) => target.path),
+              };
+              lastRaw = targetedRaw;
+              lastActualModel = repairResponse.model;
+
+              console.info("[ai] targeted-quality-repair-finish", {
+                stage,
+                attempt: targetedAttempt,
+                requested_model: modelName,
+                actual_model: repairResponse.model,
+                status: repairResponse.status,
+                incomplete_reason: repairResponse.incomplete_details?.reason ?? null,
+                usage: repairResponse.usage ?? null,
+                output_chars: JSON.stringify(
+                  repairResponse.output_parsed ?? repairResponse.output_text ?? "",
+                ).length,
+              });
+
+              if (repairRefusal) {
+                refusalDetected = true;
+                qualityRepairAllowsModelFallback = true;
+                lastError = `${modelName}: Targeted quality repair refused: ${repairRefusal}`;
+              } else if (repairResponse.status === "incomplete") {
+                qualityRepairAllowsModelFallback = true;
+                lastError = `${modelName}: Targeted quality repair incomplete${
+                  repairResponse.incomplete_details?.reason
+                    ? ` (${repairResponse.incomplete_details.reason})`
+                    : ""
+                }`;
+              } else if (!repairResponse.output_parsed) {
+                qualityRepairAllowsModelFallback = true;
+                lastError = `${modelName}: Targeted quality repair returned no parsed content`;
+              } else {
+                const expectedPaths = targets.map((target) => target.path);
+                const applied = applyQualityFieldRepairs({
+                  base: repairBase,
+                  batch: repairResponse.output_parsed,
+                  expectedPaths,
+                });
+
+                if (applied.candidate === null) {
+                  lastError = `${modelName}: Targeted quality repair contract failed: ${applied.issues.join(" | ")}`;
+                  console.warn("[ai] targeted quality repair contract rejected", {
+                    stage,
+                    attempt: targetedAttempt,
+                    requested_model: modelName,
+                    issues: applied.issues,
+                  });
+                } else {
+                  const repairedValidationStartedAt = performance.now();
+                  const repaired = applyAndValidateStructuredCleanup({
+                    parsed: applied.candidate,
+                    schema: input.schema,
+                    qualitySpec: input.qualitySpec,
+                    qualityAllowedTerms: input.qualityAllowedTerms,
+                    validator: validateCandidateSemantics,
+                  });
+                  totalValidationMs += performance.now() - repairedValidationStartedAt;
+
+                  if (repaired.parsed !== null) {
+                    lastValidParsed = repaired.parsed;
+                    lastOutputChars = JSON.stringify(repaired.parsed).length;
+                    console.info("[ai] targeted quality repair applied", {
+                      stage,
+                      attempt: targetedAttempt,
+                      requested_model: modelName,
+                      actual_model: repairResponse.model,
+                      repaired_paths: expectedPaths,
+                      cleanup_paths: repaired.changedPaths,
+                    });
+                    return {
+                      parsed: repaired.parsed,
+                      raw: targetedRaw,
+                      citations,
+                      refusal: null,
+                      metrics: {
+                        stage,
+                        generation_version: GENERATION_VERSION,
+                        model: repairResponse.model,
+                        attempt_count: attemptCount,
+                        ai_total_ms: Math.round(totalAiMs),
+                        validation_ms: Math.round(totalValidationMs),
+                        prompt_chars: lastPromptChars,
+                        output_chars: lastOutputChars,
+                        fallback_used: modelName !== primaryModel,
+                        fallback_model_used: modelName !== primaryModel ? modelName : null,
+                        validator_failed: validatorFailed,
+                        validator_issue_count: validatorIssueCount,
+                        tool_used: toolUsed,
+                        web_search_used: toolUsed,
+                        citation_count: citations.length,
+                        refusal_detected: refusalDetected,
+                        quality_issue_count: qualityIssueCount,
+                        quality_issue_kinds: Array.from(qualityIssueKindSet),
+                        quality_repair_used: true,
+                        quality_escalation_used: true,
+                        quality_fallback_used: false,
+                        title_regenerated: false,
+                      },
+                    };
+                  }
+
+                  lastError = `${modelName}: Targeted quality repair failed revalidation`;
+                  console.warn("[ai] targeted quality repair revalidation rejected", {
+                    stage,
+                    attempt: targetedAttempt,
+                    requested_model: modelName,
+                    schema_issues: repaired.schemaIssues,
+                    semantic_issues: repaired.semanticIssues,
+                    remaining_quality_paths: repaired.qualityReport.issues.map(
+                      (issue) => `${issue.path}:${issue.kind}`,
+                    ),
+                    cleanup_paths: repaired.changedPaths,
+                  });
+                }
+              }
+            } catch (repairError) {
+              totalAiMs += performance.now() - targetedStartedAt;
+              qualityRepairAllowsModelFallback = true;
+              const repairMessage = repairError instanceof Error
+                ? repairError.message
+                : "Unknown targeted quality repair error";
+              lastError = `${modelName}: ${repairMessage}`;
+              lastFailureKind = getFailureKindFromMessage(lastError);
+              console.warn("[ai] targeted-quality-repair-error", {
+                stage,
+                attempt: targetedAttempt,
+                requested_model: modelName,
+                kind: lastFailureKind,
+                error: repairMessage,
+              });
+            }
           }
         }
 
@@ -800,6 +1025,26 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
                 tokenBudgetRetried = true;
               }
             }
+          }
+
+          if (
+            attempt === maxRetries &&
+            shouldSkipCrossModelFallbackForQuality({
+              isPrimaryModel: modelName === primaryModel,
+              semanticIssueCount: semanticIssues.length,
+              qualityIssueCount: qualityReport.issues.length,
+              repairFailureAllowsFallback: qualityRepairAllowsModelFallback,
+            })
+          ) {
+            console.warn("[ai] cross-model fallback skipped for quality-only failure", {
+              stage,
+              attempts: attemptCount,
+              primary_model: primaryModel,
+              quality_paths: qualityReport.issues.map(
+                (issue) => `${issue.path}:${issue.kind}`,
+              ),
+            });
+            break modelLoop;
           }
 
           if (attempt === maxRetries) {
@@ -936,7 +1181,12 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       schema: input.schema,
       qualitySpec: input.qualitySpec,
       qualityAllowedTerms: input.qualityAllowedTerms,
-      validator: input.validator,
+      validator: (candidate) => [
+        ...(input.validator ? input.validator(candidate) : []),
+        ...(input.evidenceValidator
+          ? input.evidenceValidator(candidate, lastCitations)
+          : []),
+      ],
     });
     totalValidationMs += performance.now() - cleanupValidationStartedAt;
 
