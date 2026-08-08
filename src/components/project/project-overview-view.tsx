@@ -9,6 +9,7 @@ import { GenerationFeedbackForm } from "@/components/shared/generation-feedback-
 import { ReviewersCard } from "@/components/reviewer/reviewers-card";
 import { GithubOverviewCard } from "@/components/project/github-overview-card";
 import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
+import { LearningResourcesPreview } from "@/components/project/project-learning-resources-view";
 import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
@@ -138,6 +139,8 @@ export function ProjectOverviewView({
           },
         ]} />
       </Card>
+
+      <LearningResourcesPreview workspace={workspace} />
 
       <ReviewersCard
         projectId={workspace.project.id}

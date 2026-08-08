@@ -176,6 +176,11 @@ function coerceSkillAssessment(value: unknown): "beginner" | "intermediate" | "a
   return "beginner";
 }
 
+function getPreferredChallenge(rawIntake: Record<string, unknown>, skill: "beginner" | "intermediate" | "advanced") {
+  const value = String(rawIntake.preferred_difficulty ?? "").toLowerCase();
+  return value === "beginner" || value === "intermediate" || value === "advanced" ? value : skill;
+}
+
 function buildGoalSignal(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack) {
   const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
   const deliverable = String(rawIntake.target_research_deliverable ?? "portfolio entry").replace(/_/g, " ");
@@ -190,7 +195,11 @@ function buildGoalSignal(rawIntake: Record<string, unknown>, projectTrack: Proje
 function buildResourceSnapshot(rawIntake: Record<string, unknown>, projectTrack: ProjectTrack, skill: "beginner" | "intermediate" | "advanced") {
   const weeklyHours = getWeeklyHours(rawIntake);
   const constraints = asString(rawIntake.constraints, "").trim();
-  const parts = [`${weeklyHours}h/week`, `${skill} experience`];
+  const parts = [
+    `${weeklyHours}h/week`,
+    `${skill} current experience`,
+    `${getPreferredChallenge(rawIntake, skill)} preferred challenge`,
+  ];
   const tools = projectTrack === "software" ? toStringArray(rawIntake.known_tools) : [];
 
   if (tools.length > 0) {
@@ -317,6 +326,7 @@ function buildSoftwareContext(rawIntake: Record<string, unknown>) {
   const interpretedInterests = anchors.length ? anchors : ["software engineering"];
   const family = detectDomainFamily(interpretedInterests);
   const skill = coerceSkillAssessment(rawIntake.coding_experience);
+  const preferredChallenge = getPreferredChallenge(rawIntake, skill);
   const riskFlags = getRiskFlags(rawIntake, "software", interpretedInterests);
   const weeklyHours = getWeeklyHours(rawIntake);
   const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
@@ -341,6 +351,7 @@ function buildSoftwareContext(rawIntake: Record<string, unknown>) {
       target_outcome: targetOutcome,
       constraints_summary: buildConstraintsSummary(rawIntake),
       weekly_hours: weeklyHours,
+      preferred_challenge: preferredChallenge,
       project_style_fit: asString(rawIntake.preferred_project_style, "focused software tool"),
       problem_lenses: buildSoftwareProblemLenses(family, interpretedInterests, rawIntake),
       delivery_bias:
@@ -377,6 +388,7 @@ function buildResearchContext(rawIntake: Record<string, unknown>) {
   const anchors = extractAnchorCandidates(rawIntake);
   const interpretedInterests = anchors.length ? anchors : ["applied research"];
   const skill = coerceSkillAssessment(rawIntake.research_experience);
+  const preferredChallenge = getPreferredChallenge(rawIntake, skill);
   const riskFlags = getRiskFlags(rawIntake, "research", interpretedInterests);
   const weeklyHours = getWeeklyHours(rawIntake);
   const targetOutcome = String(rawIntake.target_outcome ?? "portfolio").replace(/_/g, " ");
@@ -403,6 +415,7 @@ function buildResearchContext(rawIntake: Record<string, unknown>) {
       target_outcome: targetOutcome,
       constraints_summary: buildConstraintsSummary(rawIntake),
       weekly_hours: weeklyHours,
+      preferred_challenge: preferredChallenge,
       research_readiness: buildResearchReadiness(skill),
       methodology_guidance: `Preferred method is ${methodPreference}. Choose the cleanest evidence path that matches the student's actual access.`,
       viable_methodologies: buildResearchMethodPool(methodPreference, family),
@@ -492,6 +505,7 @@ export function coerceStoredGenerationContext(row: StoredGenerationContextRow): 
         target_outcome: asString(rawPayload.target_outcome, "portfolio"),
         constraints_summary: asString(rawPayload.constraints_summary, "No major constraints were stated."),
         weekly_hours: asNumber(rawPayload.weekly_hours, 6),
+        preferred_challenge: coerceSkillAssessment(rawPayload.preferred_challenge ?? row.skill_assessment),
         research_readiness: asString(rawPayload.research_readiness, "Keep the methodology simple and defensible."),
         methodology_guidance: asString(
           rawPayload.methodology_guidance ?? rawPayload.mentor_resource_notes,
@@ -525,6 +539,7 @@ export function coerceStoredGenerationContext(row: StoredGenerationContextRow): 
       target_outcome: asString(rawPayload.target_outcome, "portfolio"),
       constraints_summary: asString(rawPayload.constraints_summary, "No major constraints were stated."),
       weekly_hours: asNumber(rawPayload.weekly_hours, 6),
+      preferred_challenge: coerceSkillAssessment(rawPayload.preferred_challenge ?? row.skill_assessment),
       project_style_fit: asString(rawPayload.project_style_fit, "focused software tool"),
       problem_lenses: asStringArray(rawPayload.problem_lenses).length
         ? asStringArray(rawPayload.problem_lenses)

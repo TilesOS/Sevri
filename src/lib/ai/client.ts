@@ -24,7 +24,7 @@ export type GenerationStage =
   | "portfolio_curation"
   | "portfolio_export"
   | "legacy";
-export type WebSearchReason = "recency_sensitive" | "source_seeking" | "user_requested_current";
+export type WebSearchReason = "learning_resources" | "recency_sensitive" | "source_seeking" | "user_requested_current";
 export type GenerationFailureKind =
   | "auth"
   | "incomplete"
@@ -46,6 +46,8 @@ export interface GenerationCitation {
 export interface WebSearchPolicy {
   enabled: boolean;
   allowedDomains?: string[];
+  /** Fail closed when the request returns without a completed web-search call. */
+  required?: boolean;
   reason: WebSearchReason;
 }
 
@@ -89,6 +91,7 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   userPrompt: string;
   maxRetries?: number;
   validator?: (parsed: z.infer<TSchema>) => string[];
+  evidenceValidator?: (parsed: z.infer<TSchema>, citations: GenerationCitation[]) => string[];
   model?: string;
   fallbackModels?: string[];
   maxCompletionTokens?: number;
@@ -98,7 +101,7 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   qualityAllowedTerms?: readonly string[];
 }
 
-const GENERATION_VERSION = "responses-v1";
+const GENERATION_VERSION = "responses-v2-sourced-learning";
 const ACCESS_DENIED_PATTERN = /does not have access to model/i;
 const RATE_LIMIT_PATTERN = /\b429\b|rate limit/i;
 const AUTH_PATTERN = /\b401\b|invalid api key|incorrect api key|authentication/i;
@@ -151,11 +154,11 @@ function getStageDefaults(stage: GenerationStage | string) {
   }
 
   if (stage === "options") {
-    return { maxCompletionTokens: 4000, maxRetries: 1, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 4000, maxRetries: 1, reasoningEffort: "medium" as const };
   }
 
   if (stage === "roadmap") {
-    return { maxCompletionTokens: 5200, maxRetries: 1, reasoningEffort: "low" as const };
+    return { maxCompletionTokens: 6500, maxRetries: 1, reasoningEffort: "medium" as const };
   }
 
   if (stage === "step_guidance") {
@@ -347,6 +350,23 @@ function extractCitations<TParsed>(response: ParsedResponse<TParsed>): Generatio
   const citations = new Map<string, GenerationCitation>();
 
   for (const item of response.output) {
+    if (item.type === "web_search_call") {
+      // `action.sources` is returned when the request includes
+      // web_search_call.action.sources. The installed SDK predates that field,
+      // so read the forward-compatible response shape without weakening the
+      // typed message/citation path below.
+      const action = (item as unknown as {
+        action?: { sources?: Array<{ title?: unknown; url?: unknown }> };
+      }).action;
+
+      for (const source of action?.sources ?? []) {
+        if (typeof source.url !== "string" || source.url.trim().length === 0) continue;
+        const title = typeof source.title === "string" ? source.title : undefined;
+        const key = [source.url, title ?? ""].join("|");
+        citations.set(key, { title, url: source.url });
+      }
+    }
+
     if (item.type !== "message") {
       continue;
     }
@@ -381,7 +401,7 @@ function didUseWebSearch<TParsed>(response: ParsedResponse<TParsed>) {
 
 function buildWebSearchTool(policy: WebSearchPolicy) {
   const tool: {
-    type: "web_search_preview_2025_03_11";
+    type: "web_search";
     search_context_size: "medium";
     user_location: {
       type: "approximate";
@@ -392,7 +412,7 @@ function buildWebSearchTool(policy: WebSearchPolicy) {
       allowed_domains: string[];
     };
   } = {
-    type: "web_search_preview_2025_03_11",
+    type: "web_search",
     search_context_size: "medium",
     user_location: {
       type: "approximate",
@@ -471,6 +491,9 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
   let qualityFallbackUsed = false;
   let qualityIssuesThisCycle = false;
   let lastSemanticIssueCount = 0;
+  let lastActualModel: string | null = null;
+  let lastCitations: GenerationCitation[] = [];
+  let lastToolUsed = false;
 
   for (const modelName of modelsToTry) {
     let repairFeedback: string | null = null;
@@ -512,7 +535,7 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
           ? {
               tools: [buildWebSearchTool(input.webSearch)],
               include: ["web_search_call.action.sources"],
-              tool_choice: "auto",
+              tool_choice: input.webSearch.required ? "required" : "auto",
             }
           : {}),
       };
@@ -539,8 +562,18 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         const toolUsed = didUseWebSearch(response);
         const raw = buildRawResponse(response, citations, refusal, input.webSearch);
         lastRaw = raw;
+        lastActualModel = response.model;
+        lastCitations = citations;
+        lastToolUsed = toolUsed;
         lastOutputChars = JSON.stringify(response.output_parsed ?? response.output_text ?? "").length;
         const incompleteReason = response.incomplete_details?.reason ?? null;
+
+        if (input.webSearch?.required && !toolUsed) {
+          lastError = `${modelName}: Required web search was not used`;
+          repairFeedback = "Use the web_search tool before producing the full structured response.";
+          if (attempt === maxRetries) break;
+          continue;
+        }
 
         logGenerationAttempt("attempt-finish", {
           stage,
@@ -651,7 +684,10 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
         lastValidParsed = parsed;
 
         const validationStartedAt = performance.now();
-        const semanticIssues = input.validator ? input.validator(parsed) : [];
+        const semanticIssues = [
+          ...(input.validator ? input.validator(parsed) : []),
+          ...(input.evidenceValidator ? input.evidenceValidator(parsed, citations) : []),
+        ];
         let qualityReport: ContentQualityReport = { issues: [], severity: "clean" };
         if (input.qualitySpec) {
           qualityReport = checkStructured(parsed, input.qualitySpec, {
@@ -862,12 +898,12 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       return {
         parsed: cleanup.parsed,
         raw: lastRaw,
-        citations: [],
+        citations: lastCitations,
         refusal: null,
         metrics: {
           stage,
           generation_version: GENERATION_VERSION,
-          model: primaryModel,
+          model: lastActualModel ?? primaryModel,
           attempt_count: attemptCount,
           ai_total_ms: Math.round(totalAiMs),
           validation_ms: Math.round(totalValidationMs),
@@ -877,9 +913,9 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
           fallback_model_used: lastFallbackModelUsed,
           validator_failed: validatorFailed,
           validator_issue_count: validatorIssueCount,
-          tool_used: false,
-          web_search_used: false,
-          citation_count: 0,
+          tool_used: lastToolUsed,
+          web_search_used: lastToolUsed,
+          citation_count: lastCitations.length,
           refusal_detected: refusalDetected,
           quality_issue_count: qualityIssueCount,
           quality_issue_kinds: Array.from(qualityIssueKindSet),

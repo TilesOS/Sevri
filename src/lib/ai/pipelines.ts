@@ -189,7 +189,9 @@ function appendExternalSearchGuidance(basePrompt: string, policy?: WebSearchPoli
   }
 
   const reasonLine =
-    policy.reason === "recency_sensitive"
+    policy.reason === "learning_resources"
+      ? "Use web search to find and verify every learning-resource URL before returning the roadmap."
+      : policy.reason === "recency_sensitive"
       ? "Use web search only where current or recent external information materially improves the answer."
       : policy.reason === "source_seeking"
         ? "Use web search only where external sources, papers, datasets, or API references materially improve the answer."
@@ -200,32 +202,10 @@ function appendExternalSearchGuidance(basePrompt: string, policy?: WebSearchPoli
     "External search guidance:",
     `- ${reasonLine}`,
     "- Ground any externally sourced claims in retrieved sources.",
+    "- Copy resource URLs only from retrieved sources; never guess a URL.",
     "- Keep source-backed claims concise so citations can be surfaced cleanly in the response.",
     "- Do not replace the student's project context with generic web information.",
   ].join("\n\n");
-}
-
-function detectRoadmapWebSearchPolicy(input: { context: GenerationContext; selectedOption: ProjectOption }): WebSearchPolicy | undefined {
-  const combined = [
-    input.context.summary,
-    input.selectedOption.title,
-    input.selectedOption.summary,
-    input.selectedOption.why_it_fits,
-    JSON.stringify(input.selectedOption.track_payload_json),
-  ].join(" ");
-
-  if (RECENCY_SENSITIVE_PATTERN.test(combined)) {
-    return { enabled: true, reason: "recency_sensitive" };
-  }
-
-  const sourceSeekingPattern =
-    input.selectedOption.project_track === "research" ? RESEARCH_SOURCE_SEEKING_PATTERN : SOFTWARE_SOURCE_SEEKING_PATTERN;
-
-  if (sourceSeekingPattern.test(combined)) {
-    return { enabled: true, reason: "source_seeking" };
-  }
-
-  return undefined;
 }
 
 function detectStepGuidanceWebSearchPolicy(input: {
@@ -336,8 +316,21 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
     }
   });
 
-  if (new Set(batch.recommendations.map((recommendation) => recommendation.difficulty)).size < 2) {
-    issues.push("The batch needs at least two distinct difficulty levels.");
+  const expectedDifficultyLadder = ["beginner", "intermediate", "advanced"] as const;
+  batch.recommendations.forEach((recommendation, index) => {
+    if (recommendation.difficulty !== expectedDifficultyLadder[index]) {
+      issues.push(
+        `Option ${index + 1} must be the ${expectedDifficultyLadder[index]} comparison tier so the board reads focused -> stretch -> ambitious.`,
+      );
+    }
+  });
+
+  const [focused, , ambitious] = batch.recommendations;
+  if (focused.finishability_score <= ambitious.finishability_score) {
+    issues.push("The focused option must be more finishable than the ambitious option.");
+  }
+  if (ambitious.impressiveness_score <= focused.impressiveness_score) {
+    issues.push("The ambitious option must have a stronger credible impact or portfolio ceiling than the focused option.");
   }
 
   if (new Set(batch.recommendations.map((recommendation) => recommendation.estimated_weeks)).size < 2) {
@@ -348,8 +341,8 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
     const targetUsers = batch.recommendations
       .filter((r): r is typeof r & { project_track: "software" } => r.project_track === "software")
       .map((r) => r.track_payload_json.target_user.toLowerCase().slice(0, 60));
-    if (new Set(targetUsers).size < 2) {
-      issues.push("At least two options should target different users or user segments.");
+    if (new Set(targetUsers).size < 3) {
+      issues.push("All three software options should target meaningfully different users or user segments.");
     }
   }
 
@@ -403,6 +396,56 @@ function roadmapIssues(roadmap: RoadmapOverview, selectedOption: ProjectOption, 
 
   if (issues.length > 0) {
     console.warn("roadmap validation issues", { issues, project_title: roadmap.project_title });
+  }
+
+  return issues;
+}
+
+function canonicalSourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    const path = url.pathname.replace(/\/+$/, "") || "/";
+    return `${url.protocol}//${url.host}${path}`;
+  } catch {
+    return value;
+  }
+}
+
+function learningResourceEvidenceIssues(roadmap: RoadmapOverview, citations: GenerationCitation[]) {
+  const resources = roadmap.learning_resources ?? [];
+  const issues: string[] = [];
+  const sourceUrls = new Set(citations.map((citation) => canonicalSourceUrl(citation.url)));
+  const resourceUrls = new Set<string>();
+
+  for (const resource of resources) {
+    const canonical = canonicalSourceUrl(resource.url);
+    if (resourceUrls.has(canonical)) {
+      issues.push(`Learning resource URL is duplicated: ${resource.url}`);
+    }
+    resourceUrls.add(canonical);
+
+    if (!sourceUrls.has(canonical)) {
+      issues.push(`Learning resource URL was not present in the retrieved web-search sources: ${resource.url}`);
+    }
+
+    if (resource.use_during_step > roadmap.steps.length) {
+      issues.push(`Learning resource "${resource.title}" points to a step that does not exist.`);
+    }
+  }
+
+  const stages = new Set(resources.map((resource) => resource.learning_stage));
+  for (const requiredStage of ["start_here", "build_with", "go_deeper"] as const) {
+    if (!stages.has(requiredStage)) {
+      issues.push(`Learning resources must include the ${requiredStage} stage.`);
+    }
+  }
+
+  if (resources.filter((resource) => resource.learning_stage === "build_with").length < 2) {
+    issues.push("Learning resources must include at least two build_with sources.");
+  }
+
+  if (new Set(resources.map((resource) => resource.provider.toLowerCase())).size < 3) {
+    issues.push("Learning resources must draw from at least three credible providers.");
   }
 
   return issues;
@@ -497,13 +540,31 @@ export async function runProfileNormalization(input: {
   rawIntake: Record<string, unknown>;
   feedback?: PromptFeedbackItem[];
 }): Promise<PipelineResult<GenerationContext>> {
+  const rawExperience = String(
+    input.projectTrack === "research" ? input.rawIntake.research_experience : input.rawIntake.coding_experience,
+  ).toLowerCase();
+  const currentExperience = ["beginner", "intermediate", "advanced"].includes(rawExperience)
+    ? rawExperience
+    : "intermediate";
+  const rawPreferredChallenge = String(input.rawIntake.preferred_difficulty ?? "").toLowerCase();
+  const preferredChallenge = ["beginner", "intermediate", "advanced"].includes(rawPreferredChallenge)
+    ? rawPreferredChallenge
+    : currentExperience;
   const result = await generateStructuredOutput({
     stage: "normalize",
     schema: input.projectTrack === "research" ? ResearchGenerationContextSchema : SoftwareGenerationContextSchema,
     schemaName: `${input.projectTrack}_normalized_context`,
     systemPrompt: buildNormalizeSystemPrompt(input.projectTrack),
     userPrompt: buildNormalizeUserPrompt(input),
-    validator: (parsed) => normalizedContextIssues(parsed),
+    validator: (parsed) => [
+      ...normalizedContextIssues(parsed),
+      ...(parsed.skill_assessment === currentExperience
+        ? []
+        : [`Current experience must remain ${currentExperience}; do not infer a different skill level.`]),
+      ...(parsed.track_payload_json.preferred_challenge === preferredChallenge
+        ? []
+        : [`Preferred challenge must remain ${preferredChallenge}; do not infer a different challenge preference.`]),
+    ],
   });
 
   return {
@@ -544,7 +605,11 @@ export async function runRoadmapGeneration(input: {
   selectedOption: ProjectOption;
   feedback?: PromptFeedbackItem[];
 }): Promise<PipelineResult<RoadmapOverview>> {
-  const webSearch = detectRoadmapWebSearchPolicy(input);
+  const webSearch: WebSearchPolicy = {
+    enabled: true,
+    required: true,
+    reason: "learning_resources",
+  };
   const result = await generateStructuredOutput({
     stage: "roadmap",
     schema: RoadmapGenerationSchema,
@@ -560,6 +625,7 @@ export async function runRoadmapGeneration(input: {
       webSearch,
     ),
     validator: (parsed) => roadmapIssues(parsed, input.selectedOption, input.context),
+    evidenceValidator: learningResourceEvidenceIssues,
     webSearch,
     qualitySpec: ROADMAP_QUALITY_SPEC,
     qualityAllowedTerms: buildAllowedTerms(input.context),

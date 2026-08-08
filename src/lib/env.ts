@@ -9,7 +9,7 @@ const clientEnvSchema = z.object({
 
 const aiEnvSchema = z.object({
   OPENAI_API_KEY: z.string().min(1),
-  OPENAI_MODEL: z.string().default("gpt-5.4-mini-2026-03-17"),
+  OPENAI_MODEL: z.string().default("gpt-5.6-luna"),
   OPENAI_FALLBACK_MODEL: z.string().default("gpt-5-mini-2025-08-07"),
   OPENAI_NORMALIZE_MODEL: z.string().optional(),
   OPENAI_STAGE1_MODEL: z.string().optional(),

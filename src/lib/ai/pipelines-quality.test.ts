@@ -199,5 +199,6 @@ test("research onboarding accepts intermediate experience and prompt code calibr
   assert.equal(intake.research_experience, "intermediate");
   assert.match(generationContextSource, /skill === "intermediate"/);
   assert.match(generationContextSource, /structured method/i);
-  assert.match(promptsSource, /beginner, intermediate, and advanced experience levels/);
+  assert.match(promptsSource, /Preserve current experience and preferred challenge as separate signals/);
+  assert.match(promptsSource, /comparative scope tiers, not claims about the student's ability/);
 });

@@ -17,6 +17,7 @@ import {
   toDeferralList,
 } from "@/lib/projects/pitch-kit";
 import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
+import { LearningResourceSchema, type LearningResource } from "@/lib/ai/schemas";
 import { asSentence } from "@/lib/text/prose";
 import { toStudentVoice } from "@/lib/text/student-voice";
 import type { ProjectTrack } from "@/types/domain";
@@ -123,6 +124,7 @@ export interface ProjectWorkspaceView {
   /** The Scope & Guardrails statement, recomposed when the stored one is stitched. */
   mvpScope: string;
   pitchKit: ProjectPitchKitView;
+  learningResources: LearningResource[];
   elevatorPitch: string;
   resumeBullets: string[];
   talkingPoints: string[];
@@ -321,6 +323,12 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
       ? (roadmapPayload.selected_option_seed as Record<string, unknown>)
       : {};
   const projectBrief = toStudentVoice(getPayloadString(roadmapPayload.project_brief));
+  const learningResources = Array.isArray(roadmapPayload.learning_resources)
+    ? roadmapPayload.learning_resources.flatMap((resource) => {
+        const parsed = LearningResourceSchema.safeParse(resource);
+        return parsed.success ? [parsed.data] : [];
+      })
+    : [];
   const projectLens = (
     projectTrack === "research"
       ? [
@@ -428,6 +436,7 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     keyDeliverables: milestones.slice(0, 3).map((milestone) => milestone.deliverable),
     mvpScope,
     pitchKit,
+    learningResources,
     elevatorPitch: pitchKit.elevatorPitch,
     resumeBullets: pitchKit.resumeBullets,
     talkingPoints: pitchKit.talkingPoints,

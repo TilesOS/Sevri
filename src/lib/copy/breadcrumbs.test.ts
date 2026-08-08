@@ -50,6 +50,7 @@ test("section crumbs use the shared glossary labels", () => {
     ["scope", PROJECT_SECTION_LABELS.scope],
     ["lens", PROJECT_SECTION_LABELS.lens],
     ["pitch-kit", PROJECT_SECTION_LABELS.pitchKit],
+    ["resources", PROJECT_SECTION_LABELS.resources],
     ["focus", PROJECT_SECTION_LABELS.focus],
   ];
 

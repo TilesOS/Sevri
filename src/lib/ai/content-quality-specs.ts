@@ -122,6 +122,9 @@ export const ROADMAP_QUALITY_SPEC: FieldSpecMap = {
   "pitch_kit.resume_bullets[*]": BULLET_LONG,
   "pitch_kit.talking_points[*].label": { kind: "title", minCredible: 4, maxLength: 40, maxUiSafe: 40 },
   "pitch_kit.talking_points[*].body": { kind: "prose", minCredible: 40, maxLength: 300 },
+  "learning_resources[*].title": TITLE_WIDE,
+  "learning_resources[*].provider": { kind: "title", minCredible: 2, maxLength: 80, maxUiSafe: 80 },
+  "learning_resources[*].why_it_matters": withMax(PROSE_MED, 260),
 };
 
 // Stage 3: step guidance
