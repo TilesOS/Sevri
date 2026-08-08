@@ -5,6 +5,7 @@ import { OPTIONS_QUALITY_SPEC } from "./content-quality-specs.ts";
 import {
   applyQualityFieldRepairs,
   buildQualityRepairPrompts,
+  buildQualityFieldRepairSchema,
   buildQualityRepairTargets,
   canUseDeterministicQualityCleanup,
   getStringAtPath,
@@ -111,6 +112,28 @@ test("quality-only repair exhaustion stays on the primary model", () => {
   );
 });
 
+test("dynamic repair schema enforces each field's original length budget", () => {
+  const board = brokenBoard();
+  const report = checkStructured(board, OPTIONS_QUALITY_SPEC);
+  const targets = buildQualityRepairTargets(board, report, OPTIONS_QUALITY_SPEC);
+  const schema = buildQualityFieldRepairSchema(targets);
+  const validCoreWorkflow = "Inspect one heat-risk map and compare the highest-risk blocks.";
+  const validValidationPlan = "Compare the hotspots with a published municipal assessment.";
+
+  assert.equal(schema.safeParse({
+    repairs: [
+      { path: targets[0].path, replacement: validCoreWorkflow },
+      { path: targets[1].path, replacement: validValidationPlan },
+    ],
+  }).success, true);
+  assert.equal(schema.safeParse({
+    repairs: [
+      { path: targets[0].path, replacement: "x".repeat(221) },
+      { path: targets[1].path, replacement: validValidationPlan },
+    ],
+  }).success, false);
+});
+
 test("repair prompt returns the original response to the model with targeted fields", () => {
   const board = brokenBoard();
   const report = checkStructured(board, OPTIONS_QUALITY_SPEC);
@@ -156,6 +179,40 @@ test("field repairs preserve every unflagged value in the original board", () =>
     "Compare the resulting hotspots with a published municipal heat assessment.",
   );
   assert.deepEqual(checkStructured(applied.candidate, OPTIONS_QUALITY_SPEC).issues, []);
+});
+
+test("a residual repair round targets only fields that remain invalid", () => {
+  const board = brokenBoard();
+  const initialReport = checkStructured(board, OPTIONS_QUALITY_SPEC);
+  const initialTargets = buildQualityRepairTargets(board, initialReport, OPTIONS_QUALITY_SPEC);
+  const firstRound = applyQualityFieldRepairs({
+    base: board,
+    expectedPaths: initialTargets.map((target) => target.path),
+    batch: {
+      repairs: [
+        {
+          path: initialTargets[0].path,
+          replacement: "Inspect one heat-risk map and compare the highest-risk blocks.",
+        },
+        {
+          path: initialTargets[1].path,
+          replacement: "Compare the resulting hotspots with",
+        },
+      ],
+    },
+  });
+
+  assert.ok(firstRound.candidate);
+  const residualReport = checkStructured(firstRound.candidate, OPTIONS_QUALITY_SPEC);
+  const residualTargets = buildQualityRepairTargets(
+    firstRound.candidate,
+    residualReport,
+    OPTIONS_QUALITY_SPEC,
+  );
+  assert.deepEqual(
+    residualTargets.map((target) => target.path),
+    ["recommendations[0].track_payload_json.validation_plan"],
+  );
 });
 
 test("field repair contract rejects missing, duplicate, and unexpected paths", () => {

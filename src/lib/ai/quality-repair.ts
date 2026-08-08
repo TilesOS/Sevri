@@ -28,6 +28,41 @@ export interface QualityRepairTarget {
   constraints: Pick<FieldSpec, "kind" | "minCredible" | "maxLength">;
 }
 
+export function buildQualityFieldRepairSchema(
+  targets: readonly QualityRepairTarget[],
+): z.ZodType<QualityFieldRepairBatch> {
+  if (targets.length === 0) {
+    throw new Error("At least one quality repair target is required");
+  }
+
+  const variants = targets.map((target) => {
+    let replacement = z.string().min(Math.max(1, target.constraints.minCredible ?? 1));
+    if (target.constraints.maxLength !== undefined) {
+      replacement = replacement.max(target.constraints.maxLength);
+    }
+
+    return z.object({
+      path: z.literal(target.path),
+      replacement,
+    });
+  });
+
+  const itemSchema = variants.length === 1
+    ? variants[0]
+    : z.discriminatedUnion(
+        "path",
+        variants as unknown as [
+          z.ZodDiscriminatedUnionOption<"path">,
+          z.ZodDiscriminatedUnionOption<"path">,
+          ...z.ZodDiscriminatedUnionOption<"path">[],
+        ],
+      );
+
+  return z.object({
+    repairs: z.array(itemSchema).length(targets.length),
+  }) as z.ZodType<QualityFieldRepairBatch>;
+}
+
 const SAFE_LOCAL_REPAIR_KINDS = new Set<QualityIssue["kind"]>([
   "missing_terminal_punct",
   "zero_width",
