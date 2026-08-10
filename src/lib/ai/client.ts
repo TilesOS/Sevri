@@ -114,7 +114,7 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   qualityAllowedTerms?: readonly string[];
 }
 
-const GENERATION_VERSION = "responses-v4-bounded-targeted-quality-repair";
+const GENERATION_VERSION = "responses-v5-headroom-targeted-quality-repair";
 const ACCESS_DENIED_PATTERN = /does not have access to model/i;
 const RATE_LIMIT_PATTERN = /\b429\b|rate limit/i;
 const AUTH_PATTERN = /\b401\b|invalid api key|incorrect api key|authentication/i;

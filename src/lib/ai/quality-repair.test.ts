@@ -112,7 +112,7 @@ test("quality-only repair exhaustion stays on the primary model", () => {
   );
 });
 
-test("dynamic repair schema enforces each field's original length budget", () => {
+test("dynamic repair schema leaves length enforcement to post-repair validation", () => {
   const board = brokenBoard();
   const report = checkStructured(board, OPTIONS_QUALITY_SPEC);
   const targets = buildQualityRepairTargets(board, report, OPTIONS_QUALITY_SPEC);
@@ -126,12 +126,30 @@ test("dynamic repair schema enforces each field's original length budget", () =>
       { path: targets[1].path, replacement: validValidationPlan },
     ],
   }).success, true);
-  assert.equal(schema.safeParse({
+  const overBudgetBatch = {
     repairs: [
       { path: targets[0].path, replacement: "x".repeat(221) },
       { path: targets[1].path, replacement: validValidationPlan },
     ],
-  }).success, false);
+  };
+  assert.equal(
+    schema.safeParse(overBudgetBatch).success,
+    true,
+    "a decoder maxLength causes Luna to fill and truncate at that boundary",
+  );
+
+  const applied = applyQualityFieldRepairs({
+    base: board,
+    expectedPaths: targets.map((target) => target.path),
+    batch: overBudgetBatch,
+  });
+  assert.ok(applied.candidate);
+  assert.ok(
+    checkStructured(applied.candidate, OPTIONS_QUALITY_SPEC).issues.some(
+      (issue) => issue.path === targets[0].path && issue.kind === "too_long",
+    ),
+    "normal post-repair validation still enforces the original field budget",
+  );
 });
 
 test("repair prompt returns the original response to the model with targeted fields", () => {
@@ -144,6 +162,9 @@ test("repair prompt returns the original response to the model with targeted fie
   assert.match(prompts.userPrompt, /Neighborhood Heat Evidence Map/);
   assert.match(prompts.userPrompt, /recommendations\[0\]\.track_payload_json\.validation_plan/);
   assert.match(prompts.userPrompt, /Compare the resulting hotspots with/);
+  assert.match(prompts.systemPrompt, /preferred_max_length/);
+  assert.match(prompts.userPrompt, /"preferred_max_length": 165/);
+  assert.match(prompts.userPrompt, /"hard_max_length": 220/);
 });
 
 test("field repairs preserve every unflagged value in the original board", () => {

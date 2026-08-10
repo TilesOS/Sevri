@@ -36,14 +36,14 @@ export function buildQualityFieldRepairSchema(
   }
 
   const variants = targets.map((target) => {
-    let replacement = z.string().min(Math.max(1, target.constraints.minCredible ?? 1));
-    if (target.constraints.maxLength !== undefined) {
-      replacement = replacement.max(target.constraints.maxLength);
-    }
-
     return z.object({
       path: z.literal(target.path),
-      replacement,
+      // Do not put the field's hard character limit into the constrained-decoding
+      // schema. Luna fills bounded repair strings to maxLength, which turns the
+      // limit itself into a truncation point. The prompt supplies a shorter
+      // writing target with headroom; normal candidate validation still enforces
+      // the original hard limit after the repair is applied.
+      replacement: z.string().min(1),
     });
   });
 
@@ -208,11 +208,35 @@ export function buildQualityRepairPrompts(input: {
   original: unknown;
   targets: QualityRepairTarget[];
 }) {
+  const promptTargets = input.targets.map((target) => {
+    const hardMaxLength = target.constraints.maxLength;
+    const preferredMaxLength = hardMaxLength === undefined
+      ? undefined
+      : Math.max(
+          target.constraints.minCredible ?? 1,
+          Math.floor(hardMaxLength * 0.75),
+        );
+
+    return {
+      path: target.path,
+      current_value: target.current_value,
+      current_length: target.current_value.length,
+      issues: target.issues,
+      constraints: {
+        kind: target.constraints.kind,
+        min_credible_length: target.constraints.minCredible,
+        preferred_max_length: preferredMaxLength,
+        hard_max_length: hardMaxLength,
+      },
+    };
+  });
+
   const systemPrompt = [
     "You are a surgical copy editor repairing a structured AI response.",
     "Return exactly one replacement for every requested path and no replacements for any other path.",
     "Preserve the original facts, project identity, difficulty, scope, scores, tools, URLs, and creative direction.",
-    "Change only the requested strings. Complete truncated thoughts, remove broken or mixed-script characters, balance punctuation, and stay inside each field's length limits.",
+    "Change only the requested strings. Complete truncated thoughts, remove broken or mixed-script characters, and balance punctuation.",
+    "Treat preferred_max_length as the writing target. Finish comfortably below hard_max_length; never try to fill the available character budget.",
     "A replacement must be a useful complete field, not merely the broken suffix removed from the old value.",
     "Do not introduce new claims, projects, resources, or URLs.",
   ].join(" ");
@@ -222,7 +246,7 @@ export function buildQualityRepairPrompts(input: {
     "Original structured response for context:",
     JSON.stringify(input.original, null, 2),
     "Fields requiring repair:",
-    JSON.stringify(input.targets, null, 2),
+    JSON.stringify(promptTargets, null, 2),
     "Return the repairs in the requested structured format. Copy every path exactly.",
   ].join("\n\n");
 
