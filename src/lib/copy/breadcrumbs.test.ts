@@ -43,8 +43,6 @@ test("an unloaded project title still names the kind of page", () => {
   ]);
 });
 
-// DES-011: the breadcrumb said "Scope", "Research lens", and "Pitch kit" while
-// the sidebar said something else for each.
 test("section crumbs use the shared glossary labels", () => {
   const sections: Array<[string, string]> = [
     ["scope", PROJECT_SECTION_LABELS.scope],
@@ -61,9 +59,9 @@ test("section crumbs use the shared glossary labels", () => {
   }
 });
 
-test("the lens section is not called research on either track", () => {
+test("the lens section uses the shared project label", () => {
   const crumbs = getHeaderBreadcrumbs(`/project/${PROJECT_ID}/lens`, PROJECT_TITLE);
-  assert.ok(!/research/i.test(crumbs.at(-1)?.label ?? ""));
+  assert.equal(crumbs.at(-1)?.label, PROJECT_SECTION_LABELS.lens);
 });
 
 test("the project overview has no trailing section crumb", () => {

@@ -23,18 +23,16 @@ import {
   hasGrounding,
 } from "@/lib/ai/generation-context";
 import {
-  ResearchGenerationContextSchema,
   CommonAppActivitySchema,
+  GenerationContextSchema,
   RecommendationBatchSchema,
   ResumeBulletsSchema,
   RoadmapGenerationSchema,
-  SoftwareGenerationContextSchema,
   StepGuidanceSchema,
   WorkEvaluationSchema,
   WorkPortfolioCurationSchema,
   type CommonAppActivity,
   type GenerationContext,
-  type ProjectTrack,
   type ProjectOption,
   type RecommendationBatch,
   type ResumeBullets,
@@ -90,7 +88,7 @@ export interface PortfolioPipelineInput {
   project: {
     title: string;
     status: string;
-    project_track: ProjectTrack | string;
+    project_kind_label: string;
   };
   roadmap: RoadmapOverview | null;
   milestones: Array<{
@@ -221,7 +219,7 @@ function detectStepGuidanceWebSearchPolicy(input: {
     input.context.summary,
     input.selectedOption.title,
     input.selectedOption.summary,
-    JSON.stringify(input.selectedOption.track_payload_json),
+    JSON.stringify(input.selectedOption.project_blueprint_json),
     input.roadmap.project_title,
     input.roadmap.project_brief,
     input.step.title,
@@ -236,8 +234,7 @@ function detectStepGuidanceWebSearchPolicy(input: {
     return { enabled: true, reason: "recency_sensitive" };
   }
 
-  const sourceSeekingPattern =
-    input.selectedOption.project_track === "research" ? RESEARCH_SOURCE_SEEKING_PATTERN : SOFTWARE_SOURCE_SEEKING_PATTERN;
+  const sourceSeekingPattern = new RegExp(`${RESEARCH_SOURCE_SEEKING_PATTERN.source}|${SOFTWARE_SOURCE_SEEKING_PATTERN.source}`, "i");
 
   if (sourceSeekingPattern.test(combined)) {
     return { enabled: true, reason: "source_seeking" };
@@ -267,18 +264,15 @@ const GENERIC_TITLE_PATTERNS = [
 ];
 
 function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
-  const anchors = context.track_payload_json.anchor_interests;
+  const anchors = context.project_context_json.anchor_interests;
   const allowStudentThemes = studentThemesAllowed(JSON.stringify(context));
   const titles = new Set<string>();
   const shapeKeys = new Set<string>();
   const issues: string[] = [];
 
   batch.recommendations.forEach((recommendation, index) => {
-    const content = `${recommendation.title} ${recommendation.summary} ${recommendation.why_it_fits} ${JSON.stringify(recommendation.track_payload_json)}`;
-    const shapeKey =
-      recommendation.project_track === "research"
-        ? `${recommendation.track_payload_json.methodology.toLowerCase()}|${recommendation.track_payload_json.research_question.toLowerCase().slice(0, 80)}`
-        : `${recommendation.track_payload_json.target_user.toLowerCase().slice(0, 80)}|${recommendation.track_payload_json.problem_statement.toLowerCase().slice(0, 80)}|${recommendation.track_payload_json.core_workflow.toLowerCase().slice(0, 80)}`;
+    const content = `${recommendation.title} ${recommendation.summary} ${recommendation.why_it_fits} ${JSON.stringify(recommendation.project_blueprint_json)}`;
+    const shapeKey = `${recommendation.project_kind_label.toLowerCase()}|${recommendation.project_blueprint_json.approach.toLowerCase().slice(0, 100)}|${recommendation.project_blueprint_json.primary_artifacts.join("|").toLowerCase()}`;
 
     if (titles.has(recommendation.title.toLowerCase())) {
       issues.push(`Option ${index + 1} duplicates another title.`);
@@ -338,20 +332,15 @@ function optionIssues(batch: RecommendationBatch, context: GenerationContext) {
     issues.push("The batch needs more timeline differentiation.");
   }
 
-  if (context.project_track === "software") {
-    const targetUsers = batch.recommendations
-      .filter((r): r is typeof r & { project_track: "software" } => r.project_track === "software")
-      .map((r) => r.track_payload_json.target_user.toLowerCase().slice(0, 60));
-    if (new Set(targetUsers).size < 3) {
-      issues.push("All three software options should target meaningfully different users or user segments.");
-    }
+  if (context.project_context_json.open_to_anything && new Set(batch.recommendations.map((item) => item.project_kind_label.toLowerCase())).size < 3) {
+    issues.push("Open-to-anything recommendations need three meaningfully different project kinds.");
   }
 
   return issues;
 }
 
 function normalizedContextIssues(context: GenerationContext) {
-  const payload = context.track_payload_json;
+  const payload = context.project_context_json;
   const issues: string[] = [];
 
   if (!hasGrounding(`${context.summary} ${payload.domain_brief} ${payload.focus_signal}`, payload.anchor_interests)) {
@@ -366,7 +355,7 @@ function normalizedContextIssues(context: GenerationContext) {
 }
 
 function roadmapIssues(roadmap: RoadmapOverview, selectedOption: ProjectOption, context: GenerationContext) {
-  const anchors = context.track_payload_json.anchor_interests;
+  const anchors = context.project_context_json.anchor_interests;
   const allowStudentThemes = studentThemesAllowed(JSON.stringify(context));
   const issues: string[] = [];
   const roadmapText = `${roadmap.project_title} ${roadmap.short_overview} ${roadmap.project_brief} ${roadmap.steps.map((step) => `${step.title} ${step.objective} ${step.deliverable}`).join(" ")}`;
@@ -497,7 +486,7 @@ function pitchKitIssues(pitchKit: RoadmapOverview["pitch_kit"]): string[] {
 }
 
 function stepGuidanceIssues(guidance: StepGuidance, step: RoadmapStep, context: GenerationContext) {
-  const anchors = context.track_payload_json.anchor_interests;
+  const anchors = context.project_context_json.anchor_interests;
   const combined = `${guidance.what_to_do_now} ${guidance.checklist.join(" ")} ${guidance.pitfalls.join(" ")} ${guidance.done_when.join(" ")}`;
   const issues: string[] = [];
 
@@ -527,32 +516,29 @@ function normalizeRoadmapSteps(roadmap: RoadmapOverview): RoadmapOverview {
 }
 
 export async function runProfileNormalization(input: {
-  projectTrack: ProjectTrack;
   rawIntake: Record<string, unknown>;
   feedback?: PromptFeedbackItem[];
 }): Promise<PipelineResult<GenerationContext>> {
-  const rawExperience = String(
-    input.projectTrack === "research" ? input.rawIntake.research_experience : input.rawIntake.coding_experience,
-  ).toLowerCase();
+  const rawExperience = String(input.rawIntake.experience_level ?? "beginner").toLowerCase();
   const currentExperience = ["beginner", "intermediate", "advanced"].includes(rawExperience)
     ? rawExperience
     : "intermediate";
-  const rawPreferredChallenge = String(input.rawIntake.preferred_difficulty ?? "").toLowerCase();
+  const rawPreferredChallenge = String(input.rawIntake.preferred_challenge ?? "").toLowerCase();
   const preferredChallenge = ["beginner", "intermediate", "advanced"].includes(rawPreferredChallenge)
     ? rawPreferredChallenge
     : currentExperience;
   const result = await generateStructuredOutput({
     stage: "normalize",
-    schema: input.projectTrack === "research" ? ResearchGenerationContextSchema : SoftwareGenerationContextSchema,
-    schemaName: `${input.projectTrack}_normalized_context`,
-    systemPrompt: buildNormalizeSystemPrompt(input.projectTrack),
+    schema: GenerationContextSchema,
+    schemaName: "universal_project_context",
+    systemPrompt: buildNormalizeSystemPrompt(),
     userPrompt: buildNormalizeUserPrompt(input),
     validator: (parsed) => [
       ...normalizedContextIssues(parsed),
       ...(parsed.skill_assessment === currentExperience
         ? []
         : [`Current experience must remain ${currentExperience}; do not infer a different skill level.`]),
-      ...(parsed.track_payload_json.preferred_challenge === preferredChallenge
+      ...(parsed.project_context_json.preferred_challenge === preferredChallenge
         ? []
         : [`Preferred challenge must remain ${preferredChallenge}; do not infer a different challenge preference.`]),
     ],
@@ -574,8 +560,8 @@ export async function runOptionsGeneration(
   const result = await generateStructuredOutput({
     stage: "options",
     schema: RecommendationBatchSchema,
-    schemaName: `${context.project_track}_options`,
-    systemPrompt: buildOptionsSystemPrompt(context.project_track),
+    schemaName: "universal_project_options",
+    systemPrompt: buildOptionsSystemPrompt(),
     userPrompt: buildOptionsUserPrompt(context, feedback),
     validator: (parsed) => optionIssues(parsed, context),
     qualitySpec: OPTIONS_QUALITY_SPEC,
@@ -604,11 +590,10 @@ export async function runRoadmapGeneration(input: {
   const result = await generateStructuredOutput({
     stage: "roadmap",
     schema: RoadmapGenerationSchema,
-    schemaName: `${input.context.project_track}_roadmap_overview`,
-    systemPrompt: buildRoadmapSystemPrompt(input.context.project_track),
+    schemaName: "universal_roadmap_overview",
+    systemPrompt: buildRoadmapSystemPrompt(),
     userPrompt: appendExternalSearchGuidance(
       buildRoadmapUserPrompt({
-        projectTrack: input.context.project_track,
         context: input.context,
         selectedOption: input.selectedOption,
         feedback: input.feedback,
@@ -644,8 +629,8 @@ export async function runStepGuidanceGeneration(input: {
   const result = await generateStructuredOutput({
     stage: "step_guidance",
     schema: StepGuidanceSchema,
-    schemaName: `${input.context.project_track}_step_guidance`,
-    systemPrompt: buildStepGuidanceSystemPrompt(input.context.project_track, input.step.order_index, input.roadmap.steps.length),
+    schemaName: "universal_step_guidance",
+    systemPrompt: buildStepGuidanceSystemPrompt(input.step.order_index, input.roadmap.steps.length),
     userPrompt: appendExternalSearchGuidance(buildStepGuidanceUserPrompt(input), webSearch),
     validator: (parsed) => stepGuidanceIssues(parsed, input.step, input.context),
     webSearch,
@@ -668,13 +653,14 @@ export async function runWorkEvaluation(input: {
   guidance: StepGuidance;
   submissionText: string;
   submissionFilename?: string;
+  evidenceParts?: Array<{ type: "input_image"; image_url: string; detail?: "low" | "high" | "auto" } | { type: "input_file"; file_url: string; filename: string }>;
 }): Promise<PipelineResult<WorkEvaluation>> {
   try {
     const result = await generateStructuredOutput({
       stage: "work_evaluation",
       schema: WorkEvaluationSchema,
-      schemaName: `${input.context.project_track}_work_evaluation`,
-      systemPrompt: buildWorkEvaluationSystemPrompt(input.context.project_track),
+      schemaName: "universal_work_evaluation",
+      systemPrompt: buildWorkEvaluationSystemPrompt(),
       userPrompt: buildWorkEvaluationUserPrompt({
         step: input.step,
         guidance: input.guidance,
@@ -683,6 +669,7 @@ export async function runWorkEvaluation(input: {
       }),
       qualitySpec: WORK_EVALUATION_QUALITY_SPEC,
       qualityAllowedTerms: buildAllowedTerms(input.context),
+      evidenceParts: input.evidenceParts,
     });
 
     return {
@@ -707,6 +694,8 @@ export async function runWorkEvaluation(input: {
       clearest_gap: "Unable to assess at this time.",
       next_best_action: "Resubmit your work to get a complete evaluation.",
       ready_to_mark_complete: false,
+      evidence_reviewed: [input.submissionFilename ? `Submitted text labeled ${input.submissionFilename}` : "Submitted text"],
+      evidence_limitations: ["The evaluator failed before it could inspect the submission."],
     };
 
     return {
@@ -810,7 +799,7 @@ function formatPortfolioEvidence(input: PortfolioPipelineInput) {
   return [
     "Project:",
     `Title: ${input.project.title}`,
-    `Track: ${input.project.project_track}`,
+    `Project kind: ${input.project.project_kind_label}`,
     `Status: ${input.project.status}`,
     "",
     "Roadmap:",

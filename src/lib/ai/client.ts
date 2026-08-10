@@ -112,6 +112,10 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   webSearch?: WebSearchPolicy;
   qualitySpec?: FieldSpecMap;
   qualityAllowedTerms?: readonly string[];
+  evidenceParts?: Array<
+    | { type: "input_image"; image_url: string; detail?: "low" | "high" | "auto" }
+    | { type: "input_file"; file_url: string; filename: string }
+  >;
 }
 
 const GENERATION_VERSION = "responses-v7-content-aware-source-validation";
@@ -559,9 +563,9 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       lastPromptChars =
         input.systemPrompt.length + input.userPrompt.length + (repairFeedback ? repairFeedback.length : 0);
 
-      const messages: Array<{ role: "system" | "user"; content: string }> = [
+      const messages: Array<{ role: "system" | "user"; content: unknown }> = [
         { role: "system", content: input.systemPrompt },
-        { role: "user", content: input.userPrompt },
+        { role: "user", content: input.evidenceParts?.length ? [{ type: "input_text", text: input.userPrompt }, ...input.evidenceParts] : input.userPrompt },
       ];
 
       if (repairFeedback) {

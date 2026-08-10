@@ -3,7 +3,7 @@
 import type { FormEvent } from "react";
 import { useDeferredValue, useEffect, useState } from "react";
 import { CalendarScheduleRetryButton } from "@/components/calendar/calendar-schedule-retry-button";
-import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
+import { getPlanLabel } from "@/components/theme/theme-utils";
 import { Alert } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,7 @@ import type {
 import type { CalendarPageView, CalendarProjectView } from "@/lib/db/queries/calendar";
 import { toUserFacingError } from "@/lib/errors/user-messages";
 import { cn } from "@/lib/utils";
-import type { Plan, ProjectTrack } from "@/types/domain";
+import type { Plan } from "@/types/domain";
 
 const WEEKDAY_LABELS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"] as const;
 
@@ -51,7 +51,7 @@ interface CalendarPageClientProps {
 interface CalendarMutationProject {
   projectId: string;
   projectTitle: string;
-  projectTrack: ProjectTrack;
+  projectKindLabel: string;
   projectStatus: string;
   scheduledStartDate: string | null;
   scheduledEndDate: string | null;
@@ -197,29 +197,21 @@ function getUrgencyLabel(urgency: CalendarUrgency) {
   }
 }
 
-function getProjectSelection(
-  projects: ReadonlyArray<CalendarProjectView>,
-  visibleProjectIds: ReadonlyArray<string>,
-  track: ProjectTrack,
-) {
-  const visibleSet = new Set(visibleProjectIds);
-  return projects.filter((project) => project.projectTrack === track && visibleSet.has(project.projectId));
+const PROJECT_COLOR_CLASSES = [
+  { dot: "bg-teal-deep", selected: "border-teal-deep/30 bg-teal/10" },
+  { dot: "bg-coral", selected: "border-coral/30 bg-primary-soft" },
+  { dot: "bg-navy", selected: "border-navy/25 bg-navy/[0.06]" },
+  { dot: "bg-amber-500", selected: "border-amber-500/30 bg-amber-50" },
+] as const;
+function getProjectColor(projectId: string) {
+  const hash = Array.from(projectId).reduce((total, char) => (total * 31 + char.charCodeAt(0)) >>> 0, 0);
+  return PROJECT_COLOR_CLASSES[hash % PROJECT_COLOR_CLASSES.length];
 }
-
-function getTrackSummaryLabel(
-  projects: ReadonlyArray<CalendarProjectView>,
-  visibleProjectIds: ReadonlyArray<string>,
-  track: ProjectTrack,
-) {
-  const selectedCount = getProjectSelection(projects, visibleProjectIds, track).length;
-  return `${selectedCount}/2 visible`;
-}
-
-function getProjectButtonClassName(selected: boolean) {
+function getProjectButtonClassName(selected: boolean, projectId: string) {
   return cn(
     "relative w-full min-w-0 rounded-lg border px-4 py-3 text-left transition",
     selected
-      ? "z-10 border-primary/25 bg-primary-soft shadow-soft"
+      ? `z-10 shadow-soft ${getProjectColor(projectId).selected}`
       : "border-line bg-paper/70 hover:border-line-strong hover:bg-paper",
   );
 }
@@ -275,14 +267,9 @@ function toggleProjectId(
     return visibleProjectIds.filter((id) => id !== project.projectId);
   }
 
-  const trackVisibleIds = visibleProjectIds.filter((id) => {
-    const candidate = projects.find((entry) => entry.projectId === id);
-    return candidate?.projectTrack === project.projectTrack;
-  });
-
-  if (trackVisibleIds.length >= 2) {
-    const [oldestTrackSelection] = trackVisibleIds;
-    return [...visibleProjectIds.filter((id) => id !== oldestTrackSelection), project.projectId];
+  if (visibleProjectIds.length >= 4) {
+    const [oldestSelection] = visibleProjectIds;
+    return [...visibleProjectIds.filter((id) => id !== oldestSelection), project.projectId];
   }
 
   return [...visibleProjectIds, project.projectId];
@@ -292,7 +279,7 @@ function toCalendarProjectView(current: CalendarProjectView, update: CalendarMut
   return {
     ...current,
     projectTitle: update.projectTitle,
-    projectTrack: update.projectTrack,
+    projectKindLabel: update.projectKindLabel,
     projectStatus: update.projectStatus,
     scheduledStartDate: update.scheduledStartDate,
     scheduledEndDate: update.scheduledEndDate,
@@ -498,35 +485,29 @@ function DayCell({
   );
 }
 
-const TRACK_HISTORY_LIMIT = 2;
+const PROJECT_HISTORY_LIMIT = 6;
 
-function TrackSelector({
-  track,
+function ProjectSelector({
   projects,
   visibleProjectIds,
   expandedHistory,
   onToggleExpanded,
   onToggle,
 }: {
-  track: ProjectTrack;
   projects: CalendarProjectView[];
   visibleProjectIds: string[];
   expandedHistory: boolean;
   onToggleExpanded: () => void;
   onToggle: (project: CalendarProjectView) => void;
 }) {
-  const theme = trackThemes[track];
-  const displayedProjects = expandedHistory ? projects : projects.slice(0, TRACK_HISTORY_LIMIT);
-  const hiddenCount = projects.length - TRACK_HISTORY_LIMIT;
+  const displayedProjects = expandedHistory ? projects : projects.slice(0, PROJECT_HISTORY_LIMIT);
+  const hiddenCount = projects.length - PROJECT_HISTORY_LIMIT;
 
   return (
     <div className="min-w-0 space-y-3 rounded-xl border border-line bg-surface/50 p-4">
       <div className="flex min-w-0 items-center justify-between gap-3">
-        <div className="flex min-w-0 items-center gap-3">
-          <Badge tone={theme.badgeTone}>{theme.label}</Badge>
-          <span className="text-xs font-medium text-ink-muted">{getTrackSummaryLabel(projects, visibleProjectIds, track)}</span>
-        </div>
-        <span className="text-xs text-ink-muted">Swap which timelines stay in view.</span>
+        <span className="text-sm font-semibold text-ink">Project timelines</span>
+        <span className="text-xs font-medium text-ink-muted">{visibleProjectIds.length}/4 visible</span>
       </div>
 
       {projects.length > 0 ? (
@@ -538,12 +519,13 @@ function TrackSelector({
                 <button
                   key={project.projectId}
                   type="button"
-                  className={getProjectButtonClassName(selected)}
+                  className={getProjectButtonClassName(selected, project.projectId)}
                   onClick={() => onToggle(project)}
                 >
                   <div className="flex min-w-0 items-center justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-ink">{project.projectTitle}</p>
+                      <p className="flex items-center gap-2 truncate text-sm font-semibold text-ink"><span className={`h-2 w-2 shrink-0 rounded-full ${getProjectColor(project.projectId).dot}`} />{project.projectTitle}</p>
+                      <p className="mt-1 truncate text-xs font-medium text-primary">{project.projectKindLabel}</p>
                       <p className="mt-1 text-xs text-ink-muted">
                         {project.scheduleReady
                           ? `${project.items.length} calendar items`
@@ -569,7 +551,7 @@ function TrackSelector({
           ) : null}
         </div>
       ) : (
-        <p className="text-sm leading-6 text-ink-muted">No {track} projects have a roadmap yet.</p>
+        <p className="text-sm leading-6 text-ink-muted">No projects have a roadmap yet.</p>
       )}
     </div>
   );
@@ -590,8 +572,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
   const [deadlineMoveConfirmation, setDeadlineMoveConfirmation] = useState<DeadlineMoveConfirmation | null>(null);
   const [isSavingMove, setIsSavingMove] = useState(false);
   const [exportProjectId, setExportProjectId] = useState(initialData.visibleProjectIds[0] ?? initialData.projects[0]?.projectId ?? null);
-  const [expandedSoftwareHistory, setExpandedSoftwareHistory] = useState(false);
-  const [expandedResearchHistory, setExpandedResearchHistory] = useState(false);
+  const [expandedProjectHistory, setExpandedProjectHistory] = useState(false);
   const [exportStepsExpanded, setExportStepsExpanded] = useState(false);
   const [workSessionDraft, setWorkSessionDraft] = useState(() =>
     buildInitialWorkSessionDraft(initialData, initialData.today),
@@ -685,8 +666,6 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
         ?? null
       : null;
   const unscheduledProjects = visibleProjects.filter((project) => !project.scheduleReady);
-  const softwareProjects = data.projects.filter((project) => project.projectTrack === "software");
-  const researchProjects = data.projects.filter((project) => project.projectTrack === "research");
   const exportProject = visibleProjects.find((project) => project.projectId === exportProjectId)
     ?? data.projects.find((project) => project.projectId === exportProjectId)
     ?? visibleProjects[0]
@@ -1024,7 +1003,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                       <div key={project.projectId} className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-paper px-4 py-3">
                         <div>
                           <p className="text-sm font-semibold text-ink">{project.projectTitle}</p>
-                          <p className="text-xs text-ink-muted">{trackThemes[project.projectTrack].label} roadmap is ready, but dates are missing.</p>
+                          <p className="text-xs text-ink-muted">{project.projectKindLabel} roadmap is ready, but dates are missing.</p>
                         </div>
                         <CalendarScheduleRetryButton projectId={project.projectId} className="rounded-full" />
                       </div>
@@ -1038,28 +1017,19 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
               <div className="flex flex-wrap items-end justify-between gap-4">
                 <div className="space-y-2">
                   <p className="editorial-kicker">Visible projects</p>
-                  <h2 className="text-2xl font-semibold text-ink">Keep at most two software and two research projects in view.</h2>
+                  <h2 className="text-2xl font-semibold text-ink">Keep up to four projects in view.</h2>
                 </div>
                 <p className="max-w-xl text-sm leading-6 text-ink-soft">
                   Swap which timelines stay visible without turning the page into a cluttered project management wall.
                 </p>
               </div>
 
-              <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-                <TrackSelector
-                  track="software"
-                  projects={softwareProjects}
+              <div className="min-w-0">
+                <ProjectSelector
+                  projects={data.projects}
                   visibleProjectIds={visibleProjectIds}
-                  expandedHistory={expandedSoftwareHistory}
-                  onToggleExpanded={() => setExpandedSoftwareHistory((prev) => !prev)}
-                  onToggle={(project) => setVisibleProjectIds((current) => toggleProjectId(data.projects, current, project))}
-                />
-                <TrackSelector
-                  track="research"
-                  projects={researchProjects}
-                  visibleProjectIds={visibleProjectIds}
-                  expandedHistory={expandedResearchHistory}
-                  onToggleExpanded={() => setExpandedResearchHistory((prev) => !prev)}
+                  expandedHistory={expandedProjectHistory}
+                  onToggleExpanded={() => setExpandedProjectHistory((previous) => !previous)}
                   onToggle={(project) => setVisibleProjectIds((current) => toggleProjectId(data.projects, current, project))}
                 />
               </div>
@@ -1255,7 +1225,7 @@ export function CalendarPageClient({ initialData, plan, canExport }: CalendarPag
                       )}
                     >
                       <div className="flex flex-wrap items-center gap-2">
-                        <Badge tone={trackThemes[item.projectTrack].badgeTone}>{trackThemes[item.projectTrack].label}</Badge>
+                        <Badge tone="neutral"><span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${getProjectColor(item.projectId).dot}`} />{item.projectKindLabel}</Badge>
                         <Badge tone={getUrgencyTone(item.urgency)}>{getUrgencyLabel(item.urgency)}</Badge>
                         {item.isUserScheduledOverride ? <Badge tone="neutral">Manual move</Badge> : null}
                         {item.itemType === "work_session" && item.completedAt ? (

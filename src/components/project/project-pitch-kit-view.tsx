@@ -6,10 +6,9 @@ import type { ProjectWorkspaceView } from "@/lib/projects/workspace";
 
 export function ProjectPitchKitView({ workspace }: { workspace: ProjectWorkspaceView }) {
   const readmeDraft =
-    typeof workspace.roadmap?.readme_draft === "string" ? workspace.roadmap.readme_draft : "";
+    typeof workspace.roadmap?.project_overview_draft === "string" ? workspace.roadmap.project_overview_draft : "";
   const cachedReadme = workspace.githubLink?.cached_readme ?? "";
   const showReadmeDiff =
-    workspace.projectTrack === "software" &&
     workspace.githubLink?.status === "active" &&
     cachedReadme.trim().length > 0 &&
     readmeDraft.trim().length > 0 &&

@@ -21,8 +21,7 @@ export async function POST(request: Request) {
         user_id: user.id,
         full_name: payload.full_name,
         student_stage: payload.student_stage,
-        target_outcome: payload.target_outcome,
-        project_track: payload.project_track,
+        project_goal: payload.project_goal,
       },
       { onConflict: "user_id" },
     );

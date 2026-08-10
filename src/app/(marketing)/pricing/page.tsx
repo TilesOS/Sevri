@@ -45,7 +45,7 @@ const faqItems = [
 
 const freeFeatures = [
   `${freeGenerationLimit} idea board generations`,
-  "Both software and research tracks",
+  "Projects in any field",
   "4-step onboarding wizard",
   "Roadmap + step tracking",
 ];

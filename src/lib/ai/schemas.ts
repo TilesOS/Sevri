@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-export const ProjectTrackSchema = z.enum(["software", "research"]);
-
 export const RiskFlagSchema = z.enum([
   "too_ambitious",
   "too_vague",
@@ -16,70 +14,46 @@ export const SkillAssessmentSchema = z.enum(["beginner", "intermediate", "advanc
 
 export const DifficultySchema = z.enum(["beginner", "intermediate", "advanced"]);
 
-const CommonGenerationContextPayloadSchema = z.object({
+export const ProjectContextPayloadSchema = z.object({
   domain_brief: z.string().min(30),
   anchor_interests: z.array(z.string().min(2)).min(1).max(8),
   goal_signal: z.string().min(12),
+  success_definition: z.string().min(10),
   resource_snapshot: z.string().min(12),
+  preferred_formats: z.array(z.enum(["physical", "digital", "investigative", "creative", "community", "venture"])).max(6),
+  open_to_anything: z.boolean(),
+  existing_skills: z.array(z.string().min(1)).max(20),
+  field_practices: z.array(z.string().min(4)).min(1).max(6),
+  scope_risks: z.array(z.string().min(4)).min(1).max(6),
+  safety_ethics_considerations: z.array(z.string().min(4)).max(8),
   anti_generic_warnings: z.array(z.string().min(6)).min(2).max(6),
   scope_guardrails: z.array(z.string().min(3)).min(2).max(6),
   focus_signal: z.string().min(12),
-  target_outcome: z.string().min(3),
+  project_goal: z.string().min(3),
   constraints_summary: z.string().min(3),
   weekly_hours: z.number().int().min(1).max(80),
+  completion_date: z.string().nullable(),
   preferred_challenge: DifficultySchema,
 });
 
-const SoftwareGenerationContextPayloadSchema = CommonGenerationContextPayloadSchema.extend({
-  project_style_fit: z.string().min(8),
-  problem_lenses: z.array(z.string().min(4)).min(2).max(4),
-  delivery_bias: z.string().min(8),
-});
-
-const ResearchGenerationContextPayloadSchema = CommonGenerationContextPayloadSchema.extend({
-  research_readiness: z.string().min(8),
-  methodology_guidance: z.string().min(8),
-  viable_methodologies: z.array(z.string().min(4)).min(2).max(4),
-});
-
-export const SoftwareGenerationContextSchema = z.object({
-  project_track: z.literal("software"),
+export const GenerationContextSchema = z.object({
   summary: z.string().min(24),
   interpreted_interests: z.array(z.string().min(2)).min(1).max(8),
   skill_assessment: SkillAssessmentSchema,
   risk_flags: z.array(RiskFlagSchema).max(7),
-  track_payload_json: SoftwareGenerationContextPayloadSchema,
+  project_context_json: ProjectContextPayloadSchema,
 });
 
-export const ResearchGenerationContextSchema = z.object({
-  project_track: z.literal("research"),
-  summary: z.string().min(24),
-  interpreted_interests: z.array(z.string().min(2)).min(1).max(8),
-  skill_assessment: SkillAssessmentSchema,
-  risk_flags: z.array(RiskFlagSchema).max(7),
-  track_payload_json: ResearchGenerationContextPayloadSchema,
-});
+export const RepositoryRelevanceSchema = z.enum(["recommended", "optional", "not_needed"]);
 
-export const GenerationContextSchema = z.discriminatedUnion("project_track", [
-  SoftwareGenerationContextSchema,
-  ResearchGenerationContextSchema,
-]);
-
-const SoftwareOptionSeedSchema = z.object({
-  target_user: z.string().min(10).max(140),
-  problem_statement: z.string().min(16).max(220),
-  core_workflow: z.string().min(16).max(220),
-  mvp_boundary: z.string().min(16).max(220),
-  validation_plan: z.string().min(16).max(220),
-});
-
-const ResearchOptionSeedSchema = z.object({
-  research_question: z.string().min(16).max(220),
-  hypothesis_or_focus: z.string().min(16).max(220),
-  methodology: z.string().min(8).max(180),
-  evidence_plan: z.string().min(8).max(180),
-  scope_boundaries: z.string().min(12).max(220),
-  limitation_note: z.string().min(12).max(220),
+export const ProjectBlueprintSchema = z.object({
+  central_challenge: z.string().min(16).max(260),
+  approach: z.string().min(16).max(320),
+  primary_artifacts: z.array(z.string().min(3).max(140)).min(1).max(6),
+  proof_of_success: z.array(z.string().min(8).max(200)).min(2).max(6),
+  scope_boundary: z.string().min(16).max(260),
+  resources_needed: z.array(z.string().min(2).max(120)).min(1).max(8),
+  safety_ethics_notes: z.array(z.string().min(4).max(220)).max(8),
 });
 
 const BaseProjectOptionSchema = z.object({
@@ -87,28 +61,22 @@ const BaseProjectOptionSchema = z.object({
   title: z.string().min(5).max(120),
   summary: z.string().min(40).max(340),
   why_it_fits: z.string().min(24).max(360),
+  project_kind_label: z.string().min(3).max(80),
+  repository_relevance: RepositoryRelevanceSchema,
   difficulty: DifficultySchema,
   estimated_weeks: z.number().int().min(2).max(20),
   skills_demonstrated: z.array(z.string().min(2).max(60)).min(2).max(8),
   tools_needed: z.array(z.string().min(2).max(60)).min(2).max(8),
   impressiveness_score: z.number().int().min(1).max(10),
   finishability_score: z.number().int().min(1).max(10),
+  project_blueprint_json: ProjectBlueprintSchema,
+  grounding_sources: z.array(z.object({
+    title: z.string().min(2).max(160),
+    url: z.string().url().max(1000),
+  })).max(8).default([]),
 });
 
-export const SoftwareProjectOptionSchema = BaseProjectOptionSchema.extend({
-  project_track: z.literal("software"),
-  track_payload_json: SoftwareOptionSeedSchema,
-});
-
-export const ResearchProjectOptionSchema = BaseProjectOptionSchema.extend({
-  project_track: z.literal("research"),
-  track_payload_json: ResearchOptionSeedSchema,
-});
-
-export const ProjectOptionSchema = z.discriminatedUnion("project_track", [
-  SoftwareProjectOptionSchema,
-  ResearchProjectOptionSchema,
-]);
+export const ProjectOptionSchema = BaseProjectOptionSchema;
 
 export const RecommendationBatchSchema = z.object({
   recommendations: z.array(ProjectOptionSchema).length(3),
@@ -173,6 +141,12 @@ export const RoadmapOverviewSchema = z.object({
   project_title: z.string().min(5).max(140),
   short_overview: z.string().min(40).max(320),
   project_brief: z.string().min(60).max(600),
+  core_scope: z.string().min(30).max(600),
+  artifact_plan: z.array(z.object({
+    artifact: z.string().min(3).max(120),
+    purpose: z.string().min(12).max(240),
+  })).min(1).max(8),
+  project_overview_draft: z.string().min(80).max(1600),
   steps: z.array(RoadmapStepSchema).min(4).max(6),
   cut_if_behind: z.array(z.string().min(8).max(180)).min(1).max(4),
   success_criteria: z.array(z.string().min(8).max(180)).min(2).max(5),
@@ -228,6 +202,8 @@ export const WorkEvaluationSchema = z.object({
   ready_to_mark_complete: z.boolean(),
   confidence: z.enum(["high", "medium", "low"]).optional(),
   scope_assessment: ScopeAssessmentSchema.optional().nullable(),
+  evidence_reviewed: z.array(z.string().min(3).max(200)).min(1).max(12),
+  evidence_limitations: z.array(z.string().min(3).max(260)).max(12),
 });
 
 export const WorkPortfolioCurationSchema = z.object({
@@ -249,7 +225,6 @@ export const ResumeBulletsSchema = z.object({
   bullets: z.array(z.string().min(50).max(220)).min(2).max(4),
 });
 
-export type ProjectTrack = z.infer<typeof ProjectTrackSchema>;
 export type GenerationContext = z.infer<typeof GenerationContextSchema>;
 export type RecommendationBatch = z.infer<typeof RecommendationBatchSchema>;
 export type ProjectOption = z.infer<typeof ProjectOptionSchema>;

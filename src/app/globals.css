@@ -36,7 +36,6 @@
   --contrast: #0B1E4D;
   --contrast-soft: #10265C;
   --contrast-line: rgba(255, 253, 226, 0.14);
-  --contrast-grid-line: rgba(255, 253, 226, 0.06);
 
   /* Navy + cream (dark sections) */
   --navy: #0B1E4D;
@@ -231,13 +230,6 @@
 
   .ink-divider {
     background-image: linear-gradient(90deg, transparent, rgba(22, 20, 18, 0.24), transparent);
-  }
-
-  .contrast-grid {
-    background-image:
-      linear-gradient(var(--contrast-grid-line) 1px, transparent 1px),
-      linear-gradient(90deg, var(--contrast-grid-line) 1px, transparent 1px);
-    background-size: 24px 24px;
   }
 
   .muted-toggle-surface {
@@ -474,7 +466,7 @@
     margin-bottom: 8px;
   }
 
-  /* ── Coach card (dark contrast with grid overlay) ── */
+  /* ── Coach card (dark contrast) ── */
 
   .coach {
     background: var(--navy);

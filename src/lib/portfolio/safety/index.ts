@@ -15,6 +15,7 @@ export interface PublicPortfolioSafetyInput {
   summary: string;
   reflection: string;
   featuredSubmissionExcerpt: string;
+  featuredEvidenceText: string;
 }
 
 export interface SafetyResult {
@@ -35,6 +36,7 @@ const FIELD_LIMITS: Record<keyof PublicPortfolioSafetyInput, { min?: number; max
   summary: { min: 20, max: 1600 },
   reflection: { max: 6000 },
   featuredSubmissionExcerpt: { max: 300 },
+  featuredEvidenceText: { max: 6000 },
 };
 
 function excerptAround(text: string, index: number, length: number) {

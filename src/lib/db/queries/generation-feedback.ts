@@ -43,14 +43,13 @@ async function mapFeedbackRows(rows: FeedbackRow[]) {
   return rows.map((row) => toPromptFeedback(row, titles));
 }
 
-export async function getRecommendationFeedback(userId: string, projectTrack: "software" | "research", limit = 4) {
+export async function getRecommendationFeedback(userId: string, limit = 4) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("generation_feedback")
     .select("*")
     .eq("user_id", userId)
     .eq("stage", "recommendations")
-    .eq("project_track", projectTrack)
     .order("created_at", { ascending: false })
     .limit(limit);
 

@@ -1,155 +1,82 @@
 import {
   LearningResourceSchema,
   PitchKitSchema,
-  ResearchProjectOptionSchema,
+  ProjectOptionSchema,
   RoadmapOverviewSchema,
-  SoftwareProjectOptionSchema,
   type GenerationContext,
   type ProjectOption,
   type RoadmapOverview,
   type RoadmapStep,
 } from "./schemas.ts";
-import {
-  composePitchKitDraft,
-  composeScopeStatement,
-  formatTalkingPoint,
-  isUsableStoredCopy,
-  isUsableStoredCopyList,
-  toDeferralList,
-  type PitchKitContent,
-} from "../projects/pitch-kit.ts";
+import { formatTalkingPoint, toDeferralList } from "../projects/pitch-kit.ts";
 
 interface StoredRecommendationRow {
   id: string;
-  project_track: string;
   title: string;
   summary: string;
   rationale: string;
   difficulty: string;
   estimated_weeks: number;
+  project_kind_label: string;
+  repository_relevance: string;
   skills_demonstrated?: string[];
   tools_needed?: string[];
   impressiveness_score?: number;
   finishability_score?: number;
-  track_payload_json: unknown;
+  project_blueprint_json: unknown;
+  grounding_sources_json?: unknown;
 }
 
-function asString(value: unknown, fallback: string) {
-  return typeof value === "string" && value.trim().length > 0 ? value : fallback;
+function text(value: unknown, fallback: string) {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
-function coerceDifficulty(value: unknown) {
-  if (value === "advanced" || value === "intermediate" || value === "beginner") {
-    return value;
-  }
-
-  if (value === "intermediate_advanced") {
-    return "advanced";
-  }
-
-  if (value === "beginner_intermediate") {
-    return "beginner";
-  }
-
-  return "beginner";
+function strings(value: unknown, fallback: string[] = []) {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : fallback;
 }
 
-function isGeneratedPitchKitUsable(pitchKit: NonNullable<RoadmapOverview["pitch_kit"]>): boolean {
-  return (
-    isUsableStoredCopy(pitchKit.elevator_pitch) &&
-    isUsableStoredCopyList(pitchKit.resume_bullets) &&
-    isUsableStoredCopyList(pitchKit.talking_points.map((point) => formatTalkingPoint(point)))
-  );
-}
-
-/**
- * The pitch kit written by the model during roadmap generation, or a
- * deterministic draft when the roadmap predates the schema field or the
- * generated copy does not read cleanly. Drafts are flagged so the workspace can
- * label them.
- */
-function resolvePitchKit(input: {
-  context: GenerationContext;
-  selectedOption: ProjectOption;
-  roadmap: RoadmapOverview;
-}): PitchKitContent {
-  const generated = input.roadmap.pitch_kit;
-  // A generated kit that still trips the lint after its repair retries is
-  // replaced by the deterministic draft, so broken prose is never written.
-  if (generated && isGeneratedPitchKitUsable(generated)) {
-    return {
-      elevatorPitch: generated.elevator_pitch,
-      resumeBullets: generated.resume_bullets,
-      talkingPoints: generated.talking_points,
-      isDraft: false,
-    };
-  }
-
-  return composePitchKitDraft({
-    projectTrack: input.selectedOption.project_track,
-    projectTitle: input.roadmap.project_title,
-    seed: input.selectedOption.track_payload_json,
-    firstDeliverable: input.roadmap.steps[0]?.deliverable ?? null,
-    stepCount: input.roadmap.steps.length,
-    whyItFits: input.selectedOption.why_it_fits,
-  });
+function difficulty(value: unknown): "beginner" | "intermediate" | "advanced" {
+  return value === "advanced" || value === "intermediate" || value === "beginner" ? value : "beginner";
 }
 
 export function coerceStoredProjectOption(row: StoredRecommendationRow): ProjectOption {
-  const rawPayload = (row.track_payload_json && typeof row.track_payload_json === "object"
-    ? row.track_payload_json
-    : {}) as Record<string, unknown>;
-
-  if (row.project_track === "research") {
-    return ResearchProjectOptionSchema.parse({
-      id: row.id,
-      project_track: "research",
-      title: row.title,
-      summary: row.summary,
-      why_it_fits: row.rationale,
-      difficulty: coerceDifficulty(row.difficulty),
-      estimated_weeks: row.estimated_weeks,
-      skills_demonstrated: row.skills_demonstrated?.length ? row.skills_demonstrated : ["research design", "evidence synthesis"],
-      tools_needed: row.tools_needed?.length ? row.tools_needed : ["spreadsheet", "notes doc"],
-      impressiveness_score: typeof row.impressiveness_score === "number" ? row.impressiveness_score : 7,
-      finishability_score: typeof row.finishability_score === "number" ? row.finishability_score : 8,
-      track_payload_json: {
-        research_question: asString(rawPayload.research_question, "What is the key factor?"),
-        hypothesis_or_focus: asString(rawPayload.hypothesis_or_focus, "One factor has an outsized effect on the outcome."),
-        methodology: asString(rawPayload.methodology, "secondary data analysis"),
-        evidence_plan: asString(rawPayload.evidence_plan, "Use one accessible dataset."),
-        scope_boundaries: asString(rawPayload.scope_boundaries, "Limit to one factor and one dataset."),
-        limitation_note: asString(rawPayload.limitation_note, "Findings are correlational within the chosen dataset."),
-      },
-    });
-  }
-
-  return SoftwareProjectOptionSchema.parse({
+  const blueprint = row.project_blueprint_json && typeof row.project_blueprint_json === "object"
+    ? row.project_blueprint_json as Record<string, unknown>
+    : {};
+  const sources = Array.isArray(row.grounding_sources_json) ? row.grounding_sources_json : [];
+  return ProjectOptionSchema.parse({
     id: row.id,
-    project_track: "software",
     title: row.title,
     summary: row.summary,
     why_it_fits: row.rationale,
-    difficulty: coerceDifficulty(row.difficulty),
+    project_kind_label: row.project_kind_label,
+    repository_relevance: row.repository_relevance,
+    difficulty: difficulty(row.difficulty),
     estimated_weeks: row.estimated_weeks,
-    skills_demonstrated: row.skills_demonstrated?.length ? row.skills_demonstrated : ["product scoping", "workflow design"],
-    tools_needed: row.tools_needed?.length ? row.tools_needed : ["TypeScript", "React"],
-    impressiveness_score: typeof row.impressiveness_score === "number" ? row.impressiveness_score : 7,
-    finishability_score: typeof row.finishability_score === "number" ? row.finishability_score : 8,
-    track_payload_json: {
-      target_user: asString(rawPayload.target_user, "users of this tool"),
-      problem_statement: asString(rawPayload.problem_statement, "Users need a better workflow."),
-      core_workflow: asString(rawPayload.core_workflow, "Complete the core task end to end."),
-      mvp_boundary: asString(rawPayload.mvp_boundary, "One workflow, one input type, one output format."),
-      validation_plan: asString(rawPayload.validation_plan, "Test the workflow on realistic inputs."),
+    skills_demonstrated: row.skills_demonstrated?.length ? row.skills_demonstrated : ["project scoping", "evidence communication"],
+    tools_needed: row.tools_needed?.length ? row.tools_needed : ["planning workspace", "documentation tools"],
+    impressiveness_score: row.impressiveness_score ?? 7,
+    finishability_score: row.finishability_score ?? 8,
+    project_blueprint_json: {
+      central_challenge: text(blueprint.central_challenge, "Complete one meaningful challenge within the available time."),
+      approach: text(blueprint.approach, "Make a small first version, test it, and document what changed."),
+      primary_artifacts: strings(blueprint.primary_artifacts, ["A finished core artifact"]),
+      proof_of_success: strings(blueprint.proof_of_success, ["The core artifact is complete and reviewable", "The student can explain the choices behind it"]),
+      scope_boundary: text(blueprint.scope_boundary, "One central challenge and the artifacts required to prove it."),
+      resources_needed: strings(blueprint.resources_needed, ["Student-accessible tools and materials"]),
+      safety_ethics_notes: strings(blueprint.safety_ethics_notes),
     },
+    grounding_sources: sources,
   });
 }
 
 export function buildRoadmapOverviewFromStorage(input: {
   projectTitle: string;
   roadmapOverview: string;
-  trackPayloadJson?: unknown;
+  roadmapContextJson?: unknown;
+  coreScope?: string | null;
+  artifactPlan?: unknown;
+  projectOverviewDraft?: string | null;
   milestones: Array<{
     order_index: number;
     title: string;
@@ -159,65 +86,41 @@ export function buildRoadmapOverviewFromStorage(input: {
     rough_time_estimate?: string | null;
   }>;
 }): RoadmapOverview {
-  const payload = (input.trackPayloadJson && typeof input.trackPayloadJson === "object"
-    ? input.trackPayloadJson
-    : {}) as Record<string, unknown>;
-
-  const storedProjectBrief = asString(
-    payload.project_brief,
-    `${input.projectTitle} is a focused project. ${input.roadmapOverview}`,
-  );
-  const storedCutIfBehind = Array.isArray(payload.cut_if_behind)
-    ? (payload.cut_if_behind as unknown[]).filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-    : [];
-  const storedSuccessCriteria = Array.isArray(payload.success_criteria)
-    ? (payload.success_criteria as unknown[]).filter((v): v is string => typeof v === "string" && v.trim().length > 0)
-    : [];
-  const storedSteps = Array.isArray(payload.steps) ? (payload.steps as Record<string, unknown>[]) : [];
-  const storedLearningResources = Array.isArray(payload.learning_resources)
+  const payload = input.roadmapContextJson && typeof input.roadmapContextJson === "object"
+    ? input.roadmapContextJson as Record<string, unknown>
+    : {};
+  const storedSteps = Array.isArray(payload.steps) ? payload.steps as Record<string, unknown>[] : [];
+  const resources = Array.isArray(payload.learning_resources)
     ? payload.learning_resources.flatMap((resource) => {
         const parsed = LearningResourceSchema.safeParse(resource);
         return parsed.success ? [parsed.data] : [];
       })
     : [];
-
-  const steps = input.milestones.map((milestone) => {
-    const storedStep = storedSteps.find(
-      (s) => typeof s.order_index === "number" && s.order_index === milestone.order_index,
-    );
-
-    return {
-      order_index: milestone.order_index,
-      title: milestone.title,
-      objective: asString(milestone.objective, asString(milestone.description, "Complete the work for this step.")),
-      deliverable: asString(milestone.deliverable, "A concrete output for this step"),
-      rough_time_estimate: asString(milestone.rough_time_estimate, "About 1 week"),
-      validation_check: asString(
-        storedStep?.validation_check,
-        `The deliverable for "${milestone.title}" is complete and reviewable.`,
-      ),
-      scope_guardrail: asString(
-        storedStep?.scope_guardrail,
-        "Stay focused on this step's deliverable — do not expand scope.",
-      ),
-    };
-  });
+  const artifactPlan = Array.isArray(input.artifactPlan) ? input.artifactPlan : [];
 
   return RoadmapOverviewSchema.parse({
     project_title: input.projectTitle,
     short_overview: input.roadmapOverview,
-    project_brief: storedProjectBrief,
-    steps,
-    cut_if_behind: storedCutIfBehind.length > 0 ? storedCutIfBehind : ["Defer stretch features until the core is solid"],
-    success_criteria: storedSuccessCriteria.length > 0 ? storedSuccessCriteria : [
-      "The core deliverable is complete and reviewable",
-      "You can explain the work and the decisions behind it",
-    ],
-    // Roadmaps stored before the pitch kit existed simply have none; the
-    // workspace composes a labeled draft in that case. A malformed stored kit is
-    // dropped rather than failing the whole roadmap rehydration.
+    project_brief: text(payload.project_brief, `${input.projectTitle} is a focused, finishable project. ${input.roadmapOverview}`),
+    core_scope: input.coreScope || text(payload.core_scope, "Complete the primary artifact and collect observable evidence that it works."),
+    artifact_plan: artifactPlan.length ? artifactPlan : [{ artifact: "Core project artifact", purpose: "Make the central challenge visible and reviewable." }],
+    project_overview_draft: input.projectOverviewDraft || text(payload.project_overview_draft, `${input.projectTitle} turns a specific interest into a finished artifact with a clear proof of success.`),
+    steps: input.milestones.map((milestone) => {
+      const stored = storedSteps.find((step) => step.order_index === milestone.order_index);
+      return {
+        order_index: milestone.order_index,
+        title: milestone.title,
+        objective: text(milestone.objective, text(milestone.description, "Complete the work for this step.")),
+        deliverable: text(milestone.deliverable, "A concrete output for this step"),
+        rough_time_estimate: text(milestone.rough_time_estimate, "About 1 week"),
+        validation_check: text(stored?.validation_check, `The deliverable for ${milestone.title} is complete and reviewable.`),
+        scope_guardrail: text(stored?.scope_guardrail, "Stay focused on this step's deliverable."),
+      };
+    }),
+    cut_if_behind: strings(payload.cut_if_behind, ["Optional polish beyond the core proof loop"]),
+    success_criteria: strings(payload.success_criteria, ["The core artifact is complete and reviewable", "The student can explain the work and its limitations"]),
     pitch_kit: PitchKitSchema.safeParse(payload.pitch_kit).data ?? null,
-    learning_resources: storedLearningResources.length >= 3 ? storedLearningResources : null,
+    learning_resources: resources.length >= 3 ? resources : null,
   });
 }
 
@@ -226,42 +129,23 @@ export function buildRoadmapStorageArtifacts(input: {
   selectedOption: ProjectOption;
   roadmap: RoadmapOverview;
 }) {
-  const stepLines = input.roadmap.steps
-    .map((step) => `- ${step.title}: ${step.deliverable} (${step.rough_time_estimate})`)
-    .join("\n");
-  const pitchKit = resolvePitchKit(input);
-
+  const pitchKit = input.roadmap.pitch_kit;
   return {
-    mvpScope: composeScopeStatement({
-      projectTrack: input.selectedOption.project_track,
-      seed: input.selectedOption.track_payload_json,
-    }),
-    repoStructure:
-      input.selectedOption.project_track === "research"
-        ? [
-            { path: "notes/question-brief.md", purpose: "Lock the question, scope boundaries, and success criteria." },
-            { path: "analysis/workspace.md", purpose: "Track the evidence plan, analysis steps, and findings." },
-            { path: "deliverables/final-brief.md", purpose: "Package the final narrative, visuals, and limitations." },
-          ]
-        : [
-            { path: "src/app/page.tsx", purpose: "Primary demo surface for the core workflow." },
-            { path: "src/lib/core.ts", purpose: "Core workflow logic and validation rules." },
-            { path: "docs/demo-script.md", purpose: "Narrative for demoing the product and its proof of value." },
-          ],
-    readmeDraft: `# ${input.roadmap.project_title}\n\n## Overview\n${input.roadmap.short_overview}\n\n## Roadmap\n${stepLines}\n`,
+    coreScope: input.roadmap.core_scope,
+    artifactPlan: input.roadmap.artifact_plan,
+    projectOverviewDraft: input.roadmap.project_overview_draft,
     stretchGoals: toDeferralList(input.roadmap.cut_if_behind),
     explanationGuide: {
-      elevator_pitch: pitchKit.elevatorPitch,
-      resume_bullets: pitchKit.resumeBullets,
-      // Stored as "Label: body" strings, the one shape the workspace reads.
-      // The structured form lives on `track_payload_json.pitch_kit`.
-      interview_talking_points: pitchKit.talkingPoints.map((point) => formatTalkingPoint(point)),
-      // Lets the workspace label deterministic drafts and leave model-written
-      // copy alone, without re-linting on every page load.
-      source: pitchKit.isDraft ? "draft" : "model",
+      elevator_pitch: pitchKit?.elevator_pitch ?? input.roadmap.project_overview_draft,
+      resume_bullets: pitchKit?.resume_bullets ?? [],
+      interview_talking_points: pitchKit?.talking_points.map((point) => formatTalkingPoint(point)) ?? [],
+      source: pitchKit ? "model" : "draft",
     },
-    trackPayloadJson: {
+    roadmapContextJson: {
       project_brief: input.roadmap.project_brief,
+      core_scope: input.roadmap.core_scope,
+      artifact_plan: input.roadmap.artifact_plan,
+      project_overview_draft: input.roadmap.project_overview_draft,
       steps: input.roadmap.steps.map((step) => ({
         order_index: step.order_index,
         validation_check: step.validation_check,
@@ -269,8 +153,7 @@ export function buildRoadmapStorageArtifacts(input: {
       })),
       cut_if_behind: input.roadmap.cut_if_behind,
       success_criteria: input.roadmap.success_criteria,
-      selected_option_seed: input.selectedOption.track_payload_json,
-      project_track: input.selectedOption.project_track,
+      selected_project_blueprint: input.selectedOption.project_blueprint_json,
       pitch_kit: input.roadmap.pitch_kit ?? null,
       learning_resources: input.roadmap.learning_resources ?? [],
       focus_summary: input.context.summary,

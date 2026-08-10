@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -90,6 +91,7 @@ export default async function PublicPortfolioPage({
               </p>
             </Card>
           ) : null}
+          {page.featuredArtifacts.length ? <Card className="space-y-4"><p className="editorial-kicker">Featured evidence</p><div className="grid gap-4 sm:grid-cols-2">{page.featuredArtifacts.map((artifact) => <figure key={artifact.id} className="overflow-hidden rounded-2xl border border-line bg-canvas">{artifact.mimeType?.startsWith("image/") ? <Image unoptimized src={artifact.url} alt={artifact.altText} width={800} height={600} className="aspect-[4/3] w-full object-cover" /> : <div className="grid aspect-[4/3] place-items-center bg-surface p-5 text-center text-sm font-semibold text-ink-soft">{artifact.displayName}</div>}<figcaption className="space-y-2 p-4"><p className="text-sm font-semibold text-ink">{artifact.displayName}</p><p className="text-xs leading-5 text-ink-muted">{artifact.caption}</p><a href={artifact.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-teal-deep hover:underline">Open evidence</a></figcaption></figure>)}</div></Card> : null}
         </section>
 
         <footer className="mt-auto border-t border-line py-5 text-sm font-semibold text-ink-muted">

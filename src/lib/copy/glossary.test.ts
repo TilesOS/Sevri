@@ -49,7 +49,6 @@ test("no label reintroduces a retired term", () => {
   for (const label of labels) {
     assert.ok(!/milestone/i.test(label), `"${label}" should say step, not milestone`);
     assert.ok(!/presentation/i.test(label), `"${label}" should say Pitch Kit, not Presentation`);
-    assert.ok(!/research lens/i.test(label), `"${label}" should say Project Lens`);
   }
 });
 

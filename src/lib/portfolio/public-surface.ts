@@ -21,5 +21,9 @@ export function buildPublicSafetyInput(
     summary: view.summary,
     reflection: view.entry.student_reflection ?? "",
     featuredSubmissionExcerpt: getPublicFeaturedSubmissionExcerpt(view),
+    featuredEvidenceText: view.artifacts
+      .filter((artifact) => view.featuredArtifactIds.includes(artifact.id))
+      .map((artifact) => [artifact.caption, artifact.alt_text].filter(Boolean).join(" — "))
+      .join("\n"),
   };
 }

@@ -3,7 +3,7 @@
  *
  * The sidebar, the breadcrumb trail, page headings, and `<title>` used to each
  * pick their own wording for the same thing — "Presentation" vs "Pitch kit",
- * "Scope" vs "Scope & Guardrails", "Research Lens" on software projects. Every
+ * "Scope" vs "Scope & Guardrails", or different names for the project lens. Every
  * surface now reads its label from here, so a rename lands everywhere at once.
  */
 
@@ -11,7 +11,6 @@
 export const PROJECT_SECTION_LABELS = {
   overview: "Overview",
   scope: "Scope & Guardrails",
-  /** Both tracks: the software lens is a user/problem lens, not a research one. */
   lens: "Project Lens",
   pitchKit: "Pitch Kit",
   resources: "Learning Resources",

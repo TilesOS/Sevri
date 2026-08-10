@@ -114,7 +114,7 @@ async function auditRecommendations(limit: number): Promise<Finding[]> {
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from("project_recommendations")
-    .select("id, title, summary, rationale, authenticity_note, track_payload_json")
+    .select("id, title, summary, rationale, authenticity_note, project_blueprint_json")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -134,7 +134,7 @@ async function auditRecommendations(limit: number): Promise<Finding[]> {
       "prose",
     );
 
-    const seed = asRecord(row.track_payload_json);
+    const seed = asRecord(row.project_blueprint_json);
     for (const key of Object.keys(seed)) {
       record(findings, "project_recommendations", row.id, `seed.${key}`, seed[key], "prose");
     }
@@ -164,7 +164,7 @@ async function auditRoadmaps(limit: number): Promise<Finding[]> {
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from("project_roadmaps")
-    .select("id, overview, mvp_scope, stretch_goals, explanation_guide, track_payload_json")
+    .select("id, overview, core_scope, stretch_goals, explanation_guide, roadmap_context_json")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -173,7 +173,7 @@ async function auditRoadmaps(limit: number): Promise<Finding[]> {
   const findings: Finding[] = [];
   for (const row of data ?? []) {
     record(findings, "project_roadmaps", row.id, "overview", row.overview, "prose");
-    record(findings, "project_roadmaps", row.id, "mvp_scope", row.mvp_scope, "prose");
+    record(findings, "project_roadmaps", row.id, "core_scope", row.core_scope, "prose");
     recordList(findings, "project_roadmaps", row.id, "stretch_goals", row.stretch_goals, "bullet");
 
     const guide = asRecord(row.explanation_guide);
@@ -188,7 +188,7 @@ async function auditRoadmaps(limit: number): Promise<Finding[]> {
       "prose",
     );
 
-    const payload = asRecord(row.track_payload_json);
+    const payload = asRecord(row.roadmap_context_json);
     record(findings, "project_roadmaps", row.id, "project_brief", payload.project_brief, "prose");
     recordList(findings, "project_roadmaps", row.id, "cut_if_behind", payload.cut_if_behind, "bullet");
     recordList(
@@ -249,7 +249,7 @@ async function auditNormalizedProfiles(limit: number): Promise<Finding[]> {
   const supabase = createAdminSupabaseClient();
   const { data, error } = await supabase
     .from("normalized_profiles")
-    .select("id, summary, track_payload_json")
+    .select("id, summary, project_context_json")
     .order("created_at", { ascending: false })
     .limit(limit);
 
@@ -258,7 +258,7 @@ async function auditNormalizedProfiles(limit: number): Promise<Finding[]> {
   const findings: Finding[] = [];
   for (const row of data ?? []) {
     record(findings, "normalized_profiles", row.id, "summary", row.summary, "prose");
-    const payload = asRecord(row.track_payload_json);
+    const payload = asRecord(row.project_context_json);
     record(
       findings,
       "normalized_profiles",

@@ -35,7 +35,7 @@ export default function TermsPage() {
             <h2 className="text-lg font-semibold text-ink">The service</h2>
             <p>
               Sevri is a coaching and planning tool that helps students choose, scope, and finish meaningful
-              software and research projects. It generates recommendations, roadmaps, step-by-step guidance,
+              student projects in any field. It generates recommendations, roadmaps, step-by-step guidance,
               evaluations, and portfolio materials. This guidance is provided for educational purposes and is
               not a guarantee of any particular academic, career, admission, hiring, or project outcome.
             </p>

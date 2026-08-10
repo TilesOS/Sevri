@@ -177,8 +177,7 @@ export async function upsertReviewerProfile(userId: string): Promise<void> {
     user_id: userId,
     full_name: null,
     student_stage: null,
-    target_outcome: null,
-    project_track: "software",
+    project_goal: null,
     user_role: "reviewer",
   });
 

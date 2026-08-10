@@ -3,7 +3,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export interface ProjectSelectionResult {
   id: string;
   title: string;
-  project_track: string;
+  project_kind_label: string;
+  repository_relevance: string;
   outcome: "created" | "replayed" | "duplicate";
 }
 
@@ -33,14 +34,16 @@ export async function selectProjectFromRecommendation(
   const row = data as {
     project_id: string;
     project_title: string;
-    project_track: string;
+    project_kind_label: string;
+    repository_relevance: string;
     selection_outcome: ProjectSelectionResult["outcome"];
   };
 
   return {
     id: row.project_id,
     title: row.project_title,
-    project_track: row.project_track,
+    project_kind_label: row.project_kind_label,
+    repository_relevance: row.repository_relevance,
     outcome: row.selection_outcome,
   };
 }

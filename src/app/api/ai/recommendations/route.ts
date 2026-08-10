@@ -13,7 +13,7 @@ import { getRouteGenerationMetadata, getWeeklyHoursForStorage, runOptionsGenerat
 import { getGenerationFailureMessage, getGenerationFailureStatus } from "@/lib/ai/client";
 import { withProfileIdentity } from "@/lib/ai/intake-identity";
 import { getProfileIdentity } from "@/lib/db/queries/profile";
-import { getRecommendationGenerationCount, getLatestProjectTrack } from "@/lib/db/queries/recommendations";
+import { getRecommendationGenerationCount } from "@/lib/db/queries/recommendations";
 import { getRecommendationFeedback } from "@/lib/db/queries/generation-feedback";
 import { getUserPlan } from "@/lib/db/queries/subscriptions";
 import { getGenerationLimit } from "@/lib/usage/limits";
@@ -25,9 +25,7 @@ import { toStudentVoice } from "@/lib/text/student-voice";
 
 export const runtime = "nodejs";
 
-const bodySchema = z.object({
-  project_track: z.enum(["software", "research"]).optional(),
-});
+const bodySchema = z.object({});
 
 function getErrorDetails(error: unknown) {
   if (error instanceof Error) {
@@ -76,11 +74,9 @@ export async function POST(request: Request) {
     }
     rateLimitReservationId = rateLimit.reservationId;
 
-    stage = "load-plan-and-track";
-    const [plan, defaultTrack] = await Promise.all([
-      getUserPlan(user.id),
-      getLatestProjectTrack(user.id),
-    ]);
+    void body;
+    stage = "load-plan";
+    const plan = await getUserPlan(user.id);
     const generationLimit = getGenerationLimit(plan);
     let generationsUsedAfterSuccess: number;
 
@@ -116,36 +112,31 @@ export async function POST(request: Request) {
       generationsUsedAfterSuccess = entitlement.generationsUsed;
     }
 
-    const activeTrack = body.project_track ?? defaultTrack;
-
     stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();
 
     stage = "fetch-intake";
     const { data: intake, error: intakeError } = await supabase
       .from("intakes")
-      .select("id, raw_answers_json, project_track")
+      .select("id, raw_answers_json")
       .eq("user_id", user.id)
-      .eq("project_track", activeTrack)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (intakeError || !intake) {
-      return NextResponse.json({ error: `Complete ${activeTrack} onboarding first` }, { status: 400 });
+      return NextResponse.json({ error: "Complete onboarding first" }, { status: 400 });
     }
 
     stage = "load-feedback";
-    const feedback = await getRecommendationFeedback(user.id, activeTrack);
+    const feedback = await getRecommendationFeedback(user.id);
 
     stage = "resolve-profile-identity";
-    // Stage comes from the profile, not from this track's saved intake, so both
-    // tracks describe the same student.
+    // Stage comes from the profile rather than stale intake history.
     const identity = await getProfileIdentity(user.id).catch(() => ({ studentStage: null }));
 
     stage = "normalize-context";
     const normalized = await runProfileNormalization({
-      projectTrack: intake.project_track === "research" ? "research" : "software",
       rawIntake: withProfileIdentity((intake.raw_answers_json as Record<string, unknown>) ?? {}, identity),
       feedback,
     });
@@ -157,12 +148,11 @@ export async function POST(request: Request) {
       .insert({
         user_id: user.id,
         intake_id: intake.id,
-        project_track: context.project_track,
         summary: context.summary,
         interpreted_interests: context.interpreted_interests,
         skill_assessment: context.skill_assessment,
         risk_flags: context.risk_flags,
-        track_payload_json: context.track_payload_json,
+        project_context_json: context.project_context_json,
         raw_model_output_json: {
           context,
           response: normalized.raw,
@@ -186,7 +176,8 @@ export async function POST(request: Request) {
       user_id: user.id,
       intake_id: intake.id,
       normalized_profile_id: contextSnapshot.id,
-      project_track: recommendation.project_track,
+      project_kind_label: recommendation.project_kind_label,
+      repository_relevance: recommendation.repository_relevance,
       title: recommendation.title,
       summary: recommendation.summary,
       rationale: recommendation.why_it_fits,
@@ -200,7 +191,8 @@ export async function POST(request: Request) {
       // Shown on the idea board, so it is stored addressed to the student rather
       // than as the pipeline-facing third-person summary.
       authenticity_note: asSentence(toStudentVoice(context.summary)),
-      track_payload_json: recommendation.track_payload_json,
+      project_blueprint_json: recommendation.project_blueprint_json,
+      grounding_sources_json: recommendation.grounding_sources,
       raw_model_output_json: {
         recommendation,
         response: generated.raw,
@@ -245,7 +237,7 @@ export async function POST(request: Request) {
     void trackEvent(user.id, "recommendations_generated", {
       count: insertedRecommendations?.length ?? 0,
       normalized_profile_id: contextSnapshot.id,
-      project_track: activeTrack,
+      open_to_anything: context.project_context_json.open_to_anything,
       ...routeMetadata,
     }).catch((trackError) => {
       console.error("recommendations track failed", { stage, error: trackError });
@@ -257,14 +249,14 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       {
-        project_track: activeTrack,
         normalized_profile_id: contextSnapshot.id,
         generations_used: generationsUsedAfterSuccess,
         generation_limit: generationLimit,
         recommendations: (insertedRecommendations ?? []).map((recommendation) => ({
           id: recommendation.id,
           normalized_profile_id: recommendation.normalized_profile_id,
-          project_track: recommendation.project_track === "research" ? "research" : "software",
+          project_kind_label: recommendation.project_kind_label,
+          repository_relevance: recommendation.repository_relevance,
           title: recommendation.title,
           summary: recommendation.summary,
           why_it_fits: recommendation.rationale,
@@ -276,7 +268,8 @@ export async function POST(request: Request) {
           impressiveness_score: recommendation.impressiveness_score,
           finishability_score: recommendation.finishability_score,
           authenticity_note: recommendation.authenticity_note,
-          track_payload_json: recommendation.track_payload_json,
+          project_blueprint_json: recommendation.project_blueprint_json,
+          grounding_sources: recommendation.grounding_sources_json,
         })),
         timings: routeMetadata,
       },

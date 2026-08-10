@@ -52,7 +52,7 @@ export function welcomeEmailTemplate(fullName: string, siteUrl: string): EmailTe
     ...layout({
       title: "Welcome to Sevri",
       preview,
-      body: `<p style="font-size:15px;line-height:1.7;">Hey ${name},</p><p style="font-size:15px;line-height:1.7;">Your workspace is ready. Sevri will help you choose a realistic software or research project, turn it into a roadmap, and keep moving one useful step at a time.</p>${action(`${siteUrl}/onboarding`, "Continue in Sevri")}`,
+      body: `<p style="font-size:15px;line-height:1.7;">Hey ${name},</p><p style="font-size:15px;line-height:1.7;">Your workspace is ready. Sevri will help you choose a realistic project in any field, turn it into a roadmap, and keep moving one useful step at a time.</p>${action(`${siteUrl}/onboarding`, "Continue in Sevri")}`,
       text: `Hey ${fullName || "there"},\n\nYour workspace is ready. Sevri will help you choose a realistic project, turn it into a roadmap, and keep moving one useful step at a time.\n\nContinue: ${siteUrl}/onboarding`,
     }),
   };
@@ -66,7 +66,7 @@ export function activationEmailTemplate(args: {
   const day3 = args.day === 3;
   const title = day3 ? "Want help choosing a project?" : "Your project can start small";
   const copy = day3
-    ? "A few focused answers are enough for Sevri to suggest realistic software or research directions based on your interests, time, and goals."
+    ? "A few focused answers are enough for Sevri to suggest realistic project directions based on your interests, time, resources, and goals."
     : "You do not need the perfect idea before you begin. Pick a direction that feels useful, then let the roadmap turn it into manageable steps.";
   return {
     subject: day3 ? "A project direction built around you" : "Start with one believable project",

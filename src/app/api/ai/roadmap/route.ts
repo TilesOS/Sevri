@@ -42,10 +42,6 @@ function getErrorDetails(error: unknown) {
   }
 }
 
-function asProjectTrack(value: unknown): "software" | "research" {
-  return value === "research" ? "research" : "software";
-}
-
 export async function POST(request: Request) {
   const routeStartedAt = performance.now();
   let stage = "start";
@@ -86,7 +82,7 @@ export async function POST(request: Request) {
     stage = "fetch-project";
     const { data: project, error: projectError } = await supabase
       .from("projects")
-      .select("id, title, recommendation_id, project_track")
+      .select("id, title, recommendation_id, project_kind_label")
       .eq("id", body.project_id)
       .eq("user_id", user.id)
       .single();
@@ -110,7 +106,7 @@ export async function POST(request: Request) {
     stage = "fetch-context";
     const { data: contextRow, error: profileError } = await supabase
       .from("normalized_profiles")
-      .select("summary, interpreted_interests, skill_assessment, risk_flags, project_track, track_payload_json")
+      .select("summary, interpreted_interests, skill_assessment, risk_flags, project_context_json")
       .eq("id", recommendation.normalized_profile_id)
       .eq("user_id", user.id)
       .single();
@@ -124,19 +120,20 @@ export async function POST(request: Request) {
       interpreted_interests: contextRow.interpreted_interests,
       skill_assessment: contextRow.skill_assessment,
       risk_flags: contextRow.risk_flags,
-      project_track: contextRow.project_track,
-      track_payload_json: contextRow.track_payload_json,
+      project_context_json: contextRow.project_context_json,
     });
 
     const selectedOption = coerceStoredProjectOption({
       id: recommendation.id,
-      project_track: recommendation.project_track,
+      project_kind_label: recommendation.project_kind_label,
+      repository_relevance: recommendation.repository_relevance,
       title: recommendation.title,
       summary: recommendation.summary,
       rationale: recommendation.rationale,
       difficulty: recommendation.difficulty,
       estimated_weeks: recommendation.estimated_weeks,
-      track_payload_json: recommendation.track_payload_json,
+      project_blueprint_json: recommendation.project_blueprint_json,
+      grounding_sources_json: recommendation.grounding_sources_json,
     });
 
     stage = "load-feedback";
@@ -159,8 +156,6 @@ export async function POST(request: Request) {
       selectedOption,
       roadmap: generated.parsed,
     });
-    const projectTrack = asProjectTrack(project.project_track ?? recommendation.project_track ?? context.project_track);
-
     stage = "upsert-roadmap";
     const scheduleTimezone = normalizeTimeZone(body.timezone);
     const { data: roadmap, error: roadmapError } = await supabase
@@ -168,14 +163,13 @@ export async function POST(request: Request) {
       .upsert(
         {
           project_id: project.id,
-          project_track: projectTrack,
           overview: generated.parsed.short_overview,
-          mvp_scope: storageArtifacts.mvpScope,
-          repo_structure: storageArtifacts.repoStructure,
-          readme_draft: storageArtifacts.readmeDraft,
+          core_scope: storageArtifacts.coreScope,
+          artifact_plan: storageArtifacts.artifactPlan,
+          project_overview_draft: storageArtifacts.projectOverviewDraft,
           stretch_goals: storageArtifacts.stretchGoals,
           explanation_guide: storageArtifacts.explanationGuide,
-          track_payload_json: storageArtifacts.trackPayloadJson,
+          roadmap_context_json: storageArtifacts.roadmapContextJson,
           scheduled_start_date: null,
           scheduled_end_date: null,
           schedule_timezone: scheduleTimezone,
@@ -244,7 +238,6 @@ export async function POST(request: Request) {
         })),
         estimatedWeeks: recommendation.estimated_weeks,
         weeklyHours: recommendation.weekly_hours,
-        projectTrack,
         timeZone: scheduleTimezone,
       });
 
@@ -296,7 +289,7 @@ export async function POST(request: Request) {
     void trackEvent(user.id, "roadmap_generated", {
       project_id: project.id,
       roadmap_id: roadmap.id,
-      project_track: projectTrack,
+      project_kind_label: project.project_kind_label,
       schedule_ready: scheduleReady,
       ...routeMetadata,
     }).catch((trackError) => {
@@ -328,7 +321,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         roadmap_id: roadmap.id,
-        project_track: projectTrack,
+        project_kind_label: project.project_kind_label,
         schedule_ready: scheduleReady,
         timings: routeMetadata,
         ...(generated.citations.length > 0 ? { citations: generated.citations } : {}),

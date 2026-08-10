@@ -69,7 +69,7 @@ export function GithubIntegrationCard({
             <p className="mt-2 text-sm leading-6 text-ink-soft">
               {connected
                 ? `Connected as @${integration.provider_username}.`
-                : "Link public repositories to your software projects."}
+                : "Link public repositories whenever they help document a project."}
             </p>
           </div>
           {connected ? (

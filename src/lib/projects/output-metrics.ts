@@ -8,6 +8,8 @@ interface CommitLike {
 export interface ProjectOutputMetrics {
   commitCount: number;
   wordCount: number;
+  evidenceCount: number;
+  reviewerFeedbackCount: number;
 }
 
 const WORD_PATTERN = /[\p{L}\p{N}]+(?:[’'-][\p{L}\p{N}]+)*/gu;
@@ -55,5 +57,7 @@ export function emptyProjectOutputMetrics(): ProjectOutputMetrics {
   return {
     commitCount: 0,
     wordCount: 0,
+    evidenceCount: 0,
+    reviewerFeedbackCount: 0,
   };
 }

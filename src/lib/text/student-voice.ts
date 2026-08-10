@@ -67,8 +67,6 @@ const VOICE_RULES: VoiceRule[] = [
   { pattern: /\bthe (?:normalized )?profile is optimized for\b/gu, replacement: "this plan is set up for" },
   { pattern: /\bThe (?:normalized )?profile\b/gu, replacement: "This plan" },
   { pattern: /\bthe (?:normalized )?profile\b/gu, replacement: "this plan" },
-  { pattern: /\bThe strongest (software|research) anchors are\b/gu, replacement: "Your strongest anchors are" },
-  { pattern: /\b(?:Software|Research) anchors:/gu, replacement: "Your anchors:" },
   { pattern: /\b(?:the )?anchor interests\b/giu, replacement: "your main interests" },
 
   // Possessives and subjects — most specific first.

@@ -1,6 +1,25 @@
 export type Plan = "free" | "pro_monthly";
 
-export type ProjectTrack = "software" | "research";
+export type ProjectFormatPreference =
+  | "physical"
+  | "digital"
+  | "investigative"
+  | "creative"
+  | "community"
+  | "venture";
+
+export type ProjectGoal =
+  | "learning"
+  | "portfolio"
+  | "college_applications"
+  | "internship_or_job"
+  | "class_or_capstone"
+  | "competition"
+  | "community_impact"
+  | "personal"
+  | "other";
+
+export type RepositoryRelevance = "recommended" | "optional" | "not_needed";
 
 export type StudentStage =
   | "high_school_freshman"
@@ -13,7 +32,7 @@ export type StudentStage =
   | "college_senior"
   | "other";
 
-export type TargetOutcome = "college_apps" | "internship" | "portfolio" | "learning";
+export type TargetOutcome = ProjectGoal;
 
 export type Difficulty = "beginner" | "intermediate" | "advanced";
 
@@ -28,11 +47,19 @@ export type RiskFlag =
 
 export interface Recommendation {
   id: string;
-  project_track: ProjectTrack;
   normalized_profile_id?: string;
   title: string;
   summary: string;
   why_it_fits: string;
+  project_kind_label: string;
+  central_challenge: string;
+  approach: string;
+  primary_artifacts: string[];
+  proof_of_success: string[];
+  scope_boundary: string;
+  resources_needed: string[];
+  safety_ethics_notes: string[];
+  repository_relevance: RepositoryRelevance;
   difficulty: Difficulty;
   estimated_weeks: number;
   weekly_hours?: number;
@@ -41,7 +68,8 @@ export interface Recommendation {
   impressiveness_score?: number;
   finishability_score?: number;
   authenticity_note?: string;
-  track_payload_json?: Record<string, unknown>;
+  grounding_sources?: Array<{ title: string; url: string }>;
+  project_blueprint_json?: Record<string, unknown>;
 }
 
 export interface Roadmap {
@@ -88,15 +116,32 @@ export interface WorkEvaluation {
     drifted: boolean;
     out_of_scope_note: string | null;
   } | null;
+  evidence_reviewed: string[];
+  evidence_limitations: string[];
 }
 
 export type EvaluationLifecycleStatus = "pending" | "completed" | "failed";
 
 export interface StoredMilestoneSubmission {
   id: string;
-  submission_kind: "pasted_text" | "file_upload";
-  submission_text: string;
+  submission_kind: "pasted_text" | "artifact_bundle";
+  submission_text: string | null;
   submission_filename: string | null;
+  created_at: string;
+  updated_at: string;
+  artifacts?: MilestoneSubmissionArtifact[];
+}
+
+export interface MilestoneSubmissionArtifact {
+  id: string;
+  submission_id: string;
+  upload_path: string | null;
+  external_url: string | null;
+  display_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  caption: string | null;
+  alt_text: string | null;
   created_at: string;
   updated_at: string;
 }

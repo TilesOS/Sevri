@@ -7,7 +7,7 @@ import type { ProfileIdentity } from "@/lib/db/queries/profile";
  * Intake rows keep whatever `student_stage` they were saved with, which is
  * useful history but wrong as an input: a student's stage is one fact, and two
  * intakes could disagree about it. Every generation path resolves it here so the
- * software and research tracks cannot describe the same student differently.
+ * multiple generations cannot describe the same student differently.
  */
 export function withProfileIdentity(
   rawIntake: Record<string, unknown>,

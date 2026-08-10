@@ -62,7 +62,7 @@ export function buildAllowedTerms(context?: GenerationContext | null): readonly 
 
   const anchors = [
     ...(context.interpreted_interests ?? []),
-    ...(context.track_payload_json?.anchor_interests ?? []),
+    ...(context.project_context_json?.anchor_interests ?? []),
   ];
 
   return uniqueTokens([...DEFAULT_ALLOWED_TERMS, ...anchors]);
@@ -95,19 +95,9 @@ export const OPTIONS_QUALITY_SPEC: FieldSpecMap = {
   "recommendations[*].title": TITLE,
   "recommendations[*].summary": withMax(PROSE_LONG, 340),
   "recommendations[*].why_it_fits": withMax(PROSE_LONG, 360),
-  // Software seed fields
-  "recommendations[*].track_payload_json.target_user": withMax(DESCRIPTOR_SHORT, 140),
-  "recommendations[*].track_payload_json.problem_statement": DESCRIPTOR_SHORT,
-  "recommendations[*].track_payload_json.core_workflow": DESCRIPTOR_SHORT,
-  "recommendations[*].track_payload_json.mvp_boundary": DESCRIPTOR_SHORT,
-  "recommendations[*].track_payload_json.validation_plan": DESCRIPTOR_SHORT,
-  // Research seed fields (share the same path since track is discriminated)
-  "recommendations[*].track_payload_json.research_question": DESCRIPTOR_SHORT,
-  "recommendations[*].track_payload_json.hypothesis_or_focus": DESCRIPTOR_SHORT,
-  "recommendations[*].track_payload_json.methodology": withMax(DESCRIPTOR_SHORT, 180),
-  "recommendations[*].track_payload_json.evidence_plan": withMax(DESCRIPTOR_SHORT, 180),
-  "recommendations[*].track_payload_json.scope_boundaries": DESCRIPTOR_SHORT,
-  "recommendations[*].track_payload_json.limitation_note": DESCRIPTOR_SHORT,
+  "recommendations[*].project_blueprint_json.central_challenge": withMax(DESCRIPTOR_SHORT, 180),
+  "recommendations[*].project_blueprint_json.approach": withMax(DESCRIPTOR_SHORT, 220),
+  "recommendations[*].project_blueprint_json.scope_boundary": withMax(DESCRIPTOR_SHORT, 180),
 };
 
 // Stage 2: roadmap overview

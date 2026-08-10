@@ -10,7 +10,7 @@ import { ReviewersCard } from "@/components/reviewer/reviewers-card";
 import { GithubOverviewCard } from "@/components/project/github-overview-card";
 import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
 import { LearningResourcesPreview } from "@/components/project/project-learning-resources-view";
-import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
+import { getPlanLabel } from "@/components/theme/theme-utils";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
   GUIDANCE_WHAT_TO_DO_SPEC,
@@ -53,7 +53,6 @@ export function ProjectOverviewView({
   githubIntegration: UserIntegrationPublicRow | null;
   showScheduleRetryNotice?: boolean;
 }) {
-  const trackTheme = trackThemes[workspace.projectTrack];
   const nextStepHref = workspace.nextMilestone
     ? `/project/${workspace.project.id}/steps/${workspace.nextMilestone.stepNumber}`
     : `/project/${workspace.project.id}/scope`;
@@ -83,7 +82,7 @@ export function ProjectOverviewView({
         description={safeOverview}
         metadata={
           <>
-            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
+            <Badge tone="neutral">{workspace.projectKindLabel}</Badge>
             <Badge tone="neutral">{workspace.project.status}</Badge>
             <span>{getPlanLabel(plan)}</span>
           </>
@@ -107,14 +106,12 @@ export function ProjectOverviewView({
         <ProjectMetric label="Pacing" value={totalEstimatedRange(workspace.milestones)} detail="One concrete deliverable per step." />
       </div>
 
-      {workspace.projectTrack === "software" ? (
-        <GithubOverviewCard
+      <GithubOverviewCard
           projectId={workspace.project.id}
           plan={plan}
           integration={githubIntegration}
           link={workspace.githubLink}
         />
-      ) : null}
 
       {/* Project snapshot */}
       <Card className="space-y-5">

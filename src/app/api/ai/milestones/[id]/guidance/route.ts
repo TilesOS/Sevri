@@ -122,7 +122,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "fetch-project";
     const { data: project, error: projectError } = await supabase
       .from("projects")
-      .select("id, title, recommendation_id, project_track")
+      .select("id, title, recommendation_id, project_kind_label")
       .eq("id", milestone.project_id)
       .eq("user_id", user.id)
       .single();
@@ -258,7 +258,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "fetch-roadmap";
     const { data: roadmap, error: roadmapError } = await supabase
       .from("project_roadmaps")
-      .select("overview, track_payload_json")
+      .select("overview, roadmap_context_json, core_scope, artifact_plan, project_overview_draft")
       .eq("project_id", project.id)
       .single();
 
@@ -281,7 +281,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "fetch-context";
     const { data: contextRow, error: contextError } = await supabase
       .from("normalized_profiles")
-      .select("summary, interpreted_interests, skill_assessment, risk_flags, project_track, track_payload_json")
+      .select("summary, interpreted_interests, skill_assessment, risk_flags, project_context_json")
       .eq("id", recommendation.normalized_profile_id)
       .eq("user_id", user.id)
       .single();
@@ -295,25 +295,33 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       interpreted_interests: contextRow.interpreted_interests,
       skill_assessment: contextRow.skill_assessment,
       risk_flags: contextRow.risk_flags,
-      project_track: contextRow.project_track,
-      track_payload_json: contextRow.track_payload_json,
+      project_context_json: contextRow.project_context_json,
     });
 
     const selectedOption = coerceStoredProjectOption({
       id: recommendation.id,
-      project_track: recommendation.project_track,
       title: recommendation.title,
       summary: recommendation.summary,
       rationale: recommendation.rationale,
       difficulty: recommendation.difficulty,
       estimated_weeks: recommendation.estimated_weeks,
-      track_payload_json: recommendation.track_payload_json,
+      project_kind_label: recommendation.project_kind_label,
+      repository_relevance: recommendation.repository_relevance,
+      skills_demonstrated: recommendation.skills_demonstrated,
+      tools_needed: recommendation.tools_needed,
+      impressiveness_score: recommendation.impressiveness_score,
+      finishability_score: recommendation.finishability_score,
+      project_blueprint_json: recommendation.project_blueprint_json,
+      grounding_sources_json: recommendation.grounding_sources_json,
     });
 
     const roadmapOverview = buildRoadmapOverviewFromStorage({
       projectTitle: project.title,
       roadmapOverview: roadmap.overview,
-      trackPayloadJson: roadmap.track_payload_json,
+      roadmapContextJson: roadmap.roadmap_context_json,
+      coreScope: roadmap.core_scope,
+      artifactPlan: roadmap.artifact_plan,
+      projectOverviewDraft: roadmap.project_overview_draft,
       milestones: milestones ?? [],
     });
 
@@ -383,7 +391,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     void trackEvent(user.id, "milestone_guidance_generated", {
       project_id: project.id,
       milestone_id: milestone.id,
-      project_track: project.project_track === "research" ? "research" : "software",
+      project_kind_label: project.project_kind_label,
       ...routeMetadata,
     }).catch((trackError) => {
       console.error("milestone guidance track failed", { stage, error: trackError });

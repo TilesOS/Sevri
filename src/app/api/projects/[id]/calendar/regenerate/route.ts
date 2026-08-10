@@ -33,7 +33,6 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       milestones: project.milestones,
       estimatedWeeks: project.estimatedWeeks,
       weeklyHours: project.weeklyHours,
-      projectTrack: project.projectTrack,
       timeZone: scheduleTimezone,
       startDate: project.scheduledStartDate ?? undefined,
     });

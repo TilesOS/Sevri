@@ -14,7 +14,7 @@ export default async function OnboardingPage() {
     getLatestOnboardingAnswers(user.id),
     getEmailPreference(user.id),
   ]);
-  const hasStoredAnswers = Object.keys(initialAnswers.answersByTrack).length > 0;
+  const hasStoredAnswers = Boolean(initialAnswers.answers);
 
   return (
     <OnboardingWizard
