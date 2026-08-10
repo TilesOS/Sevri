@@ -1,6 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { zodTextFormat } from "openai/helpers/zod";
 import { GenerationContextSchema, ProjectBlueprintSchema, RecommendationBatchSchema } from "./schemas.ts";
+
+type JsonSchemaNode = {
+  format?: string;
+  items?: JsonSchemaNode;
+  properties?: Record<string, JsonSchemaNode>;
+  required?: string[];
+};
 
 for (const preferredFormats of [["digital"], ["physical"], ["creative"], ["investigative"], ["community", "physical"], ["venture", "digital"]] as const) {
   test(`universal context accepts ${preferredFormats.join("+")} work`, () => {
@@ -13,4 +21,13 @@ test("the comparison board retains three increasing ambition levels", () => {
   const base = { title: "Water Story", summary: "Create a focused artifact about local water access with a clear audience and reviewable evidence.", why_it_fits: "This uses the student's interests and available resources without exceeding the weekly schedule.", project_kind_label: "Community storytelling project", repository_relevance: "not_needed", estimated_weeks: 6, skills_demonstrated: ["communication", "project scoping"], tools_needed: ["recorder", "audio editor"], finishability_score: 9, project_blueprint_json: { central_challenge: "Explain one local water-access issue through a finished public artifact.", approach: "Gather a small body of evidence, create the artifact, and test it with its intended audience.", primary_artifacts: ["Finished story"], proof_of_success: ["Three readers can identify the central finding", "The source log supports every public claim"], scope_boundary: "One neighborhood and one story format.", resources_needed: ["Library sources"], safety_ethics_notes: ["Use consent for interviews"] }, grounding_sources: [] };
   const parsed = RecommendationBatchSchema.parse({ recommendations: [{ ...base, id: "focused", difficulty: "beginner", impressiveness_score: 6 }, { ...base, id: "stretch", difficulty: "intermediate", impressiveness_score: 8 }, { ...base, id: "ambitious", difficulty: "advanced", impressiveness_score: 10 }] });
   assert.deepEqual(parsed.recommendations.map((item) => item.difficulty), ["beginner", "intermediate", "advanced"]);
+});
+
+test("the recommendation schema is accepted by OpenAI structured outputs", () => {
+  const schema = zodTextFormat(RecommendationBatchSchema, "universal_project_options").schema as JsonSchemaNode;
+  const recommendation = schema.properties?.recommendations?.items;
+  const groundingSource = recommendation?.properties?.grounding_sources?.items;
+
+  assert.ok(recommendation?.required?.includes("grounding_sources"));
+  assert.notEqual(groundingSource?.properties?.url?.format, "uri");
 });

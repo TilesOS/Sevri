@@ -46,6 +46,8 @@ export const GenerationContextSchema = z.object({
 
 export const RepositoryRelevanceSchema = z.enum(["recommended", "optional", "not_needed"]);
 
+const HTTP_URL_PATTERN = /^https?:\/\/[^\s]+$/u;
+
 export const ProjectBlueprintSchema = z.object({
   central_challenge: z.string().min(16).max(260),
   approach: z.string().min(16).max(320),
@@ -72,8 +74,10 @@ const BaseProjectOptionSchema = z.object({
   project_blueprint_json: ProjectBlueprintSchema,
   grounding_sources: z.array(z.object({
     title: z.string().min(2).max(160),
-    url: z.string().url().max(1000),
-  })).max(8).default([]),
+    // OpenAI structured outputs reject Zod's `format: "uri"`. A pattern keeps
+    // the provider schema supported while still limiting sources to HTTP(S).
+    url: z.string().max(1000).regex(HTTP_URL_PATTERN),
+  })).max(8),
 });
 
 export const ProjectOptionSchema = BaseProjectOptionSchema;
