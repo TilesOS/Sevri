@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { zodTextFormat } from "openai/helpers/zod";
-import { GenerationContextSchema, ProjectBlueprintSchema, RecommendationBatchSchema } from "./schemas.ts";
+import { GenerationContextSchema, ProjectBlueprintSchema, RecommendationBatchSchema, RoadmapGenerationSchema, RoadmapStepSchema } from "./schemas.ts";
 
 type JsonSchemaNode = {
   format?: string;
   items?: JsonSchemaNode;
+  maxLength?: number;
   properties?: Record<string, JsonSchemaNode>;
   required?: string[];
 };
@@ -30,4 +31,24 @@ test("the recommendation schema is accepted by OpenAI structured outputs", () =>
 
   assert.ok(recommendation?.required?.includes("grounding_sources"));
   assert.notEqual(groundingSource?.properties?.url?.format, "uri");
+});
+
+test("roadmap prose is not forced against a display-sized character boundary", () => {
+  const completeDeliverable = `${"A complete project-specific deliverable with reviewable evidence. ".repeat(4)}`.trim();
+  const parsed = RoadmapStepSchema.parse({
+    order_index: 0,
+    title: "Assemble the evidence packet",
+    objective: "Create the bounded evidence package that the next project step will evaluate.",
+    deliverable: completeDeliverable,
+    rough_time_estimate: "Three hours",
+    validation_check: "A reviewer can open every artifact and identify the evidence it contributes.",
+    scope_guardrail: "Keep the packet focused on the selected question and exclude unrelated background material.",
+  });
+
+  assert.equal(parsed.deliverable, completeDeliverable);
+  assert.ok(completeDeliverable.length > 180);
+
+  const schema = zodTextFormat(RoadmapGenerationSchema, "universal_project_roadmap").schema as JsonSchemaNode;
+  assert.equal(schema.properties?.steps?.items?.properties?.deliverable?.maxLength, undefined);
+  assert.equal(schema.properties?.learning_resources?.items?.properties?.why_it_matters?.maxLength, undefined);
 });

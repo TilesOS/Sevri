@@ -15,7 +15,14 @@ test("field repair preserves all unflagged content", () => {
   assert.equal(applied.candidate?.recommendations[0].title, board.recommendations[0].title);
   assert.match(getStringAtPath(applied.candidate, paths[1]) ?? "", /One city/u);
 });
-test("deterministic cleanup only handles safe mechanics", () => assert.equal(canUseDeterministicQualityCleanup(checkStructured(board, OPTIONS_QUALITY_SPEC)), false));
+test("deterministic cleanup handles punctuation and connector mechanics locally", () => assert.equal(canUseDeterministicQualityCleanup(checkStructured(board, OPTIONS_QUALITY_SPEC)), true));
+test("deterministic cleanup handles stray script without another model call", () => {
+  const report = checkStructured(
+    { recommendations: [{ ...board.recommendations[0], summary: "Map neighborhood heat exposure別 and document the resulting pattern." }] },
+    OPTIONS_QUALITY_SPEC,
+  );
+  assert.equal(canUseDeterministicQualityCleanup(report), true);
+});
 test("an exhausted targeted repair hands the response to the fallback model", () => {
   const repairFailureAllowsFallback = exhaustedTargetedQualityRepairAllowsFallback({
     repairRound: 2,

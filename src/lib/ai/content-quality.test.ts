@@ -193,6 +193,28 @@ test("safeRenderText strips mojibake and marks degraded", () => {
   assert.ok(!out.text.includes("\uFFFD"));
 });
 
+test("safeRenderText removes unexpected script contamination locally", () => {
+  const out = safeRenderText("Deliver the field guide別 with a review checklist.", PROSE_SPEC);
+  assert.equal(out.degraded, true);
+  assert.equal(out.text, "Deliver the field guide with a review checklist.");
+});
+
+test("safeRenderText preserves an explicitly allowed non-Latin project term", () => {
+  const out = safeRenderText("Document the 東京 archive with a source log.", PROSE_SPEC, {
+    allowedTerms: ["東京"],
+  });
+  assert.equal(out.degraded, false);
+  assert.equal(out.text, "Document the 東京 archive with a source log.");
+});
+
+test("safeRenderText preserves a standalone non-Latin resource name", () => {
+  const original = "Use the 東京大学 resource to verify the research method.";
+  const rendered = safeRenderText(original, { kind: "prose" });
+
+  assert.equal(rendered.text, original);
+  assert.equal(rendered.degraded, false);
+});
+
 test("safeRenderText snaps prose back to last sentence boundary", () => {
   const out = safeRenderText("First complete sentence. Second one that is cut off and", PROSE_SPEC);
   assert.equal(out.degraded, true);

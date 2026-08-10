@@ -68,9 +68,10 @@ export function buildAllowedTerms(context?: GenerationContext | null): readonly 
   return uniqueTokens([...DEFAULT_ALLOWED_TERMS, ...anchors]);
 }
 
-// `maxLength` mirrors the Zod `.max()` on the same field so an over-length draft
-// is sent back to the model for a shorter, complete rewrite. Nothing downstream
-// cuts a value to fit — `maxUiSafe` is a layout hint the UI clamps with CSS.
+// Where present, `maxLength` mirrors the Zod `.max()` on the same field so an
+// over-length draft is sent back to the model for a shorter, complete rewrite.
+// Roadmap prose deliberately omits it: concise wording is a prompt target, not a
+// validity boundary. `maxUiSafe` remains only a layout hint the UI clamps with CSS.
 const TITLE: FieldSpec = { kind: "title", minCredible: 8, maxLength: 120, maxUiSafe: 100 };
 const TITLE_WIDE: FieldSpec = { kind: "title", minCredible: 8, maxLength: 140, maxUiSafe: 120 };
 const PROSE_SHORT: FieldSpec = { kind: "prose", minCredible: 24, maxLength: 220 };
@@ -90,6 +91,12 @@ function withMax(spec: FieldSpec, maxLength: number): FieldSpec {
   return { ...spec, maxLength };
 }
 
+function withoutMax(spec: FieldSpec): FieldSpec {
+  const result = { ...spec };
+  delete result.maxLength;
+  return result;
+}
+
 // Stage 1: recommendation batch
 export const OPTIONS_QUALITY_SPEC: FieldSpecMap = {
   "recommendations[*].title": TITLE,
@@ -103,22 +110,22 @@ export const OPTIONS_QUALITY_SPEC: FieldSpecMap = {
 // Stage 2: roadmap overview
 export const ROADMAP_QUALITY_SPEC: FieldSpecMap = {
   project_title: TITLE_WIDE,
-  short_overview: withMax(PROSE_LONG, 320),
-  project_brief: PROSE_BRIEF,
+  short_overview: withoutMax(PROSE_LONG),
+  project_brief: withoutMax(PROSE_BRIEF),
   "steps[*].title": TITLE,
-  "steps[*].objective": withMax(PROSE_MED, 220),
-  "steps[*].deliverable": withMax(PROSE_SHORT, 180),
-  "steps[*].validation_check": PROSE_SHORT,
-  "steps[*].scope_guardrail": PROSE_SHORT,
-  "cut_if_behind[*]": BULLET,
-  "success_criteria[*]": BULLET,
-  "pitch_kit.elevator_pitch": { kind: "prose", minCredible: 80, maxLength: 400 },
-  "pitch_kit.resume_bullets[*]": BULLET_LONG,
+  "steps[*].objective": withoutMax(PROSE_MED),
+  "steps[*].deliverable": withoutMax(PROSE_SHORT),
+  "steps[*].validation_check": withoutMax(PROSE_SHORT),
+  "steps[*].scope_guardrail": withoutMax(PROSE_SHORT),
+  "cut_if_behind[*]": withoutMax(BULLET),
+  "success_criteria[*]": withoutMax(BULLET),
+  "pitch_kit.elevator_pitch": { kind: "prose", minCredible: 80 },
+  "pitch_kit.resume_bullets[*]": withoutMax(BULLET_LONG),
   "pitch_kit.talking_points[*].label": { kind: "title", minCredible: 4, maxLength: 40, maxUiSafe: 40 },
-  "pitch_kit.talking_points[*].body": { kind: "prose", minCredible: 40, maxLength: 300 },
+  "pitch_kit.talking_points[*].body": { kind: "prose", minCredible: 40 },
   "learning_resources[*].title": TITLE_WIDE,
   "learning_resources[*].provider": { kind: "title", minCredible: 2, maxLength: 80, maxUiSafe: 80 },
-  "learning_resources[*].why_it_matters": withMax(PROSE_MED, 260),
+  "learning_resources[*].why_it_matters": withoutMax(PROSE_MED),
 };
 
 // Stage 3: step guidance

@@ -89,16 +89,16 @@ export const RecommendationBatchSchema = z.object({
 export const RoadmapStepSchema = z.object({
   order_index: z.number().int().min(0),
   title: z.string().min(6).max(120),
-  objective: z.string().min(18).max(220),
-  deliverable: z.string().min(12).max(180),
+  objective: z.string().min(18),
+  deliverable: z.string().min(12),
   rough_time_estimate: z.string().min(4).max(60),
-  validation_check: z.string().min(12).max(220),
-  scope_guardrail: z.string().min(12).max(220),
+  validation_check: z.string().min(12),
+  scope_guardrail: z.string().min(12),
 });
 
 export const PitchKitTalkingPointSchema = z.object({
   label: z.string().min(4).max(40),
-  body: z.string().min(40).max(300),
+  body: z.string().min(40),
 });
 
 /**
@@ -107,8 +107,8 @@ export const PitchKitTalkingPointSchema = z.object({
  * the same schema validation and repair-retry as the rest of the roadmap.
  */
 export const PitchKitSchema = z.object({
-  elevator_pitch: z.string().min(80).max(400),
-  resume_bullets: z.array(z.string().min(60).max(220)).min(2).max(3),
+  elevator_pitch: z.string().min(80),
+  resume_bullets: z.array(z.string().min(60)).min(2).max(3),
   talking_points: z.array(PitchKitTalkingPointSchema).min(3).max(3),
 });
 
@@ -136,24 +136,24 @@ export const LearningResourceSchema = z.object({
     .refine(isValidHttpResourceUrl, "Resource URL must be a valid HTTP(S) URL."),
   resource_type: z.enum(["documentation", "course", "tutorial", "paper", "dataset", "tool", "reference"]),
   learning_stage: z.enum(["start_here", "build_with", "go_deeper"]),
-  why_it_matters: z.string().min(24).max(260),
+  why_it_matters: z.string().min(24),
   use_during_step: z.number().int().min(1).max(6),
   free_access: z.boolean(),
 });
 
 export const RoadmapOverviewSchema = z.object({
   project_title: z.string().min(5).max(140),
-  short_overview: z.string().min(40).max(320),
-  project_brief: z.string().min(60).max(600),
-  core_scope: z.string().min(30).max(600),
+  short_overview: z.string().min(40),
+  project_brief: z.string().min(60),
+  core_scope: z.string().min(30),
   artifact_plan: z.array(z.object({
     artifact: z.string().min(3).max(120),
-    purpose: z.string().min(12).max(240),
+    purpose: z.string().min(12),
   })).min(1).max(8),
-  project_overview_draft: z.string().min(80).max(1600),
+  project_overview_draft: z.string().min(80),
   steps: z.array(RoadmapStepSchema).min(4).max(6),
-  cut_if_behind: z.array(z.string().min(8).max(180)).min(1).max(4),
-  success_criteria: z.array(z.string().min(8).max(180)).min(2).max(5),
+  cut_if_behind: z.array(z.string().min(8)).min(1).max(4),
+  success_criteria: z.array(z.string().min(8)).min(2).max(5),
   /**
    * Optional on the shared type because roadmaps stored before the pitch kit
    * existed are rehydrated through this schema. Generation requires it — see

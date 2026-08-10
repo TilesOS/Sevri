@@ -17,3 +17,7 @@ test("roadmap, guidance, and evaluation specs remain active", () => {
   assert.ok(checkStructured({ what_to_do_now: "short" }, STEP_GUIDANCE_QUALITY_SPEC).issues.length > 0);
   assert.ok(checkStructured({ overall_assessment: "short" }, WORK_EVALUATION_QUALITY_SPEC).issues.length > 0);
 });
+test("roadmap prose uses writing targets instead of hard character cutoffs", () => {
+  assert.equal(ROADMAP_QUALITY_SPEC["steps[*].deliverable"].maxLength, undefined);
+  assert.equal(ROADMAP_QUALITY_SPEC["learning_resources[*].why_it_matters"].maxLength, undefined);
+});

@@ -65,6 +65,9 @@ export function buildQualityFieldRepairSchema(
 
 const SAFE_LOCAL_REPAIR_KINDS = new Set<QualityIssue["kind"]>([
   "missing_terminal_punct",
+  "trailing_connector",
+  "dangling_colon_dash",
+  "mixed_script",
   "zero_width",
 ]);
 

@@ -78,7 +78,9 @@ export function applyAndValidateStructuredCleanup<TSchema extends z.ZodTypeAny>(
   qualityAllowedTerms?: readonly string[];
   validator?: (parsed: z.infer<TSchema>) => string[];
 }): StructuredCleanupValidation<z.infer<TSchema>> {
-  const cleanup = applyStructuredCleanup(input.parsed, input.qualitySpec);
+  const cleanup = applyStructuredCleanup(input.parsed, input.qualitySpec, {
+    allowedTerms: input.qualityAllowedTerms,
+  });
   const validation = validateStructuredCandidate({
     candidate: cleanup.cleaned,
     schema: input.schema,
