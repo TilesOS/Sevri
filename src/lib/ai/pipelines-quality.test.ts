@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { zodTextFormat } from "openai/helpers/zod";
 import { onboardingInputSchema } from "../validators/onboarding.ts";
 import { buildRepairFeedback, checkStructured } from "./content-quality.ts";
 import {
@@ -14,7 +15,7 @@ import {
   STEP_GUIDANCE_QUALITY_SPEC,
   WORK_EVALUATION_QUALITY_SPEC,
 } from "./content-quality-specs.ts";
-import { WorkEvaluationSchema } from "./schemas.ts";
+import { LearningResourceSchema, RoadmapGenerationSchema, WorkEvaluationSchema } from "./schemas.ts";
 
 function validatorFeedback(parsed: unknown, spec: Parameters<typeof checkStructured>[1]): string[] {
   const report = checkStructured(parsed, spec);
@@ -85,6 +86,32 @@ test("roadmap validator surfaces feedback for broken project title and step", ()
   const feedback = validatorFeedback(bad, ROADMAP_QUALITY_SPEC);
   assert.ok(feedback.some((line) => line.includes("project_title")));
   assert.ok(feedback.some((line) => line.includes("steps[0].objective")));
+});
+
+test("roadmap response schema uses a supported URL pattern instead of format uri", () => {
+  const format = zodTextFormat(RoadmapGenerationSchema, "roadmap_schema_test") as unknown as {
+    schema: Record<string, unknown>;
+  };
+  const serialized = JSON.stringify(format.schema);
+
+  assert.doesNotMatch(serialized, /"format":"uri"/);
+  assert.match(serialized, /"pattern":"\^https\?\:/);
+
+  const validResource = {
+    title: "OpenAI Responses API guide",
+    provider: "OpenAI",
+    url: "https://developers.openai.com/api/docs/guides/structured-outputs",
+    resource_type: "documentation",
+    learning_stage: "start_here",
+    why_it_matters: "It explains how to build and validate structured model responses.",
+    use_during_step: 1,
+    free_access: true,
+  };
+  assert.equal(LearningResourceSchema.safeParse(validResource).success, true);
+  assert.equal(
+    LearningResourceSchema.safeParse({ ...validResource, url: "not a real URL" }).success,
+    false,
+  );
 });
 
 test("step guidance validator surfaces feedback for truncated email subject", () => {

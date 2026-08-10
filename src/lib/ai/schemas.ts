@@ -140,14 +140,28 @@ export const PitchKitSchema = z.object({
   talking_points: z.array(PitchKitTalkingPointSchema).min(3).max(3),
 });
 
+const HTTP_RESOURCE_URL_PATTERN = /^https?:\/\/[^\s]+$/u;
+
+function isValidHttpResourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:") && url.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export const LearningResourceSchema = z.object({
   title: z.string().min(4).max(140),
   provider: z.string().min(2).max(80),
   url: z
     .string()
-    .url()
+    // OpenAI Structured Outputs does not support JSON Schema format: "uri".
+    // `regex` becomes the supported `pattern` keyword; the refinement below
+    // retains full application-side URL parsing after the response is decoded.
+    .regex(HTTP_RESOURCE_URL_PATTERN, "Resource URL must use HTTP(S).")
     .max(1000)
-    .refine((value) => value.startsWith("https://") || value.startsWith("http://"), "Resource URL must use HTTP(S)."),
+    .refine(isValidHttpResourceUrl, "Resource URL must be a valid HTTP(S) URL."),
   resource_type: z.enum(["documentation", "course", "tutorial", "paper", "dataset", "tool", "reference"]),
   learning_stage: z.enum(["start_here", "build_with", "go_deeper"]),
   why_it_matters: z.string().min(24).max(260),
