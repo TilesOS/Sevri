@@ -71,11 +71,11 @@ const difficultyOrder: Record<string, number> = {
 };
 
 const difficultyLabel: Record<string, string> = {
-  beginner: "Beginner",
-  beginner_intermediate: "Beginner",
-  intermediate: "Intermediate",
-  intermediate_advanced: "Advanced",
-  advanced: "Advanced",
+  beginner: "Focused",
+  beginner_intermediate: "Focused",
+  intermediate: "Stretch",
+  intermediate_advanced: "Ambitious",
+  advanced: "Ambitious",
 };
 
 /**
@@ -170,7 +170,12 @@ export function RecommendationsClient({
   const serverBoardKey = boardKeyFor(activeTrack, initialRecommendations);
 
   const recommendations = useMemo(
-    () => (board.track === activeTrack ? board.items : []),
+    () =>
+      board.track === activeTrack
+        ? [...board.items].sort(
+            (a, b) => (difficultyOrder[a.difficulty] ?? 99) - (difficultyOrder[b.difficulty] ?? 99),
+          )
+        : [],
     [board, activeTrack],
   );
 
@@ -501,7 +506,7 @@ export function RecommendationsClient({
         >
           {recommendations.map((item, index) => {
             const ribbon = ribbons[item.id];
-            const cardTone = ribbon === "Quickest to ship" ? "featured" : ribbon === "Most ambitious" ? "cyan" : "";
+            const cardTone = ribbon === "Quickest to ship" ? "featured" : ribbon === "Boldest bet" ? "cyan" : "";
             const details =
               item.project_track === "research"
                 ? getResearchDetails(item.track_payload_json)
@@ -647,6 +652,20 @@ function IdeaMetricLegend() {
           </div>
         ))}
       </dl>
+      <dl className="grid gap-3 border-t border-line pt-4 sm:grid-cols-3">
+        <div>
+          <dt className="text-sm font-semibold text-ink">Focused</dt>
+          <dd className="mt-1 text-xs leading-5 text-ink-muted">The smallest serious version with the safest path to proof.</dd>
+        </div>
+        <div>
+          <dt className="text-sm font-semibold text-ink">Stretch</dt>
+          <dd className="mt-1 text-xs leading-5 text-ink-muted">A different direction that teaches one meaningful new technique.</dd>
+        </div>
+        <div>
+          <dt className="text-sm font-semibold text-ink">Ambitious</dt>
+          <dd className="mt-1 text-xs leading-5 text-ink-muted">The hardest realistic bet, with the highest ceiling and clearest extra risk.</dd>
+        </div>
+      </dl>
     </Card>
   );
 }
@@ -691,7 +710,7 @@ function deriveRibbons(items: RecommendationItem[]) {
     })[0] ?? quickest;
 
   if (!ribbons[ambitiousCandidate.id]) {
-    ribbons[ambitiousCandidate.id] = "Most ambitious";
+    ribbons[ambitiousCandidate.id] = "Boldest bet";
   }
 
   const balancedCandidate =

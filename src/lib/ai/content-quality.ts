@@ -370,6 +370,13 @@ function lookupSpec(specs: FieldSpecMap, concretePath: string): FieldSpec | unde
   return undefined;
 }
 
+export function getFieldSpecForPath(
+  specs: FieldSpecMap,
+  concretePath: string,
+): FieldSpec | undefined {
+  return lookupSpec(specs, concretePath);
+}
+
 function walkStrings(
   node: unknown,
   path: string,
@@ -483,11 +490,16 @@ function trimDangling(text: string): string {
 }
 
 function stripTrailingConnector(text: string): string {
-  const word = lastWord(text).toLowerCase();
-  if (!word || !TRAILING_CONNECTORS.has(word)) return text;
-  const idx = text.toLowerCase().lastIndexOf(word);
-  if (idx < 0) return text;
-  return text.slice(0, idx).replace(/\s+$/u, "");
+  let out = text;
+  while (true) {
+    const word = lastWord(out).toLowerCase();
+    if (!word || !TRAILING_CONNECTORS.has(word)) return out;
+    const idx = out.toLowerCase().lastIndexOf(word);
+    if (idx < 0) return out;
+    const next = out.slice(0, idx).replace(/\s+$/u, "");
+    if (next === out) return out;
+    out = next;
+  }
 }
 
 function truncateToLastSentence(text: string): { text: string; changed: boolean } {

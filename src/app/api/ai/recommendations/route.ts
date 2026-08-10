@@ -280,7 +280,14 @@ export async function POST(request: Request) {
         })),
         timings: routeMetadata,
       },
-      { status: 200 },
+      {
+        status: 200,
+        headers: {
+          "X-Sevri-Model": routeMetadata.model,
+          "X-Sevri-Normalize-Model": normalized.metrics.model,
+          "X-Sevri-Fallback-Used": String(routeMetadata.fallback_used),
+        },
+      },
     );
   } catch (error) {
     console.error("recommendations failed", { stage, error });

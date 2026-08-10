@@ -39,6 +39,7 @@ const SOFTWARE_CONTEXT: GenerationContext = {
     target_outcome: "portfolio",
     constraints_summary: "No major constraints were stated.",
     weekly_hours: 8,
+    preferred_challenge: "advanced",
     project_style_fit: "focused analysis tool",
     problem_lenses: ["Turn a sweep workflow into a usable analysis surface."],
     delivery_bias: "Favor a scoped product with one defensible workflow.",
@@ -65,6 +66,7 @@ const RESEARCH_CONTEXT: GenerationContext = {
     target_outcome: "portfolio",
     constraints_summary: "No major constraints were stated.",
     weekly_hours: 6,
+    preferred_challenge: "advanced",
     research_readiness: "You can handle a structured method with a clear procedure.",
     methodology_guidance: "Preferred method is data analysis.",
     viable_methodologies: ["secondary data analysis", "focused literature review"],
@@ -356,6 +358,54 @@ test("roadmaps stored without a pitch kit rehydrate without one", () => {
   });
 
   assert.equal(roadmap.pitch_kit ?? null, null);
+});
+
+test("source-backed learning resources survive roadmap storage", () => {
+  const learningResources = [
+    {
+      title: "React Learn",
+      provider: "React",
+      url: "https://react.dev/learn",
+      resource_type: "documentation" as const,
+      learning_stage: "start_here" as const,
+      why_it_matters: "Introduces the component model used to build the comparison interface.",
+      use_during_step: 1,
+      free_access: true,
+    },
+    {
+      title: "Parsing CSV Files",
+      provider: "MDN Web Docs",
+      url: "https://developer.mozilla.org/en-US/docs/Web/API/File_API/Using_files_from_web_applications",
+      resource_type: "tutorial" as const,
+      learning_stage: "build_with" as const,
+      why_it_matters: "Explains how browser file inputs expose the sweep files used by the parser.",
+      use_during_step: 2,
+      free_access: true,
+    },
+    {
+      title: "Accessible Data Visualizations",
+      provider: "W3C Web Accessibility Initiative",
+      url: "https://www.w3.org/WAI/tutorials/images/complex/",
+      resource_type: "reference" as const,
+      learning_stage: "go_deeper" as const,
+      why_it_matters: "Shows how to make the finished comparison understandable beyond visual styling alone.",
+      use_during_step: 3,
+      free_access: true,
+    },
+  ];
+  const artifacts = buildRoadmapStorageArtifacts({
+    context: SOFTWARE_CONTEXT,
+    selectedOption: SOFTWARE_OPTION,
+    roadmap: buildRoadmap({ learning_resources: learningResources }),
+  });
+  const roadmap = buildRoadmapOverviewFromStorage({
+    projectTitle: "Waveguide Loss Explorer",
+    roadmapOverview: "A focused tool that compares waveguide sweeps and names the loss driver.",
+    trackPayloadJson: artifacts.trackPayloadJson,
+    milestones: buildRoadmap().steps,
+  });
+
+  assert.deepEqual(roadmap.learning_resources, learningResources);
 });
 
 test("a malformed stored pitch kit is dropped rather than breaking rehydration", () => {

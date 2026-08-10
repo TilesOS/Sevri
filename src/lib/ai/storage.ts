@@ -1,4 +1,5 @@
 import {
+  LearningResourceSchema,
   PitchKitSchema,
   ResearchProjectOptionSchema,
   RoadmapOverviewSchema,
@@ -173,6 +174,12 @@ export function buildRoadmapOverviewFromStorage(input: {
     ? (payload.success_criteria as unknown[]).filter((v): v is string => typeof v === "string" && v.trim().length > 0)
     : [];
   const storedSteps = Array.isArray(payload.steps) ? (payload.steps as Record<string, unknown>[]) : [];
+  const storedLearningResources = Array.isArray(payload.learning_resources)
+    ? payload.learning_resources.flatMap((resource) => {
+        const parsed = LearningResourceSchema.safeParse(resource);
+        return parsed.success ? [parsed.data] : [];
+      })
+    : [];
 
   const steps = input.milestones.map((milestone) => {
     const storedStep = storedSteps.find(
@@ -210,6 +217,7 @@ export function buildRoadmapOverviewFromStorage(input: {
     // workspace composes a labeled draft in that case. A malformed stored kit is
     // dropped rather than failing the whole roadmap rehydration.
     pitch_kit: PitchKitSchema.safeParse(payload.pitch_kit).data ?? null,
+    learning_resources: storedLearningResources.length >= 3 ? storedLearningResources : null,
   });
 }
 
@@ -264,6 +272,7 @@ export function buildRoadmapStorageArtifacts(input: {
       selected_option_seed: input.selectedOption.track_payload_json,
       project_track: input.selectedOption.project_track,
       pitch_kit: input.roadmap.pitch_kit ?? null,
+      learning_resources: input.roadmap.learning_resources ?? [],
       focus_summary: input.context.summary,
       step_count: input.roadmap.steps.length,
     },

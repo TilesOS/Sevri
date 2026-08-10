@@ -14,6 +14,7 @@ export const PROJECT_SECTION_LABELS = {
   /** Both tracks: the software lens is a user/problem lens, not a research one. */
   lens: "Project Lens",
   pitchKit: "Pitch Kit",
+  resources: "Learning Resources",
   focus: "Focus",
 } as const;
 

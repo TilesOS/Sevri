@@ -17,6 +17,9 @@ const sharedOnboardingSchema = z.object({
   interests: z.array(z.string().trim().min(1)).min(1, "Add at least one interest."),
   favorite_subjects: z.array(z.string().trim().min(1)).min(1, "Add at least one favorite subject."),
   weekly_time_available: z.number().int().min(1).max(80),
+  // Kept separate from current experience: a student can be new to the work
+  // and still explicitly ask for a demanding, learning-heavy project.
+  preferred_difficulty: z.enum(["beginner", "intermediate", "advanced"]).default("intermediate"),
   constraints: z.string().trim().optional(),
   additional_context: z.string().trim().optional(),
 });

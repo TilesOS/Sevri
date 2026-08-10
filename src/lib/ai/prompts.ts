@@ -6,7 +6,7 @@ export interface PromptFeedbackItem {
   contextLabel?: string | null;
 }
 
-const QUALITY_CLAUSE = "Every field must be a complete thought ending in terminal punctuation (. ! ?). Never truncate mid-word. If a field would run past its length budget, write a SHORTER but COMPLETE version rather than cutting one off. Keep titles under 100 characters and end them on a noun phrase, not a preposition or conjunction. Write in English only; use foreign words only for proper nouns or standard technical terms. Do not use placeholder text, ellipses to indicate cut-off content, or bracketed notes.";
+const QUALITY_CLAUSE = "Every prose field must be a complete thought ending in terminal punctuation (. ! ?). Titles, labels, URLs, provider names, and short taxonomy values do not need terminal punctuation. Never truncate mid-word. If a field would run past its length budget, write a shorter complete version. Keep titles under 100 characters and end them on a noun phrase, not a preposition or conjunction. Write in English only; use foreign words only for proper nouns or standard technical terms. Do not use placeholder text, ellipses to indicate cut-off content, or bracketed notes.";
 
 /**
  * Voice contract for every field a student reads. The pipeline's own vocabulary
@@ -61,6 +61,7 @@ export function buildNormalizeSystemPrompt(projectTrack: ProjectTrack) {
     "Anchor the profile to the user's real domain language, constraints, time budget, and desired proof.",
     "Infer at most one careful step beyond what the user explicitly signals.",
     "Populate anti_generic_warnings, scope_guardrails, and goal/resource summaries with concrete, useful language.",
+    "Preserve current experience and preferred challenge as separate signals. Never raise the stated current experience merely because the user requested an ambitious challenge.",
     "If the intake is specific, the normalized profile must stay specific.",
     "The summary field is shown to the student on the idea board, so write it to them in second person (\"your\"), not about them.",
     QUALITY_CLAUSE,
@@ -80,7 +81,7 @@ export function buildNormalizeUserPrompt(input: {
     "Requirements:",
     "- Reuse the user's actual technical or research language whenever possible.",
     "- Keep the normalized profile narrow enough to drive differentiated outputs.",
-    "- Treat beginner, intermediate, and advanced experience levels as distinct calibration signals for scope, method complexity, and guidance depth.",
+    "- Treat current experience as a guidance-depth signal and preferred_difficulty as the student's appetite for stretch. Preserve both independently.",
     "- Do not introduce removed concepts like mentor access, school/company targeting, or tool access assumptions unless the raw intake explicitly names them in free text.",
   ].join("\n\n");
 }
@@ -104,6 +105,8 @@ const EMPHASIS_KEYS = [
 function formatContext(context: GenerationContext) {
   const seed = contextEmphasisSeed(context);
   const emphasizedKeys = new Set<string>(EMPHASIS_KEYS[seed % EMPHASIS_KEYS.length]);
+  emphasizedKeys.add("skill_assessment");
+  emphasizedKeys.add("preferred_challenge");
 
   const payload = context.track_payload_json;
 
@@ -117,6 +120,7 @@ function formatContext(context: GenerationContext) {
     ["resource_snapshot", "Resources", payload.resource_snapshot],
     ["anti_generic_warnings", "Anti-generic warnings", payload.anti_generic_warnings.join(" | ")],
     ["weekly_hours", "Weekly hours", String(payload.weekly_hours)],
+    ["preferred_challenge", "Preferred challenge", payload.preferred_challenge],
     ["constraints_summary", "Constraints", payload.constraints_summary],
     ["scope_guardrails", "Scope guardrails", payload.scope_guardrails.join(" | ")],
     ["focus_signal", "Focus", payload.focus_signal],
@@ -166,23 +170,28 @@ export function buildOptionsSystemPrompt(projectTrack: ProjectTrack) {
     projectTrack === "software"
       ? [
           "The three options MUST differ along at least two of these axes: (1) target user persona, (2) problem domain angle, (3) technical approach or core technology, (4) project scope/ambition level, (5) output artifact type (tool vs dashboard vs API vs CLI vs data pipeline).",
-          "Option 1 should be the most focused and finishable. Option 2 should be the most technically interesting. Option 3 should target the most impressive portfolio outcome.",
+          "The ambitious option must make a different core product or technical bet; it cannot be the focused option with more integrations or features.",
         ]
       : [
           "The three options MUST differ along at least two of these axes: (1) research question angle, (2) methodology, (3) evidence type (qualitative vs quantitative vs mixed), (4) scope/ambition level, (5) target deliverable format (paper vs poster vs dataset vs benchmark).",
-          "Option 1 should be the most tightly scoped and finishable. Option 2 should be the most methodologically rigorous. Option 3 should aim for the most impressive findings.",
+          "The ambitious option must make a different methodological or evidence bet; it cannot be the focused option with a larger sample or longer paper.",
         ];
 
   return [
     `You generate concise ${projectTrack} project options for Sevri.`,
     "Return only JSON that matches the schema.",
-    "Generate exactly 3 options.",
+    "Generate exactly 3 options in this exact ladder and order: (1) difficulty=beginner is FOCUSED, (2) difficulty=intermediate is STRETCH, (3) difficulty=advanced is AMBITIOUS.",
+    "These difficulty values are comparative scope tiers, not claims about the student's ability. Calibrate all three to current experience and preferred challenge.",
     "Keep titles specific and summaries to 1-2 sentences. Use why_it_fits to explain the connection between this student's specific background and the project — reference their domain anchors, constraints, or goals by name.",
     "Stay grounded in the student's real domain interests and constraints.",
     "Avoid generic student-life, study-habit, or productivity ideas unless the context explicitly supports them.",
     `Each option's track_payload_json must include all seed fields (${seedFields}) with concrete, project-specific values.`,
     "Also return skills_demonstrated, tools_needed, impressiveness_score, and finishability_score for every option.",
     ...diversityGuidance,
+    "FOCUSED: the smallest serious version with a sharp audience/question and a complete proof loop; never a generic fallback.",
+    "STRETCH: a meaningfully different direction that teaches one important new technique or method while staying finishable.",
+    "AMBITIOUS: the hardest realistic challenge requested. It must have the strongest creative or real-world impact thesis, one non-obvious technical/methodological mechanism, and a credible proof path. Difficulty comes from depth and judgment, not feature count.",
+    "If preferred challenge is advanced, keep even the focused option intellectually serious; reduce breadth, not caliber. If current experience is beginner, make the ambitious option learning-heavy but still buildable from available resources.",
     "Scores must reflect the real time budget, skill level, and risk flags rather than generic optimism.",
     "These seed fields become the foundation for roadmap generation - make them specific enough to drive a real execution plan.",
     VOICE_CLAUSE,
@@ -241,6 +250,9 @@ export function buildRoadmapSystemPrompt(projectTrack: ProjectTrack) {
     "pitch_kit.resume_bullets: 2-3 bullets that each start with a past-tense action verb and describe the artifact and the evidence. Claim only what the roadmap actually produces.",
     "pitch_kit.talking_points: exactly 3 points. Each has a short label (for example 'Why this project', 'What it does', 'Why it matters') and a body of 1-2 complete sentences.",
     "Every pitch_kit field is read by the student and is written for them: complete sentences, correct capitalization, no trailing fragments.",
+    "learning_resources: 5-8 real resources found with web search for this exact project. Include at least one start_here, two build_with, and one go_deeper resource. Prefer official documentation, universities, recognized research organizations, primary papers/datasets, and high-quality maintained tutorials.",
+    "Every learning resource URL must be copied from a retrieved web-search source. Never invent, autocomplete, or guess a URL. Choose the exact page the student should open, not a search result page or generic homepage. Explain why it matters for this project and map it to a real roadmap step. use_during_step is 1-based: the first roadmap step is 1.",
+    "Use free_access=true only when the useful material is available without payment. Do not describe a resource as current unless web evidence supports that claim.",
     "",
     "Do not include long rationale, README text, or extra sections.",
     VOICE_CLAUSE,
@@ -280,6 +292,8 @@ export function buildRoadmapUserPrompt(input: {
     "- Phrase each cut_if_behind item as a thing that can wait (a noun phrase such as 'the export view'), not as an instruction to delete it now.",
     "- success_criteria must tie to real deliverables, not effort or process.",
     "- pitch_kit must describe only what this roadmap actually delivers, in the student's own second-person voice.",
+    "- Search the web before choosing learning_resources. The resource set must teach the prerequisite concepts and project-specific techniques implied by this roadmap's difficulty.",
+    "- Learning resources are part of the execution plan: use_during_step must point to the step where each source becomes useful.",
   ].join("\n\n");
 }
 

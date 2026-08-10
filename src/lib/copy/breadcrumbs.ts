@@ -52,6 +52,10 @@ function getProjectSectionCrumb(projectId: string, remainder: string) {
     return { href: `/project/${projectId}/pitch-kit`, label: PROJECT_SECTION_LABELS.pitchKit };
   }
 
+  if (remainder === "resources") {
+    return { href: `/project/${projectId}/resources`, label: PROJECT_SECTION_LABELS.resources };
+  }
+
   if (remainder === "focus") {
     return { href: `/project/${projectId}/focus`, label: PROJECT_SECTION_LABELS.focus };
   }

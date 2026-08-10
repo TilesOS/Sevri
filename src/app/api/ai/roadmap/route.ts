@@ -333,7 +333,14 @@ export async function POST(request: Request) {
         timings: routeMetadata,
         ...(generated.citations.length > 0 ? { citations: generated.citations } : {}),
       },
-      { status: 200 },
+      {
+        status: 200,
+        headers: {
+          "X-Sevri-Model": routeMetadata.model,
+          "X-Sevri-Fallback-Used": String(routeMetadata.fallback_used),
+          "X-Sevri-Web-Search": String(routeMetadata.web_search_used),
+        },
+      },
     );
   } catch (error) {
     console.error("roadmap failed", { stage, error });

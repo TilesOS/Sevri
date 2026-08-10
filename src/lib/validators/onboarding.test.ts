@@ -10,6 +10,7 @@ function softwareIntake(overrides: Record<string, unknown> = {}) {
     interests: ["climate"],
     favorite_subjects: ["biology"],
     weekly_time_available: 6,
+    preferred_difficulty: "advanced",
     coding_experience: "beginner",
     preferred_project_style: "web app",
     known_tools: ["React"],
@@ -25,6 +26,7 @@ function researchIntake(overrides: Record<string, unknown> = {}) {
     interests: ["policy"],
     favorite_subjects: ["economics"],
     weekly_time_available: 6,
+    preferred_difficulty: "advanced",
     preferred_research_domain: "public health",
     research_experience: "beginner",
     methodology_preference: "data_analysis",
@@ -39,6 +41,27 @@ test("a complete software intake parses", () => {
 
 test("a complete research intake parses", () => {
   assert.equal(onboardingInputSchema.safeParse(researchIntake()).success, true);
+});
+
+test("current experience and preferred challenge remain separate signals", () => {
+  const result = onboardingInputSchema.safeParse(
+    softwareIntake({ coding_experience: "beginner", preferred_difficulty: "advanced" }),
+  );
+
+  assert.equal(result.success, true);
+  if (!result.success || result.data.project_track !== "software") return;
+  assert.equal(result.data.coding_experience, "beginner");
+  assert.equal(result.data.preferred_difficulty, "advanced");
+});
+
+test("older saved answers receive a compatible challenge default", () => {
+  const intake: Record<string, unknown> = { ...softwareIntake() };
+  Reflect.deleteProperty(intake, "preferred_difficulty");
+  const result = onboardingInputSchema.safeParse(intake);
+
+  assert.equal(result.success, true);
+  if (!result.success) return;
+  assert.equal(result.data.preferred_difficulty, "intermediate");
 });
 
 test("whitespace-only interests are rejected", () => {

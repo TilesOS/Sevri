@@ -6,6 +6,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
+import { zodTextFormat } from "openai/helpers/zod";
 import { onboardingInputSchema } from "../validators/onboarding.ts";
 import { buildRepairFeedback, checkStructured } from "./content-quality.ts";
 import {
@@ -14,7 +15,8 @@ import {
   STEP_GUIDANCE_QUALITY_SPEC,
   WORK_EVALUATION_QUALITY_SPEC,
 } from "./content-quality-specs.ts";
-import { WorkEvaluationSchema } from "./schemas.ts";
+import { LearningResourceSchema, RoadmapGenerationSchema, WorkEvaluationSchema } from "./schemas.ts";
+import { canonicalSourceUrl } from "./source-url.ts";
 
 function validatorFeedback(parsed: unknown, spec: Parameters<typeof checkStructured>[1]): string[] {
   const report = checkStructured(parsed, spec);
@@ -85,6 +87,56 @@ test("roadmap validator surfaces feedback for broken project title and step", ()
   const feedback = validatorFeedback(bad, ROADMAP_QUALITY_SPEC);
   assert.ok(feedback.some((line) => line.includes("project_title")));
   assert.ok(feedback.some((line) => line.includes("steps[0].objective")));
+});
+
+test("roadmap response schema uses a supported URL pattern instead of format uri", () => {
+  const format = zodTextFormat(RoadmapGenerationSchema, "roadmap_schema_test") as unknown as {
+    schema: Record<string, unknown>;
+  };
+  const serialized = JSON.stringify(format.schema);
+
+  assert.doesNotMatch(serialized, /"format":"uri"/);
+  assert.match(serialized, /"pattern":"\^https\?\:/);
+
+  const validResource = {
+    title: "OpenAI Responses API guide",
+    provider: "OpenAI",
+    url: "https://developers.openai.com/api/docs/guides/structured-outputs",
+    resource_type: "documentation",
+    learning_stage: "start_here",
+    why_it_matters: "It explains how to build and validate structured model responses.",
+    use_during_step: 1,
+    free_access: true,
+  };
+  assert.equal(LearningResourceSchema.safeParse(validResource).success, true);
+  assert.equal(
+    LearningResourceSchema.safeParse({ ...validResource, url: "not a real URL" }).success,
+    false,
+  );
+});
+
+test("source URL canonicalization preserves content queries and removes known tracking", () => {
+  const firstVideo = canonicalSourceUrl("https://www.youtube.com/watch?v=one");
+  const secondVideo = canonicalSourceUrl("https://www.youtube.com/watch?v=two");
+
+  assert.notEqual(firstVideo, secondVideo, "distinct query-addressed resources must stay distinct");
+  assert.equal(
+    canonicalSourceUrl(
+      "https://www.youtube.com/watch?utm_source=newsletter&v=one&utm_campaign=launch",
+    ),
+    firstVideo,
+    "recognized tracking parameters should not prevent an evidence match",
+  );
+  assert.equal(
+    canonicalSourceUrl("https://example.com/guide?language=en&chapter=2"),
+    canonicalSourceUrl("https://example.com/guide?chapter=2&language=en"),
+    "query ordering alone should not create distinct resources",
+  );
+  assert.notEqual(
+    canonicalSourceUrl("https://www.youtube.com/watch?v=guessed"),
+    firstVideo,
+    "a guessed content identifier must not match a different cited resource",
+  );
 });
 
 test("step guidance validator surfaces feedback for truncated email subject", () => {
@@ -199,5 +251,6 @@ test("research onboarding accepts intermediate experience and prompt code calibr
   assert.equal(intake.research_experience, "intermediate");
   assert.match(generationContextSource, /skill === "intermediate"/);
   assert.match(generationContextSource, /structured method/i);
-  assert.match(promptsSource, /beginner, intermediate, and advanced experience levels/);
+  assert.match(promptsSource, /Preserve current experience and preferred challenge as separate signals/);
+  assert.match(promptsSource, /comparative scope tiers, not claims about the student's ability/);
 });

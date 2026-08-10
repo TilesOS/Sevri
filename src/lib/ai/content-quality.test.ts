@@ -34,6 +34,14 @@ test("checkField flags trailing connectors", () => {
   assert.ok(kinds(issues).includes("trailing_connector"));
 });
 
+test("deterministic cleanup removes a full trailing connector chain", () => {
+  const spec: FieldSpec = { kind: "prose", minCredible: 16, maxLength: 220 };
+  const cleaned = safeRenderText("Compare the prototype against the rubric for the", spec);
+
+  assert.equal(cleaned.text, "Compare the prototype against the rubric.");
+  assert.deepEqual(checkField(cleaned.text, "path", spec), []);
+});
+
 test("checkField flags mojibake with replacement char", () => {
   const issues = checkField("caf\uFFFD opening notes - a complete sentence.", "path", PROSE_SPEC);
   assert.ok(kinds(issues).includes("mojibake"));

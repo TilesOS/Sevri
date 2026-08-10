@@ -51,6 +51,7 @@ const wizardSchema = z.object({
     .int("Enter a whole number of hours.")
     .min(1, "Enter at least 1 hour a week.")
     .max(80, "Enter 80 hours a week or fewer."),
+  preferred_difficulty: z.enum(["beginner", "intermediate", "advanced"]),
 
   coding_experience: z.enum(["beginner", "intermediate", "advanced"]),
   preferred_project_style: z.string(),
@@ -99,6 +100,7 @@ const sharedDefaults: WizardValues = {
   interests: "",
   favorite_subjects: "",
   weekly_time_available: 6,
+  preferred_difficulty: "intermediate",
   coding_experience: "beginner",
   preferred_project_style: "",
   known_tools: "",
@@ -113,15 +115,21 @@ const sharedDefaults: WizardValues = {
 };
 
 const experienceOptions = [
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
+  { value: "beginner", label: "Beginner — I am still learning the basics" },
+  { value: "intermediate", label: "Intermediate — I can build with some guidance" },
+  { value: "advanced", label: "Advanced — I can work independently" },
 ] as const;
 
 const researchExperienceOptions = [
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
+  { value: "beginner", label: "Beginner — I am new to structured research" },
+  { value: "intermediate", label: "Intermediate — I know the basic process" },
+  { value: "advanced", label: "Advanced — I can defend method choices" },
+] as const;
+
+const challengeOptions = [
+  { value: "beginner", label: "Focused — stay close to what I know" },
+  { value: "intermediate", label: "Stretch — teach me new techniques" },
+  { value: "advanced", label: "Ambitious — the hardest realistic challenge" },
 ] as const;
 
 const methodologyOptions = [
@@ -171,6 +179,7 @@ function getWizardValuesFromStoredAnswers(
     interests: listToFieldValue(answers.interests),
     favorite_subjects: listToFieldValue(answers.favorite_subjects),
     weekly_time_available: answers.weekly_time_available,
+    preferred_difficulty: answers.preferred_difficulty,
     constraints: answers.constraints ?? "",
     additional_context: answers.additional_context ?? "",
   };
@@ -232,6 +241,7 @@ const stepConfig = {
       description: "Ground the project in your current tools, skill level, and appetite for difficulty.",
       fields: [
         "coding_experience",
+        "preferred_difficulty",
         "preferred_project_style",
         "known_tools",
       ] as WizardField[],
@@ -263,6 +273,7 @@ const stepConfig = {
       fields: [
         "preferred_research_domain",
         "research_experience",
+        "preferred_difficulty",
         "methodology_preference",
         "target_research_deliverable",
         "data_or_resource_access",
@@ -318,6 +329,8 @@ export function OnboardingWizard({
   const projectTrack = form.watch("project_track");
   const targetOutcome = form.watch("target_outcome");
   const weeklyTimeAvailable = form.watch("weekly_time_available");
+  const preferredDifficulty = form.watch("preferred_difficulty");
+  const currentExperience = form.watch(projectTrack === "software" ? "coding_experience" : "research_experience");
   const interests = form.watch("interests");
   const favoriteSubjects = form.watch("favorite_subjects");
 
@@ -374,6 +387,7 @@ export function OnboardingWizard({
         interests: toList(values.interests),
         favorite_subjects: toList(values.favorite_subjects),
         weekly_time_available: values.weekly_time_available,
+        preferred_difficulty: values.preferred_difficulty,
         constraints: values.constraints,
         additional_context: values.additional_context,
       };
@@ -616,12 +630,26 @@ export function OnboardingWizard({
               {currentStep.key === "build_setup" ? (
                 <>
                   <FormField
-                    label="Coding experience and preferred challenge"
-                    hint="This single answer should reflect both your current comfort level and the difficulty you want Sevri to calibrate toward."
+                    label="Current coding experience"
+                    hint="Choose what you can do today. This controls how much setup and explanation your roadmap includes."
                     required
                   >
                     <Select {...form.register("coding_experience")}>
                       {experienceOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
+
+                  <FormField
+                    label="Preferred challenge"
+                    hint="Choose how far you want the project to stretch beyond your current experience."
+                    required
+                  >
+                    <Select {...form.register("preferred_difficulty")}>
+                      {challengeOptions.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
@@ -687,6 +715,20 @@ export function OnboardingWizard({
                       </Select>
                     </FormField>
                   </div>
+
+                  <FormField
+                    label="Preferred challenge"
+                    hint="Choose how far you want the method and analysis to stretch beyond your current experience."
+                    required
+                  >
+                    <Select {...form.register("preferred_difficulty")}>
+                      {challengeOptions.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </Select>
+                  </FormField>
 
                   <FormField label="Target final deliverable" required>
                     <Select {...form.register("target_research_deliverable")}>
@@ -797,6 +839,18 @@ export function OnboardingWizard({
               <SummaryItem label="Track" value={projectTrack === "software" ? "Software Project" : "Research Project"} />
               <SummaryItem label="Outcome" value={targetOutcomeLabels[targetOutcome]} />
               <SummaryItem label="Time available" value={`${weeklyTimeAvailable || 0} hours / week`} />
+              <SummaryItem
+                label="Current experience"
+                value={
+                  projectTrack === "software"
+                    ? experienceOptions.find((option) => option.value === currentExperience)?.label ?? currentExperience
+                    : researchExperienceOptions.find((option) => option.value === currentExperience)?.label ?? currentExperience
+                }
+              />
+              <SummaryItem
+                label="Preferred challenge"
+                value={challengeOptions.find((option) => option.value === preferredDifficulty)?.label ?? preferredDifficulty}
+              />
               <SummaryItem label="Interests" value={interestPreview} />
               <SummaryItem label="Subjects" value={subjectPreview} />
             </div>

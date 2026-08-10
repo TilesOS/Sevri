@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowLeft, Presentation, Search, ShieldCheck, SquareChartGantt } from "lucide-react";
+import { ArrowLeft, BookOpen, Presentation, Search, ShieldCheck, SquareChartGantt } from "lucide-react";
 import { ProjectProgressTracker } from "@/components/project/project-progress-tracker";
 import { roadmapStatusClassName } from "@/components/project/project-status";
 import { PROJECT_SECTION_LABELS, stepLabel } from "@/lib/copy/glossary";
@@ -22,6 +22,7 @@ const baseSectionLinks = [
   { href: "", label: PROJECT_SECTION_LABELS.overview, icon: SquareChartGantt },
   { href: "/scope", label: PROJECT_SECTION_LABELS.scope, icon: ShieldCheck },
   { href: "/lens", label: PROJECT_SECTION_LABELS.lens, icon: Search },
+  { href: "/resources", label: PROJECT_SECTION_LABELS.resources, icon: BookOpen },
   { href: "/pitch-kit", label: PROJECT_SECTION_LABELS.pitchKit, icon: Presentation },
 ] as const;
 

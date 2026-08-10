@@ -15,6 +15,7 @@ const FIELD_LABELS: Record<string, string> = {
   interests: "Interests",
   favorite_subjects: "Favorite subjects",
   weekly_time_available: "Weekly time available",
+  preferred_difficulty: "Preferred challenge",
   coding_experience: "Coding experience",
   preferred_project_style: "Preferred project style",
   preferred_research_domain: "Preferred research domain",

@@ -80,6 +80,10 @@ const PROSE_XLONG: FieldSpec = { kind: "prose", minCredible: 80, maxLength: 700 
 const PROSE_BRIEF: FieldSpec = { kind: "prose", minCredible: 120, maxLength: 600 };
 const BULLET: FieldSpec = { kind: "bullet", minCredible: 16, maxLength: 180 };
 const BULLET_LONG: FieldSpec = { kind: "bullet", minCredible: 50, maxLength: 220 };
+// Seed fields are compact descriptors shown under a label. They still receive
+// truncation, contamination, balance, and length checks, but a noun phrase such
+// as "Community health coordinators" should not fail for lacking a period.
+const DESCRIPTOR_SHORT: FieldSpec = { kind: "list_item", minCredible: 16, maxLength: 220 };
 
 /** Narrows a base spec to the exact `.max()` its Zod field carries. */
 function withMax(spec: FieldSpec, maxLength: number): FieldSpec {
@@ -92,18 +96,18 @@ export const OPTIONS_QUALITY_SPEC: FieldSpecMap = {
   "recommendations[*].summary": withMax(PROSE_LONG, 340),
   "recommendations[*].why_it_fits": withMax(PROSE_LONG, 360),
   // Software seed fields
-  "recommendations[*].track_payload_json.target_user": withMax(PROSE_SHORT, 140),
-  "recommendations[*].track_payload_json.problem_statement": PROSE_SHORT,
-  "recommendations[*].track_payload_json.core_workflow": PROSE_SHORT,
-  "recommendations[*].track_payload_json.mvp_boundary": PROSE_SHORT,
-  "recommendations[*].track_payload_json.validation_plan": PROSE_SHORT,
+  "recommendations[*].track_payload_json.target_user": withMax(DESCRIPTOR_SHORT, 140),
+  "recommendations[*].track_payload_json.problem_statement": DESCRIPTOR_SHORT,
+  "recommendations[*].track_payload_json.core_workflow": DESCRIPTOR_SHORT,
+  "recommendations[*].track_payload_json.mvp_boundary": DESCRIPTOR_SHORT,
+  "recommendations[*].track_payload_json.validation_plan": DESCRIPTOR_SHORT,
   // Research seed fields (share the same path since track is discriminated)
-  "recommendations[*].track_payload_json.research_question": PROSE_SHORT,
-  "recommendations[*].track_payload_json.hypothesis_or_focus": PROSE_SHORT,
-  "recommendations[*].track_payload_json.methodology": withMax(PROSE_SHORT, 180),
-  "recommendations[*].track_payload_json.evidence_plan": withMax(PROSE_SHORT, 180),
-  "recommendations[*].track_payload_json.scope_boundaries": PROSE_SHORT,
-  "recommendations[*].track_payload_json.limitation_note": PROSE_SHORT,
+  "recommendations[*].track_payload_json.research_question": DESCRIPTOR_SHORT,
+  "recommendations[*].track_payload_json.hypothesis_or_focus": DESCRIPTOR_SHORT,
+  "recommendations[*].track_payload_json.methodology": withMax(DESCRIPTOR_SHORT, 180),
+  "recommendations[*].track_payload_json.evidence_plan": withMax(DESCRIPTOR_SHORT, 180),
+  "recommendations[*].track_payload_json.scope_boundaries": DESCRIPTOR_SHORT,
+  "recommendations[*].track_payload_json.limitation_note": DESCRIPTOR_SHORT,
 };
 
 // Stage 2: roadmap overview
@@ -122,6 +126,9 @@ export const ROADMAP_QUALITY_SPEC: FieldSpecMap = {
   "pitch_kit.resume_bullets[*]": BULLET_LONG,
   "pitch_kit.talking_points[*].label": { kind: "title", minCredible: 4, maxLength: 40, maxUiSafe: 40 },
   "pitch_kit.talking_points[*].body": { kind: "prose", minCredible: 40, maxLength: 300 },
+  "learning_resources[*].title": TITLE_WIDE,
+  "learning_resources[*].provider": { kind: "title", minCredible: 2, maxLength: 80, maxUiSafe: 80 },
+  "learning_resources[*].why_it_matters": withMax(PROSE_MED, 260),
 };
 
 // Stage 3: step guidance

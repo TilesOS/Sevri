@@ -27,6 +27,7 @@ const CommonGenerationContextPayloadSchema = z.object({
   target_outcome: z.string().min(3),
   constraints_summary: z.string().min(3),
   weekly_hours: z.number().int().min(1).max(80),
+  preferred_challenge: DifficultySchema,
 });
 
 const SoftwareGenerationContextPayloadSchema = CommonGenerationContextPayloadSchema.extend({
@@ -139,6 +140,35 @@ export const PitchKitSchema = z.object({
   talking_points: z.array(PitchKitTalkingPointSchema).min(3).max(3),
 });
 
+const HTTP_RESOURCE_URL_PATTERN = /^https?:\/\/[^\s]+$/u;
+
+function isValidHttpResourceUrl(value: string) {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:") && url.hostname.length > 0;
+  } catch {
+    return false;
+  }
+}
+
+export const LearningResourceSchema = z.object({
+  title: z.string().min(4).max(140),
+  provider: z.string().min(2).max(80),
+  url: z
+    .string()
+    // OpenAI Structured Outputs does not support JSON Schema format: "uri".
+    // `regex` becomes the supported `pattern` keyword; the refinement below
+    // retains full application-side URL parsing after the response is decoded.
+    .regex(HTTP_RESOURCE_URL_PATTERN, "Resource URL must use HTTP(S).")
+    .max(1000)
+    .refine(isValidHttpResourceUrl, "Resource URL must be a valid HTTP(S) URL."),
+  resource_type: z.enum(["documentation", "course", "tutorial", "paper", "dataset", "tool", "reference"]),
+  learning_stage: z.enum(["start_here", "build_with", "go_deeper"]),
+  why_it_matters: z.string().min(24).max(260),
+  use_during_step: z.number().int().min(1).max(6),
+  free_access: z.boolean(),
+});
+
 export const RoadmapOverviewSchema = z.object({
   project_title: z.string().min(5).max(140),
   short_overview: z.string().min(40).max(320),
@@ -152,11 +182,14 @@ export const RoadmapOverviewSchema = z.object({
    * `RoadmapGenerationSchema`.
    */
   pitch_kit: PitchKitSchema.nullish(),
+  /** Older stored roadmaps predate the learning library. */
+  learning_resources: z.array(LearningResourceSchema).min(3).max(8).nullish(),
 });
 
 /** The roadmap contract for generation: the pitch kit is mandatory. */
 export const RoadmapGenerationSchema = RoadmapOverviewSchema.extend({
   pitch_kit: PitchKitSchema,
+  learning_resources: z.array(LearningResourceSchema).min(5).max(8),
 });
 
 export const StepGuidanceEmailSchema = z.object({
@@ -224,6 +257,7 @@ export type RoadmapOverview = z.infer<typeof RoadmapOverviewSchema>;
 export type RoadmapStep = z.infer<typeof RoadmapStepSchema>;
 export type PitchKit = z.infer<typeof PitchKitSchema>;
 export type PitchKitTalkingPoint = z.infer<typeof PitchKitTalkingPointSchema>;
+export type LearningResource = z.infer<typeof LearningResourceSchema>;
 export type StepGuidance = z.infer<typeof StepGuidanceSchema>;
 export type WorkEvaluation = z.infer<typeof WorkEvaluationSchema>;
 export type WorkPortfolioCuration = z.infer<typeof WorkPortfolioCurationSchema>;

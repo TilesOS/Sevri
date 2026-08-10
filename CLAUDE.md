@@ -9,11 +9,10 @@ npm run dev          # Start dev server
 npm run build        # Production build
 npm run lint         # ESLint
 npm run typecheck    # TypeScript type check (no emit)
+npm run test:unit    # Unit and contract tests
 ```
 
 Apply Supabase migrations: `supabase db push`
-
-There are no automated tests. Type-check and lint are the verification tools.
 
 ## Environment
 
@@ -21,7 +20,7 @@ Copy `.env.example` to `.env.local`. Do NOT set `NODE_ENV` manually — let Next
 
 Required env vars are validated at startup via Zod in `src/lib/env.ts`. Server-only vars are accessed via `getServerEnv()` (lazy-parsed, cached). Client vars are in `clientEnv` (parsed at module load). Adding a new env var requires updating both the schema and the call site.
 
-Per-stage OpenAI model overrides: `OPENAI_STAGE1_MODEL`, `OPENAI_STAGE2_MODEL`, `OPENAI_STAGE3_MODEL`. Falls back to `OPENAI_MODEL` (default: `gpt-4.1-mini`).
+Per-stage OpenAI model overrides: `OPENAI_NORMALIZE_MODEL`, `OPENAI_STAGE1_MODEL`, `OPENAI_STAGE2_MODEL`, `OPENAI_STAGE3_MODEL`. Falls back to `OPENAI_MODEL` (default: `gpt-5.6-luna`). Stage 1 is the idea board, stage 2 is the roadmap, and stage 3 is step guidance.
 
 ## Architecture
 
@@ -52,7 +51,7 @@ Three pipeline stages in `pipelines.ts`:
 - `runRoadmapGeneration` — generates full roadmap for a selected option
 - `runStepGuidanceGeneration` — generates guidance for a single roadmap step
 
-Each stage has deterministic fallbacks that run if the AI call fails entirely. Web search is conditionally enabled per-request based on recency/source-seeking signals detected in the prompt content.
+Each stage has deterministic fallbacks that run if the AI call fails entirely. Roadmap generation requires Responses API web search and validates every learning-resource URL against the returned source list. Step guidance enables web search conditionally for recency- or source-seeking requests.
 
 Schemas live in `schemas.ts` (Zod + exported TypeScript types). Prompts in `prompts.ts`. `generation-context.ts` has helper utilities for deriving context metadata.
 
