@@ -55,6 +55,7 @@ import {
   buildAllowedTerms,
 } from "@/lib/ai/content-quality-specs";
 import { formatLintIssues, lintProse, type ContentLintCode } from "@/lib/text/content-lint";
+import { canonicalSourceUrl } from "@/lib/ai/source-url";
 
 const STUDENT_THEME_PATTERNS = [
   /student[-\s]?life/i,
@@ -399,16 +400,6 @@ function roadmapIssues(roadmap: RoadmapOverview, selectedOption: ProjectOption, 
   }
 
   return issues;
-}
-
-function canonicalSourceUrl(value: string) {
-  try {
-    const url = new URL(value);
-    const path = url.pathname.replace(/\/+$/, "") || "/";
-    return `${url.protocol}//${url.host}${path}`;
-  } catch {
-    return value;
-  }
 }
 
 function learningResourceEvidenceIssues(roadmap: RoadmapOverview, citations: GenerationCitation[]) {

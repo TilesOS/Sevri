@@ -16,6 +16,7 @@ import {
   WORK_EVALUATION_QUALITY_SPEC,
 } from "./content-quality-specs.ts";
 import { LearningResourceSchema, RoadmapGenerationSchema, WorkEvaluationSchema } from "./schemas.ts";
+import { canonicalSourceUrl } from "./source-url.ts";
 
 function validatorFeedback(parsed: unknown, spec: Parameters<typeof checkStructured>[1]): string[] {
   const report = checkStructured(parsed, spec);
@@ -111,6 +112,30 @@ test("roadmap response schema uses a supported URL pattern instead of format uri
   assert.equal(
     LearningResourceSchema.safeParse({ ...validResource, url: "not a real URL" }).success,
     false,
+  );
+});
+
+test("source URL canonicalization preserves content queries and removes known tracking", () => {
+  const firstVideo = canonicalSourceUrl("https://www.youtube.com/watch?v=one");
+  const secondVideo = canonicalSourceUrl("https://www.youtube.com/watch?v=two");
+
+  assert.notEqual(firstVideo, secondVideo, "distinct query-addressed resources must stay distinct");
+  assert.equal(
+    canonicalSourceUrl(
+      "https://www.youtube.com/watch?utm_source=newsletter&v=one&utm_campaign=launch",
+    ),
+    firstVideo,
+    "recognized tracking parameters should not prevent an evidence match",
+  );
+  assert.equal(
+    canonicalSourceUrl("https://example.com/guide?language=en&chapter=2"),
+    canonicalSourceUrl("https://example.com/guide?chapter=2&language=en"),
+    "query ordering alone should not create distinct resources",
+  );
+  assert.notEqual(
+    canonicalSourceUrl("https://www.youtube.com/watch?v=guessed"),
+    firstVideo,
+    "a guessed content identifier must not match a different cited resource",
   );
 });
 
