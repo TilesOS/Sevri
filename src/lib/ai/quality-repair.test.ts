@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { checkStructured } from "./content-quality.ts";
 import { OPTIONS_QUALITY_SPEC } from "./content-quality-specs.ts";
-import { applyQualityFieldRepairs, buildQualityRepairTargets, canUseDeterministicQualityCleanup, getStringAtPath } from "./quality-repair.ts";
+import { applyQualityFieldRepairs, buildQualityRepairTargets, canUseDeterministicQualityCleanup, exhaustedTargetedQualityRepairAllowsFallback, getStringAtPath, shouldSkipCrossModelFallbackForQuality } from "./quality-repair.ts";
 
 const board = { recommendations: [{ title: "Neighborhood Heat Evidence Map", summary: "Map neighborhood heat exposure and turn the pattern into a concrete local planning case.", why_it_fits: "This direction connects geographic analysis to a practical public-health decision.", project_blueprint_json: { central_challenge: "Show where neighborhood heat risk is concentrated.", approach: "Join public data, score exposure, and inspect results with:", scope_boundary: "Compare the resulting hotspots with" } }] };
 test("quality repair targets exact universal blueprint fields", () => {
@@ -16,3 +16,29 @@ test("field repair preserves all unflagged content", () => {
   assert.match(getStringAtPath(applied.candidate, paths[1]) ?? "", /One city/u);
 });
 test("deterministic cleanup only handles safe mechanics", () => assert.equal(canUseDeterministicQualityCleanup(checkStructured(board, OPTIONS_QUALITY_SPEC)), false));
+test("an exhausted targeted repair hands the response to the fallback model", () => {
+  const repairFailureAllowsFallback = exhaustedTargetedQualityRepairAllowsFallback({
+    repairRound: 2,
+    maxRepairRounds: 2,
+    schemaIssueCount: 1,
+    semanticIssueCount: 0,
+    qualityIssueCount: 1,
+  });
+
+  assert.equal(repairFailureAllowsFallback, true);
+  assert.equal(shouldSkipCrossModelFallbackForQuality({
+    isPrimaryModel: true,
+    semanticIssueCount: 0,
+    qualityIssueCount: 1,
+    repairFailureAllowsFallback,
+  }), false);
+});
+test("the first targeted repair round keeps its second repair chance", () => {
+  assert.equal(exhaustedTargetedQualityRepairAllowsFallback({
+    repairRound: 1,
+    maxRepairRounds: 2,
+    schemaIssueCount: 1,
+    semanticIssueCount: 0,
+    qualityIssueCount: 1,
+  }), false);
+});

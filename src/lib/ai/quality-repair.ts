@@ -86,6 +86,17 @@ export function shouldSkipCrossModelFallbackForQuality(input: {
     !input.repairFailureAllowsFallback;
 }
 
+export function exhaustedTargetedQualityRepairAllowsFallback(input: {
+  repairRound: number;
+  maxRepairRounds: number;
+  schemaIssueCount: number;
+  semanticIssueCount: number;
+  qualityIssueCount: number;
+}): boolean {
+  return input.repairRound >= input.maxRepairRounds &&
+    input.schemaIssueCount + input.semanticIssueCount + input.qualityIssueCount > 0;
+}
+
 function pathTokens(path: string): Array<{ kind: "key" | "index"; value: string }> {
   const tokens: Array<{ kind: "key" | "index"; value: string }> = [];
   const pattern = /([^.[\]]+)|\[(\d+)\]/gu;
