@@ -41,6 +41,7 @@ export interface PublicPortfolioPageView {
   summary: string;
   reflection: string;
   featuredSubmissionExcerpt: string;
+  featuredArtifacts: Array<{ id: string; displayName: string; caption: string; altText: string; mimeType: string | null; url: string }>;
 }
 
 function cleanSummary(...candidates: Array<string | null | undefined>) {
@@ -193,6 +194,25 @@ export async function getPublicPortfolioPageBySlug(slug: string): Promise<Public
     choice: pageRow.display_name_choice,
     admin: true,
   });
+  const { data: featuredRows, error: featuredError } = await supabase
+    .from("portfolio_featured_artifacts")
+    .select("artifact_id, display_order, public_caption, public_alt_text")
+    .eq("portfolio_entry_id", entryRow.id)
+    .order("display_order", { ascending: true });
+  if (featuredError) throw new Error(`Failed to load public featured evidence: ${featuredError.message}`);
+  const featuredIds = (featuredRows ?? []).map((row) => row.artifact_id);
+  const { data: artifactRows, error: artifactError } = featuredIds.length
+    ? await supabase.from("milestone_submission_artifacts").select("id, upload_path, external_url, display_name, mime_type").in("id", featuredIds)
+    : { data: [], error: null };
+  if (artifactError) throw new Error(`Failed to load public evidence: ${artifactError.message}`);
+  const artifactById = new Map((artifactRows ?? []).map((artifact) => [artifact.id, artifact]));
+  const featuredArtifacts = (await Promise.all((featuredRows ?? []).map(async (featured) => {
+    const artifact = artifactById.get(featured.artifact_id);
+    if (!artifact) return null;
+    const url = artifact.external_url ?? (artifact.upload_path ? (await supabase.storage.from("project-evidence").createSignedUrl(artifact.upload_path, 60 * 10)).data?.signedUrl : null);
+    if (!url) return null;
+    return { id: artifact.id, displayName: artifact.display_name, caption: featured.public_caption, altText: featured.public_alt_text, mimeType: artifact.mime_type, url };
+  }))).filter((artifact): artifact is NonNullable<typeof artifact> => artifact !== null);
 
   return {
     ownerUserId: pageRow.user_id,
@@ -206,5 +226,6 @@ export async function getPublicPortfolioPageBySlug(slug: string): Promise<Public
     ),
     reflection: trimPublicText(entryRow.student_reflection, 6000),
     featuredSubmissionExcerpt: trimPublicText(submission?.submission_text, 300),
+    featuredArtifacts,
   };
 }

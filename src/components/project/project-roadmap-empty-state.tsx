@@ -2,41 +2,34 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { GenerateRoadmapButton } from "@/components/project/generate-roadmap-button";
 import { PageHeader } from "@/components/ui/page-header";
-import { getPlanLabel, trackThemes } from "@/components/theme/theme-utils";
+import { getPlanLabel } from "@/components/theme/theme-utils";
 import type { Plan } from "@/types/domain";
-import type { ProjectTrack } from "@/types/domain";
 
 export function ProjectRoadmapEmptyState({
   projectId,
   projectTitle,
-  projectTrack,
+  projectKindLabel,
   plan,
 }: {
   projectId: string;
   projectTitle: string;
-  projectTrack: ProjectTrack;
+  projectKindLabel: string;
   plan: Plan;
 }) {
-  const trackTheme = trackThemes[projectTrack];
-
   return (
     <div className="space-y-8">
       <Card>
         <div className="space-y-5">
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone="neutral">{getPlanLabel(plan)}</Badge>
-            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
+            <Badge tone="neutral">{projectKindLabel}</Badge>
           </div>
           <PageHeader
             title={projectTitle}
-            description={
-              projectTrack === "research"
-                ? "Generate the roadmap overview first, then open each step to keep the objective visible and unlock deeper research guidance with Pro."
-                : "Generate the roadmap overview first, then open each step to keep the objective visible and unlock deeper build guidance with Pro."
-            }
+            description="Generate the roadmap overview first, then open each step to keep the objective visible and unlock deeper coaching with Pro."
             className="border-b-0 pb-0"
           />
-          <GenerateRoadmapButton projectId={projectId} projectTrack={projectTrack} />
+          <GenerateRoadmapButton projectId={projectId} />
         </div>
       </Card>
 

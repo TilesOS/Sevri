@@ -27,7 +27,7 @@ export default function PrivacyPage() {
 
           <p>
             Sevri (&ldquo;we&rdquo;, &ldquo;us&rdquo;) helps students choose, scope, and finish meaningful
-            software and research projects. Sevri is the controller of personal information processed through
+            student projects in any field. Sevri is the controller of personal information processed through
             the service. You can contact us at{" "}
             <a className="font-medium text-ink underline" href="mailto:support@sevri.co">
               support@sevri.co

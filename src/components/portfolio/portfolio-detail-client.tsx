@@ -2,16 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 import { Alert } from "@/components/ui/alert";
 import { PortfolioCurationTrigger } from "@/components/portfolio/portfolio-curation-trigger";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { getPlanLabel, getTrackLabel } from "@/components/theme/theme-utils";
+import { getPlanLabel } from "@/components/theme/theme-utils";
 import { trackClientEvent } from "@/lib/analytics/events";
 import { RATE_LIMITED_MESSAGE, toUserFacingError } from "@/lib/errors/user-messages";
 import {
@@ -337,9 +339,7 @@ export function PortfolioDetailClient({
         <div className="space-y-6">
           <div className="flex flex-wrap items-center gap-3">
             <Badge tone="contrast">{getPlanLabel(plan)}</Badge>
-            <Badge tone={view.projectTrack === "software" ? "software" : "research"}>
-              {getTrackLabel(view.projectTrack)}
-            </Badge>
+            <Badge tone="neutral">{view.projectKindLabel}</Badge>
             <Badge tone={view.effectiveStatus === "completed" ? "success" : "warning"}>
               {view.statusLabel}
             </Badge>
@@ -367,6 +367,7 @@ export function PortfolioDetailClient({
 
       {message ? <Alert tone="success">{message}</Alert> : null}
       {error ? <Alert tone="danger">{error}</Alert> : null}
+      {view.artifacts.length ? <EvidenceGallery artifacts={view.artifacts} projectId={view.project.id} initialFeaturedIds={view.featuredArtifactIds} /> : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1.1fr)_minmax(20rem,0.9fr)]">
         <div className="space-y-4">
@@ -818,4 +819,62 @@ function ReviewLine({ label, value }: { label: string; value: string }) {
       <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-ink">{value}</p>
     </div>
   );
+}
+
+function EvidenceGallery({ artifacts, projectId, initialFeaturedIds }: { artifacts: PortfolioEntryDetailView["artifacts"]; projectId: string; initialFeaturedIds: string[] }) {
+  const [featuredIds, setFeaturedIds] = useState(initialFeaturedIds);
+  const [savingId, setSavingId] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [descriptions, setDescriptions] = useState<Record<string, { caption: string; altText: string }>>(() =>
+    Object.fromEntries(artifacts.map((artifact) => [artifact.id, { caption: artifact.caption ?? "", altText: artifact.alt_text ?? "" }])),
+  );
+
+  async function updateEvidence(artifactId: string, nextFeaturedIds?: string[]) {
+    const description = descriptions[artifactId] ?? { caption: "", altText: "" };
+    if (!description.caption.trim() || !description.altText.trim()) {
+      setError("Add both a public caption and an accessible description before featuring this evidence.");
+      return false;
+    }
+    setSavingId(artifactId);
+    setError(null);
+    const response = await fetch(`/api/portfolio/${projectId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        artifact_metadata: [{ id: artifactId, caption: description.caption, alt_text: description.altText }],
+        ...(nextFeaturedIds ? { featured_artifact_ids: nextFeaturedIds } : {}),
+      }),
+    });
+    const body = await response.json().catch(() => ({})) as ApiErrorBody;
+    if (!response.ok) setError(responseMessage(body, "Could not update this evidence item."));
+    setSavingId(null);
+    return response.ok;
+  }
+
+  async function toggleFeatured(artifactId: string) {
+    const next = featuredIds.includes(artifactId) ? featuredIds.filter((id) => id !== artifactId) : [...featuredIds, artifactId].slice(0, 6);
+    if (await updateEvidence(artifactId, next)) setFeaturedIds(next);
+  }
+  return <Card className="space-y-5">
+    <div><p className="editorial-kicker">Evidence gallery</p><h2 className="mt-2 text-xl font-semibold text-ink">The work behind the summary.</h2><p className="mt-1 text-sm text-ink-muted">Private files use short-lived signed links. External links are displayed but never fetched by Sevri.</p></div>
+    {error ? <Alert tone="danger">{error}</Alert> : null}
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{artifacts.map((artifact) => {
+      const href = artifact.signed_url ?? artifact.external_url;
+      const image = artifact.mime_type?.startsWith("image/") && artifact.signed_url;
+      const description = descriptions[artifact.id] ?? { caption: "", altText: "" };
+      return <figure key={artifact.id} className="overflow-hidden rounded-2xl border border-line bg-canvas">
+        {image ? <Image unoptimized src={image} alt={artifact.alt_text ?? artifact.caption ?? artifact.display_name} width={800} height={600} className="aspect-[4/3] w-full object-cover" /> : <div className="grid aspect-[4/3] place-items-center bg-surface px-5 text-center text-sm font-medium text-ink-soft">{artifact.display_name}</div>}
+        <figcaption className="space-y-3 p-4">
+          <p className="text-sm font-semibold text-ink">{artifact.display_name}</p>
+          <label className="block text-xs font-semibold text-ink-soft">Public caption<Input className="mt-1" value={description.caption} onChange={(event) => setDescriptions((current) => ({ ...current, [artifact.id]: { ...description, caption: event.target.value } }))} /></label>
+          <label className="block text-xs font-semibold text-ink-soft">Accessible description<Input className="mt-1" value={description.altText} onChange={(event) => setDescriptions((current) => ({ ...current, [artifact.id]: { ...description, altText: event.target.value } }))} /></label>
+          <div className="flex flex-wrap gap-3">
+            {href ? <a href={href} target="_blank" rel="noreferrer" className="inline-flex text-xs font-semibold text-teal-deep hover:underline">Open evidence</a> : null}
+            <button type="button" disabled={savingId === artifact.id} onClick={() => void updateEvidence(artifact.id)} className="text-xs font-semibold text-ink-soft hover:text-ink disabled:opacity-50">Save descriptions</button>
+            <button type="button" disabled={savingId === artifact.id} onClick={() => void toggleFeatured(artifact.id)} className="text-xs font-semibold text-ink-soft hover:text-ink disabled:opacity-50">{featuredIds.includes(artifact.id) ? "Remove from public gallery" : "Feature publicly"}</button>
+          </div>
+        </figcaption>
+      </figure>;
+    })}</div>
+  </Card>;
 }

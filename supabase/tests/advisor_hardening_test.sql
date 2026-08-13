@@ -276,12 +276,10 @@ insert into public.intakes (
   interests,
   favorite_subjects,
   weekly_time_available,
-  known_tools,
-  target_schools_or_companies,
-  constraints,
   raw_answers_json,
-  project_track,
-  track_payload_json
+  project_goal,
+  success_definition,
+  experience_level
 )
 values (
   '22000000-0000-4000-8000-000000000001',
@@ -289,12 +287,10 @@ values (
   '{}',
   '{}',
   5,
-  '{}',
-  '{}',
-  null,
   '{}'::jsonb,
-  'software',
-  '{}'::jsonb
+  'learning',
+  'A finished project the student can explain.',
+  'beginner'
 );
 
 insert into public.normalized_profiles (
@@ -306,8 +302,7 @@ insert into public.normalized_profiles (
   skill_assessment,
   risk_flags,
   raw_model_output_json,
-  project_track,
-  track_payload_json
+  project_context_json
 )
 values (
   '32000000-0000-4000-8000-000000000001',
@@ -318,7 +313,6 @@ values (
   'Test assessment',
   '{}',
   '{}'::jsonb,
-  'software',
   '{}'::jsonb
 );
 
@@ -339,8 +333,8 @@ insert into public.project_recommendations (
   finishability_score,
   authenticity_note,
   raw_model_output_json,
-  project_track,
-  track_payload_json
+  project_kind_label,
+  project_blueprint_json
 )
 values (
   '42000000-0000-4000-8000-000000000001',
@@ -359,7 +353,7 @@ values (
   8,
   'Test',
   '{}'::jsonb,
-  'software',
+  'Web app',
   '{}'::jsonb
 );
 
@@ -370,7 +364,7 @@ insert into public.projects (
   selection_operation_id,
   title,
   status,
-  project_track
+  project_kind_label
 )
 values (
   '52000000-0000-4000-8000-000000000001',
@@ -379,7 +373,7 @@ values (
   '62000000-0000-4000-8000-000000000001',
   'Advisor hardening fixture',
   'active',
-  'software'
+  'Web app'
 );
 
 insert into public.milestones (

@@ -16,12 +16,6 @@ import {
 } from "@/lib/projects/archive-visibility";
 import { deriveMilestoneProgressMeta } from "@/lib/projects/milestone-status";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import type { ProjectTrack } from "@/types/domain";
-
-function asProjectTrack(value: unknown): ProjectTrack {
-  return value === "research" ? "research" : "software";
-}
-
 function asScheduleSource(value: unknown): ScheduleGenerationSource | null {
   if (
     value === "roadmap_generation" ||
@@ -186,36 +180,20 @@ function buildWorkSessionViews(input: {
 }
 
 function getVisibleProjectIds(projects: ReadonlyArray<CalendarProjectView>) {
-  const trackPriority: Array<ProjectTrack> = ["software", "research"];
-  const selected: string[] = [];
-
-  trackPriority.forEach((track) => {
-    const preferred = projects
-      .filter((project) => project.projectTrack === track)
-      .sort((left, right) => {
-        const leftPriority = left.projectStatus === "completed" ? 1 : 0;
-        const rightPriority = right.projectStatus === "completed" ? 1 : 0;
-        if (leftPriority !== rightPriority) {
-          return leftPriority - rightPriority;
-        }
-
-        return right.selectedAt.localeCompare(left.selectedAt);
-      })
-      .slice(0, 1);
-
-    preferred.forEach((project) => {
-      selected.push(project.projectId);
-    });
-  });
-
-  return selected;
+  return [...projects]
+    .sort((left, right) => {
+      const statusDifference = Number(left.projectStatus === "completed") - Number(right.projectStatus === "completed");
+      return statusDifference || right.selectedAt.localeCompare(left.selectedAt);
+    })
+    .slice(0, 4)
+    .map((project) => project.projectId);
 }
 
 export async function getCalendarPageData(userId: string): Promise<CalendarPageView> {
   const supabase = await createServerSupabaseClient();
   const { data: projects, error: projectError } = await supabase
     .from("projects")
-    .select("id, title, status, project_track, selected_at")
+    .select("id, title, status, project_kind_label, selected_at")
     .eq("user_id", userId)
     .in("status", ["active", "paused", "completed"])
     .is("archived_at", null)
@@ -298,7 +276,7 @@ export async function getCalendarPageData(userId: string): Promise<CalendarPageV
       const scheduleState: ProjectScheduleState = {
         projectId: project.id,
         projectTitle: project.title,
-        projectTrack: asProjectTrack(project.project_track),
+        projectKindLabel: project.project_kind_label,
         projectStatus: project.status,
         scheduledStartDate: roadmap.scheduled_start_date,
         scheduledEndDate: roadmap.scheduled_end_date,
@@ -342,7 +320,7 @@ export async function getProjectScheduleGenerationContext(
   const supabase = await createServerSupabaseClient();
   let projectQuery = supabase
     .from("projects")
-    .select("id, title, status, project_track, recommendation_id")
+    .select("id, title, status, project_kind_label, recommendation_id")
     .eq("id", projectId)
     .eq("user_id", userId);
 
@@ -417,7 +395,7 @@ export async function getProjectScheduleGenerationContext(
   return {
     projectId: project.id,
     projectTitle: project.title,
-    projectTrack: asProjectTrack(project.project_track),
+    projectKindLabel: project.project_kind_label,
     projectStatus: project.status,
     scheduledStartDate: roadmap.scheduled_start_date,
     scheduledEndDate: roadmap.scheduled_end_date,

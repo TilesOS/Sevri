@@ -28,7 +28,7 @@ async function loadOwnedProject(projectId: string, userId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("projects")
-    .select("id, user_id, project_track")
+    .select("id, user_id")
     .eq("id", projectId)
     .maybeSingle();
 
@@ -38,7 +38,7 @@ async function loadOwnedProject(projectId: string, userId: string) {
   if (!data || data.user_id !== userId) {
     return null;
   }
-  return data as { id: string; user_id: string; project_track: string };
+  return data;
 }
 
 export async function POST(
@@ -75,16 +75,6 @@ export async function POST(
   if (!project) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 });
   }
-  if (project.project_track !== "software") {
-    return NextResponse.json(
-      {
-        code: "wrong_track",
-        message: "GitHub linking is only available on software-track projects.",
-      },
-      { status: 400 },
-    );
-  }
-
   const integration = await getUserIntegrationPublic(user.id, "github");
   if (!integration || integration.status !== "active") {
     return NextResponse.json(

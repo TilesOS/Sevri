@@ -6,7 +6,6 @@ import type {
   ProjectScheduleState,
   ScheduleMilestoneInput,
 } from "./types.ts";
-import type { ProjectTrack } from "@/types/domain";
 
 function sortMilestones(milestones: ReadonlyArray<ScheduleMilestoneInput>) {
   return [...milestones].sort((left, right) => left.orderIndex - right.orderIndex);
@@ -14,13 +13,11 @@ function sortMilestones(milestones: ReadonlyArray<ScheduleMilestoneInput>) {
 
 function getFallbackDurationDaysForExistingSchedule(input: {
   milestones: ReadonlyArray<ScheduleMilestoneInput>;
-  projectTrack: ProjectTrack;
 }) {
   return buildFallbackDurationDays({
     estimatedWeeks: Math.max(input.milestones.length, 1),
     stepCount: input.milestones.length,
     weeklyHours: 6,
-    projectTrack: input.projectTrack,
   });
 }
 
@@ -51,7 +48,6 @@ export function generateProjectSchedule(input: {
   milestones: ReadonlyArray<ScheduleMilestoneInput>;
   estimatedWeeks: number;
   weeklyHours?: number | null;
-  projectTrack: ProjectTrack;
   timeZone?: string | null;
   startDate?: string | null;
 }): GeneratedProjectSchedule {
@@ -61,7 +57,6 @@ export function generateProjectSchedule(input: {
     estimatedWeeks: input.estimatedWeeks,
     stepCount: milestones.length,
     weeklyHours: input.weeklyHours,
-    projectTrack: input.projectTrack,
   });
   const scheduledStartDate = input.startDate ?? getTodayDateString(scheduleTimezone);
 
@@ -146,7 +141,6 @@ export function applyMoveOnly(input: {
     currentMilestone,
     getFallbackDurationDaysForExistingSchedule({
       milestones,
-      projectTrack: input.project.projectTrack,
     }),
   );
   const scheduledEndDate =
@@ -182,7 +176,6 @@ export function applyRebalanceDownstream(input: {
     const regenerated = generateProjectSchedule({
       milestones,
       estimatedWeeks: Math.max(milestones.length, 1),
-      projectTrack: input.project.projectTrack,
       timeZone: input.project.scheduleTimezone,
       startDate: input.targetDate,
     });
@@ -206,7 +199,6 @@ export function applyRebalanceDownstream(input: {
 
   const fallbackDurationDays = getFallbackDurationDaysForExistingSchedule({
     milestones,
-    projectTrack: input.project.projectTrack,
   });
 
   const updates: Array<{

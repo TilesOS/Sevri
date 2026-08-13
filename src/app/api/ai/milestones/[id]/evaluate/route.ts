@@ -23,6 +23,7 @@ import type {
   EvaluationLifecycleStatus,
   LatestCompletedMilestoneEvaluation,
   MilestoneEvaluationResponse,
+  MilestoneSubmissionArtifact,
   MilestoneEvaluationState,
   StoredMilestoneSubmission,
   WorkEvaluation,
@@ -30,18 +31,35 @@ import type {
 
 export const runtime = "nodejs";
 
-const bodySchema = z.object({
-  submission_text: z.string().min(1).max(20_600),
-  submission_kind: z.enum(["pasted_text", "file_upload"]),
-  submission_filename: z.string().optional(),
+const artifactSchema = z.object({
+  upload_path: z.string().max(500).optional(),
+  external_url: z.string().url().startsWith("https://").max(2_000).optional(),
+  display_name: z.string().min(1).max(180),
+  mime_type: z.string().max(120).optional(),
+  size_bytes: z.number().int().min(0).max(10 * 1024 * 1024).optional(),
+  caption: z.string().min(1).max(500).optional(),
+  alt_text: z.string().min(1).max(500).optional(),
 }).superRefine((data, ctx) => {
-  if (data.submission_kind === "file_upload" && !data.submission_filename) {
+  if (Boolean(data.upload_path) === Boolean(data.external_url)) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
-      path: ["submission_filename"],
-      message: "submission_filename is required when submission_kind is file_upload",
+      path: ["upload_path"], message: "Choose exactly one evidence source.",
     });
   }
+  if (data.mime_type && !data.mime_type.startsWith("text/") && !data.caption?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["caption"], message: "Add a caption for this evidence." });
+  }
+  if (data.mime_type?.startsWith("image/") && !data.alt_text?.trim()) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["alt_text"], message: "Add an accessible description for this image." });
+  }
+});
+const bodySchema = z.object({
+  submission_text: z.string().max(20_600).default(""),
+  artifacts: z.array(artifactSchema).max(5).default([]),
+}).superRefine((data, ctx) => {
+  if (!data.submission_text.trim() && data.artifacts.length === 0) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["submission_text"], message: "Add notes or evidence." });
+  const total = data.artifacts.reduce((sum, item) => sum + (item.size_bytes ?? 0), 0);
+  if (total > 25 * 1024 * 1024) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["artifacts"], message: "Evidence bundle exceeds 25 MB." });
 });
 
 type ServerSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
@@ -50,10 +68,11 @@ type AdminSupabaseClient = ReturnType<typeof createAdminSupabaseClient>;
 type SubmissionRecord = {
   id: string;
   submission_kind: StoredMilestoneSubmission["submission_kind"];
-  submission_text: string;
+  submission_text: string | null;
   submission_filename: string | null;
   created_at: string;
   updated_at: string;
+  artifacts?: MilestoneSubmissionArtifact[];
 };
 
 type EvaluationRecord = {
@@ -113,6 +132,7 @@ function formatSubmissionResponse(submission: SubmissionRecord): StoredMilestone
     submission_filename: submission.submission_filename,
     created_at: submission.created_at,
     updated_at: submission.updated_at,
+    artifacts: submission.artifacts ?? [],
   };
 }
 
@@ -182,6 +202,14 @@ async function buildEvaluationResponse(
   }
 
   const submissionRecords = submissions as SubmissionRecord[];
+  const { data: artifactRows, error: artifactError } = await supabase
+    .from("milestone_submission_artifacts")
+    .select("id, submission_id, upload_path, external_url, display_name, mime_type, size_bytes, caption, alt_text, created_at, updated_at")
+    .in("submission_id", submissionRecords.map((submission) => submission.id));
+  if (artifactError) throw new Error(artifactError.message);
+  for (const submission of submissionRecords) {
+    submission.artifacts = (artifactRows ?? []).filter((artifact) => artifact.submission_id === submission.id);
+  }
   const currentSubmission = submissionRecords[0];
   const submissionIds = submissionRecords.map((candidate) => candidate.id);
 
@@ -242,6 +270,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   let recoveryMilestoneId: string | null = null;
   let savedEvaluationId: string | null = null;
   let rateLimitReservationId: string | null = null;
+  let pendingUploadPaths: string[] = [];
 
   try {
     stage = "auth";
@@ -252,6 +281,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     stage = "parse-request";
     const body = bodySchema.parse(await request.json());
+    pendingUploadPaths = body.artifacts.flatMap((artifact) => artifact.upload_path ? [artifact.upload_path] : []);
     const { id } = await context.params;
     recoveryMilestoneId = id;
 
@@ -302,7 +332,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "fetch-project";
     const { data: project, error: projectError } = await supabase
       .from("projects")
-      .select("id, title, recommendation_id, project_track")
+      .select("id, title, recommendation_id, project_kind_label")
       .eq("id", milestone.project_id)
       .eq("user_id", user.id)
       .single();
@@ -314,7 +344,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "fetch-roadmap";
     const { data: roadmap, error: roadmapError } = await supabase
       .from("project_roadmaps")
-      .select("overview, track_payload_json")
+      .select("overview, roadmap_context_json, core_scope, artifact_plan, project_overview_draft")
       .eq("project_id", project.id)
       .single();
 
@@ -348,7 +378,7 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     stage = "fetch-context";
     const { data: contextRow, error: contextError } = await supabase
       .from("normalized_profiles")
-      .select("summary, interpreted_interests, skill_assessment, risk_flags, project_track, track_payload_json")
+      .select("summary, interpreted_interests, skill_assessment, risk_flags, project_context_json")
       .eq("id", recommendation.normalized_profile_id)
       .eq("user_id", user.id)
       .single();
@@ -362,14 +392,16 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       interpreted_interests: contextRow.interpreted_interests,
       skill_assessment: contextRow.skill_assessment,
       risk_flags: contextRow.risk_flags,
-      project_track: contextRow.project_track,
-      track_payload_json: contextRow.track_payload_json,
+      project_context_json: contextRow.project_context_json,
     });
 
     const roadmapOverview = buildRoadmapOverviewFromStorage({
       projectTitle: project.title,
       roadmapOverview: roadmap.overview,
-      trackPayloadJson: roadmap.track_payload_json,
+      roadmapContextJson: roadmap.roadmap_context_json,
+      coreScope: roadmap.core_scope,
+      artifactPlan: roadmap.artifact_plan,
+      projectOverviewDraft: roadmap.project_overview_draft,
       milestones: milestones ?? [],
     });
 
@@ -404,11 +436,10 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
 
     stage = "insert-submission-and-evaluation";
     const { data: persisted, error: persistError } = await supabase
-      .rpc("create_milestone_submission_with_pending_evaluation", {
+      .rpc("create_milestone_artifact_bundle_with_pending_evaluation", {
         p_milestone_id: milestone.id,
-        p_submission_kind: body.submission_kind,
         p_submission_text: body.submission_text,
-        p_submission_filename: body.submission_filename ?? null,
+        p_artifacts: body.artifacts,
       })
       .single();
 
@@ -422,15 +453,26 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
     };
 
     savedEvaluationId = persistedRecord.evaluation_id;
+    pendingUploadPaths = [];
 
     try {
       stage = "evaluate";
+      const evidenceParts = (await Promise.all(body.artifacts.flatMap((artifact) => {
+        if (!artifact.upload_path || (!artifact.mime_type?.startsWith("image/") && artifact.mime_type !== "application/pdf" && !artifact.mime_type?.startsWith("text/"))) return [];
+        return [supabase!.storage.from("project-evidence").createSignedUrl(artifact.upload_path, 60 * 10).then(({ data }) => {
+          if (!data?.signedUrl) return null;
+          return artifact.mime_type?.startsWith("image/")
+            ? { type: "input_image" as const, image_url: data.signedUrl, detail: "high" as const }
+            : { type: "input_file" as const, file_url: data.signedUrl, filename: artifact.display_name };
+        })];
+      }))).filter((part): part is NonNullable<typeof part> => part !== null);
       const generated = await runWorkEvaluation({
         context: generationContext,
         step: currentStep,
         guidance,
-        submissionText: body.submission_text,
-        submissionFilename: body.submission_filename,
+        submissionText: [body.submission_text, ...body.artifacts.map((item) => `${item.display_name}: ${item.caption ?? item.external_url ?? "uploaded evidence"}`)].filter(Boolean).join("\n\n"),
+        submissionFilename: body.artifacts.map((item) => item.display_name).join(", ") || undefined,
+        evidenceParts,
       });
 
       const generatedRaw = generated.raw && typeof generated.raw === "object"
@@ -487,15 +529,13 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
       await consumeRateLimitReservation(completedReservationId);
 
       stage = "track-evaluation";
-      const projectTrack = project.project_track === "research" ? "research" : "software";
       void trackEvent(user.id, "work_evaluation_completed", {
         project_id: project.id,
         milestone_id: milestone.id,
         submission_id: persistedRecord.submission_id,
-        project_track: projectTrack,
-        ...(projectTrack === "research"
-          ? { submission_word_count: countWords(body.submission_text) }
-          : {}),
+        project_kind_label: project.project_kind_label,
+        submission_word_count: countWords(body.submission_text),
+        evidence_item_count: body.artifacts.length,
         ...routeMetadata,
       }).catch((trackError) => {
         console.error("work evaluation track failed", { stage, error: trackError });
@@ -530,6 +570,11 @@ export async function POST(request: Request, context: { params: Promise<{ id: st
   } catch (error) {
     console.error("work evaluation failed", { stage, error });
     captureServerError(error, { route: "ai/milestones/evaluate", stage });
+    if (supabase && pendingUploadPaths.length > 0) {
+      await supabase.storage.from("project-evidence").remove(pendingUploadPaths).catch((cleanupError) => {
+        captureServerError(cleanupError, { route: "ai/milestones/evaluate", stage: "cleanup-abandoned-uploads" });
+      });
+    }
 
     if (supabase && recoveryMilestoneId && savedEvaluationId) {
       try {

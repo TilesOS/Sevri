@@ -9,7 +9,6 @@ import { PageHeader } from "@/components/ui/page-header";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { PortfolioCurationTrigger } from "@/components/portfolio/portfolio-curation-trigger";
 import { trackClientEvent } from "@/lib/analytics/events";
-import { getTrackLabel } from "@/components/theme/theme-utils";
 import type { PortfolioListingEntryView, PortfolioStatus } from "@/lib/portfolio/portfolio-view";
 import { cn } from "@/lib/utils";
 
@@ -42,8 +41,7 @@ function matchesSearch(entry: PortfolioListingEntryView, query: string) {
 
   return [
     entry.project.title,
-    entry.projectTrack,
-    getTrackLabel(entry.projectTrack),
+    entry.projectKindLabel,
     entry.summary,
   ].some((value) => value.toLowerCase().includes(needle));
 }
@@ -131,7 +129,7 @@ export function PortfolioListingClient({
               id="portfolio-search"
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search by title, track, or summary"
+              placeholder="Search by title, project kind, or summary"
             />
           </div>
 
@@ -190,9 +188,7 @@ function PortfolioEntryCard({ entry }: { entry: PortfolioListingEntryView }) {
     <Card tone="subtle" className="flex h-full flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex flex-wrap gap-2">
-          <Badge tone={entry.projectTrack === "software" ? "software" : "research"}>
-            {getTrackLabel(entry.projectTrack)}
-          </Badge>
+          <Badge tone="neutral">{entry.projectKindLabel}</Badge>
           <Badge tone={statusTone(entry.effectiveStatus)}>{entry.statusLabel}</Badge>
           {entry.hasCuratedSummary ? <Badge tone="accent">Curated</Badge> : null}
         </div>
@@ -250,7 +246,7 @@ function PortfolioEmptyState({
     return (
       <Card tone="subtle">
         <p className="text-sm leading-6 text-ink-soft">
-          No Portfolio entries match that search. Try a project title, track, or a phrase from the summary.
+          No Portfolio entries match that search. Try a project title, project kind, or a phrase from the summary.
         </p>
       </Card>
     );

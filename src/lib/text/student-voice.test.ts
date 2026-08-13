@@ -38,19 +38,11 @@ test("replaces internal profile vocabulary", () => {
     toStudentVoice("This project directly addresses Sevri's target outcome."),
     "This project directly addresses your goal.",
   );
-  assert.equal(
-    toStudentVoice("The strongest software anchors are photonics, optics, and signal processing."),
-    "Your strongest anchors are photonics, optics, and signal processing.",
-  );
-  assert.equal(
-    toStudentVoice("Software anchors: photonics, optics."),
-    "Your anchors: photonics, optics.",
-  );
 });
 
 test("rewritten copy passes the content lint", () => {
   const rewritten = toStudentVoice(
-    "The strongest research anchors are photonics and optics. The student can defend the method.",
+    "The strongest project anchors are photonics and optics. The student can defend the method.",
   );
   assert.deepEqual(lintProse(rewritten), []);
 });

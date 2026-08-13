@@ -37,7 +37,7 @@ export async function POST(request: Request) {
           code: "duplicate_project",
           project_id: project.id,
           project_title: project.title,
-          project_track: project.project_track,
+          project_kind_label: project.project_kind_label,
           error: "You already started this idea.",
         },
         { status: 409 },
@@ -48,12 +48,17 @@ export async function POST(request: Request) {
       await trackEvent(user.id, "recommendation_selected", {
         recommendation_id: body.recommendation_id,
         project_id: project.id,
-        project_track: project.project_track,
+        project_kind_label: project.project_kind_label,
+        repository_relevance: project.repository_relevance,
         duplicate_confirmed: Boolean(body.allow_duplicate),
       });
     }
 
-    return NextResponse.json({ project_id: project.id, project_track: project.project_track }, { status: 200 });
+    return NextResponse.json({
+      project_id: project.id,
+      project_kind_label: project.project_kind_label,
+      repository_relevance: project.repository_relevance,
+    }, { status: 200 });
   } catch (error) {
     captureServerError(error, { route: "recommendations/select" });
     return NextResponse.json(

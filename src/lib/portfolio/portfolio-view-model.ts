@@ -18,7 +18,6 @@ import type {
 } from "@/lib/db/queries/portfolio";
 import { getProjectProgressPercent } from "../projects/progress.ts";
 import { normalizeWhitespace, stripZeroWidth } from "../text/prose.ts";
-import type { ProjectTrack } from "@/types/domain";
 
 export type PortfolioStatus = "in_progress" | "paused" | "completed" | "abandoned";
 
@@ -46,7 +45,7 @@ export interface PortfolioCachedCommitView {
 export interface PortfolioListingEntryView {
   entry: PortfolioEntryRow;
   project: PortfolioProjectRow;
-  projectTrack: ProjectTrack;
+  projectKindLabel: string;
   effectiveStatus: PortfolioStatus;
   statusLabel: string;
   summary: string;
@@ -68,7 +67,7 @@ export interface PortfolioView {
 export interface PortfolioEntryDetailView {
   entry: PortfolioEntryRow;
   project: PortfolioProjectRow;
-  projectTrack: ProjectTrack;
+  projectKindLabel: string;
   effectiveStatus: PortfolioStatus;
   statusLabel: string;
   summary: string;
@@ -79,6 +78,8 @@ export interface PortfolioEntryDetailView {
   milestones: PortfolioMilestoneRow[];
   latestSubmissions: PortfolioSubmissionRow[];
   latestEvaluations: PortfolioEvaluationRow[];
+  artifacts: PortfolioEntryDetailData["artifacts"];
+  featuredArtifactIds: string[];
   featuredSubmission: PortfolioSubmissionRow | null;
   reviews: PortfolioEntryDetailData["reviews"];
   cachedCommits: PortfolioCachedCommitView[];
@@ -106,10 +107,6 @@ function tidyText(value: string): string {
 function firstLine(value: string): string {
   const [line = ""] = stripZeroWidth(value).split(/\r?\n/u);
   return normalizeWhitespace(line);
-}
-
-function asProjectTrack(value: unknown): ProjectTrack {
-  return value === "research" ? "research" : "software";
 }
 
 function isPortfolioStatusOverride(value: unknown): value is PortfolioStatusOverride {
@@ -325,7 +322,7 @@ export function buildPortfolioEntryDetailViewFromData(
   return {
     entry: data.entry,
     project: data.project,
-    projectTrack: asProjectTrack(data.project.project_track),
+    projectKindLabel: cleanString(data.project.project_kind_label) || "Project",
     effectiveStatus,
     statusLabel: getPortfolioStatusLabel(effectiveStatus),
     summary: summary.summary,
@@ -336,6 +333,8 @@ export function buildPortfolioEntryDetailViewFromData(
     milestones: data.milestones,
     latestSubmissions: data.latestSubmissions,
     latestEvaluations,
+    artifacts: data.artifacts,
+    featuredArtifactIds: data.featuredArtifactIds,
     featuredSubmission,
     reviews: data.reviews,
     cachedCommits: summarizeCachedCommits(data.githubActivity?.cached_commits),
@@ -359,7 +358,7 @@ function buildListingEntry(input: {
   return {
     entry: input.entry,
     project: input.project,
-    projectTrack: asProjectTrack(input.project.project_track),
+    projectKindLabel: cleanString(input.project.project_kind_label) || "Project",
     effectiveStatus,
     statusLabel: getPortfolioStatusLabel(effectiveStatus),
     summary: summary.summary,

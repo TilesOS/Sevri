@@ -1,4 +1,4 @@
-import type { GenerationContext, ProjectOption, ProjectTrack, RoadmapOverview, RoadmapStep, StepGuidance } from "@/lib/ai/schemas";
+import type { GenerationContext, ProjectOption, RoadmapOverview, RoadmapStep, StepGuidance } from "@/lib/ai/schemas";
 
 export interface PromptFeedbackItem {
   signal: "good" | "mixed" | "bad";
@@ -48,16 +48,11 @@ function formatFeedback(feedback: PromptFeedbackItem[] | undefined) {
   ].join("\n");
 }
 
-export function buildNormalizeSystemPrompt(projectTrack: ProjectTrack) {
-  const trackSpecific =
-    projectTrack === "research"
-      ? "Extract a concrete student research planning brief from the onboarding answers. Keep the question ambitious but believable, and do not invent mentor or lab access."
-      : "Extract a concrete software project planning brief from the onboarding answers. Keep the recommendation domain-specific, demoable, and free from generic productivity defaults.";
-
+export function buildNormalizeSystemPrompt() {
   return [
-    `You are Sevri's ${projectTrack} profile normalizer.`,
+    "You are Sevri's universal project-context normalizer.",
     "Return only JSON that matches the schema.",
-    trackSpecific,
+    "Extract goals, interests, preferred formats, experience, resources, constraints, field practices, scope risks, and safety or ethics considerations.",
     "Anchor the profile to the user's real domain language, constraints, time budget, and desired proof.",
     "Infer at most one careful step beyond what the user explicitly signals.",
     "Populate anti_generic_warnings, scope_guardrails, and goal/resource summaries with concrete, useful language.",
@@ -69,7 +64,6 @@ export function buildNormalizeSystemPrompt(projectTrack: ProjectTrack) {
 }
 
 export function buildNormalizeUserPrompt(input: {
-  projectTrack: ProjectTrack;
   rawIntake: Record<string, unknown>;
   feedback?: PromptFeedbackItem[];
 }) {
@@ -87,7 +81,7 @@ export function buildNormalizeUserPrompt(input: {
 }
 
 function contextEmphasisSeed(context: GenerationContext): number {
-  const str = context.summary + context.track_payload_json.domain_brief;
+  const str = context.summary + context.project_context_json.domain_brief;
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
     hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
@@ -99,7 +93,7 @@ const EMPHASIS_KEYS = [
   ["goal_signal", "focus_signal"],
   ["constraints_summary", "resource_snapshot"],
   ["domain_brief", "anchor_interests"],
-  ["target_outcome", "focus_signal"],
+  ["project_goal", "focus_signal"],
 ] as const;
 
 function formatContext(context: GenerationContext) {
@@ -108,7 +102,7 @@ function formatContext(context: GenerationContext) {
   emphasizedKeys.add("skill_assessment");
   emphasizedKeys.add("preferred_challenge");
 
-  const payload = context.track_payload_json;
+  const payload = context.project_context_json;
 
   const fields: Array<[string, string, string]> = [
     ["summary", "Summary", context.summary],
@@ -116,7 +110,8 @@ function formatContext(context: GenerationContext) {
     ["anchor_interests", "Anchors", payload.anchor_interests.join(", ")],
     ["domain_brief", "Domain brief", payload.domain_brief],
     ["goal_signal", "Goal", payload.goal_signal],
-    ["target_outcome", "Target outcome", payload.target_outcome],
+    ["project_goal", "Project goal", payload.project_goal],
+    ["success_definition", "Personal success", payload.success_definition],
     ["resource_snapshot", "Resources", payload.resource_snapshot],
     ["anti_generic_warnings", "Anti-generic warnings", payload.anti_generic_warnings.join(" | ")],
     ["weekly_hours", "Weekly hours", String(payload.weekly_hours)],
@@ -126,24 +121,14 @@ function formatContext(context: GenerationContext) {
     ["focus_signal", "Focus", payload.focus_signal],
   ];
 
-  if (context.project_track === "software") {
-    const sw = context.track_payload_json;
-    fields.push(
-      ["project_style_fit", "Project style", sw.project_style_fit],
-      ["problem_lenses", "Problem lenses", sw.problem_lenses.join(" | ")],
-      ["delivery_bias", "Delivery bias", sw.delivery_bias],
-    );
-  } else {
-    const rs = context.track_payload_json;
-    fields.push(
-      ["research_readiness", "Readiness", rs.research_readiness],
-      ["methodology_guidance", "Method guidance", rs.methodology_guidance],
-      ["viable_methodologies", "Methods", rs.viable_methodologies.join(" | ")],
-    );
-  }
+  fields.push(
+    ["preferred_formats", "Preferred formats", payload.open_to_anything ? "Open to anything" : payload.preferred_formats.join(", ")],
+    ["field_practices", "Field practices", payload.field_practices.join(" | ")],
+    ["safety_ethics", "Safety and ethics", payload.safety_ethics_considerations.join(" | ")],
+  );
 
   const emphasized: string[] = [];
-  const standard: string[] = [`Track: ${context.project_track}`];
+  const standard: string[] = [];
 
   for (const [key, label, value] of fields) {
     if (emphasizedKeys.has(key)) {
@@ -160,34 +145,19 @@ function formatContext(context: GenerationContext) {
   return [...emphasized, ...standard].join("\n");
 }
 
-export function buildOptionsSystemPrompt(projectTrack: ProjectTrack) {
-  const seedFields =
-    projectTrack === "software"
-      ? "target_user, problem_statement, core_workflow, mvp_boundary, validation_plan"
-      : "research_question, hypothesis_or_focus, methodology, evidence_plan, scope_boundaries, limitation_note";
-
-  const diversityGuidance =
-    projectTrack === "software"
-      ? [
-          "The three options MUST differ along at least two of these axes: (1) target user persona, (2) problem domain angle, (3) technical approach or core technology, (4) project scope/ambition level, (5) output artifact type (tool vs dashboard vs API vs CLI vs data pipeline).",
-          "The ambitious option must make a different core product or technical bet; it cannot be the focused option with more integrations or features.",
-        ]
-      : [
-          "The three options MUST differ along at least two of these axes: (1) research question angle, (2) methodology, (3) evidence type (qualitative vs quantitative vs mixed), (4) scope/ambition level, (5) target deliverable format (paper vs poster vs dataset vs benchmark).",
-          "The ambitious option must make a different methodological or evidence bet; it cannot be the focused option with a larger sample or longer paper.",
-        ];
-
+export function buildOptionsSystemPrompt() {
   return [
-    `You generate concise ${projectTrack} project options for Sevri.`,
+    "You generate concise cross-domain project options for Sevri.",
     "Return only JSON that matches the schema.",
     "Generate exactly 3 options in this exact ladder and order: (1) difficulty=beginner is FOCUSED, (2) difficulty=intermediate is STRETCH, (3) difficulty=advanced is AMBITIOUS.",
     "These difficulty values are comparative scope tiers, not claims about the student's ability. Calibrate all three to current experience and preferred challenge.",
     "Keep titles specific and summaries to 1-2 sentences. Use why_it_fits to explain the connection between this student's specific background and the project — reference their domain anchors, constraints, or goals by name.",
     "Stay grounded in the student's real domain interests and constraints.",
     "Avoid generic student-life, study-habit, or productivity ideas unless the context explicitly supports them.",
-    `Each option's track_payload_json must include all seed fields (${seedFields}) with concrete, project-specific values.`,
+    "Every option must include a descriptive project_kind_label and a concrete project_blueprint_json with central challenge, approach, primary artifacts, proof of success, scope boundary, resources, and safety or ethics notes.",
     "Also return skills_demonstrated, tools_needed, impressiveness_score, and finishability_score for every option.",
-    ...diversityGuidance,
+    "Open students must receive three meaningfully different formats or approaches. Preference-led students should stay near their choices, with hybrids when useful.",
+    "Never silently force an idea into an app or a research paper. Every idea needs concrete artifacts and observable success evidence.",
     "FOCUSED: the smallest serious version with a sharp audience/question and a complete proof loop; never a generic fallback.",
     "STRETCH: a meaningfully different direction that teaches one important new technique or method while staying finishable.",
     "AMBITIOUS: the hardest realistic challenge requested. It must have the strongest creative or real-world impact thesis, one non-obvious technical/methodological mechanism, and a credible proof path. Difficulty comes from depth and judgment, not feature count.",
@@ -219,9 +189,9 @@ export function buildOptionsUserPrompt(context: GenerationContext, feedback?: Pr
     "Requirements:",
     "- Make the three options clearly different from each other.",
     "- Each option should feel finishable for the stated time budget.",
-    "- Keep the seed payload concrete and useful for later roadmap generation.",
-    "- mvp_boundary (or scope_boundaries for research) must define what is IN vs OUT of the first version.",
-    "- validation_plan (or limitation_note for research) must describe how the student proves the work succeeded.",
+    "- Keep the blueprint concrete and useful for later roadmap generation.",
+    "- scope_boundary must define what is in versus out of the core version.",
+    "- proof_of_success must describe observable evidence.",
     "- Skills demonstrated should feel resume-relevant and specific to the option.",
     "- Tools needed should be realistic for the student's context, not an aspirational stack dump.",
     "",
@@ -229,18 +199,22 @@ export function buildOptionsUserPrompt(context: GenerationContext, feedback?: Pr
   ].join("\n\n");
 }
 
-export function buildRoadmapSystemPrompt(projectTrack: ProjectTrack) {
+export function buildRoadmapSystemPrompt() {
   return [
-    `You create structured execution roadmaps for Sevri ${projectTrack} projects.`,
+    "You create structured execution roadmaps for Sevri projects in any field.",
     "Return only JSON that matches the schema.",
     "Generate 4 to 6 steps.",
     "",
     "project_brief: A 2-4 sentence paragraph that captures WHO the project is for, WHAT problem it solves, HOW the student will approach it, WHY it matters in practice, and WHAT a successful outcome looks like. This becomes the single source of truth for the entire project.",
+    "core_scope: The smallest complete version that preserves the central proof loop.",
+    "artifact_plan: Name every primary artifact and why it exists.",
+    "project_overview_draft: A plain-language portfolio overview that does not assume a code repository.",
     "",
     "Each step must have: a sequential order_index starting at 0, a project-specific title (never generic), a concrete objective, a tangible deliverable, a rough time estimate, a validation_check (how the student proves this step is done), and a scope_guardrail (what to avoid or cut during this step).",
+    "Keep each objective, deliverable, validation_check, and scope_guardrail to one complete sentence of at most 30 words. Never stop at a character boundary or leave a sentence unfinished.",
     "",
-    "cut_if_behind: 1-4 items the student can drop if they fall behind schedule. These must be specific to THIS project.",
-    "success_criteria: 2-5 concrete conditions that define project success. Tie them to actual deliverables and evidence, not effort.",
+    "cut_if_behind: 1-4 items the student can drop if they fall behind schedule. Each item is one complete sentence of at most 25 words and must be specific to THIS project.",
+    "success_criteria: 2-5 concrete conditions that define project success. Each item is one complete sentence of at most 25 words tied to actual deliverables and evidence, not effort.",
     "",
     "Do not use generic titles like 'Foundation Setup', 'Core Workflow', or 'Polish and Packaging'. Instead, use titles that name a specific project artifact, domain concept, or user-facing feature (e.g., 'Wire the Trace Parser', 'Score the Rubric Matrix', 'Ship the Comparison View'). The title should tell the student exactly WHAT they are building in this step.",
     "Every deliverable must be a concrete artifact, not a phase name.",
@@ -251,7 +225,7 @@ export function buildRoadmapSystemPrompt(projectTrack: ProjectTrack) {
     "pitch_kit.talking_points: exactly 3 points. Each has a short label (for example 'Why this project', 'What it does', 'Why it matters') and a body of 1-2 complete sentences.",
     "Every pitch_kit field is read by the student and is written for them: complete sentences, correct capitalization, no trailing fragments.",
     "learning_resources: 5-8 real resources found with web search for this exact project. Include at least one start_here, two build_with, and one go_deeper resource. Prefer official documentation, universities, recognized research organizations, primary papers/datasets, and high-quality maintained tutorials.",
-    "Every learning resource URL must be copied from a retrieved web-search source. Never invent, autocomplete, or guess a URL. Choose the exact page the student should open, not a search result page or generic homepage. Explain why it matters for this project and map it to a real roadmap step. use_during_step is 1-based: the first roadmap step is 1.",
+    "Every learning resource URL must be copied from a retrieved web-search source. Never invent, autocomplete, or guess a URL. Choose the exact page the student should open, not a search result page or generic homepage. Explain why it matters in one or two complete sentences totaling at most 45 words, and map it to a real roadmap step. use_during_step is 1-based: the first roadmap step is 1.",
     "Use free_access=true only when the useful material is available without payment. Do not describe a resource as current unless web evidence supports that claim.",
     "",
     "Do not include long rationale, README text, or extra sections.",
@@ -261,7 +235,6 @@ export function buildRoadmapSystemPrompt(projectTrack: ProjectTrack) {
 }
 
 export function buildRoadmapUserPrompt(input: {
-  projectTrack: ProjectTrack;
   context: GenerationContext;
   selectedOption: ProjectOption;
   feedback?: PromptFeedbackItem[];
@@ -276,7 +249,7 @@ export function buildRoadmapUserPrompt(input: {
       `Why it fits: ${input.selectedOption.why_it_fits}`,
       `Difficulty: ${input.selectedOption.difficulty}`,
       `Estimated weeks: ${input.selectedOption.estimated_weeks}`,
-      `Seed payload: ${JSON.stringify(input.selectedOption.track_payload_json)}`,
+      `Project blueprint: ${JSON.stringify(input.selectedOption.project_blueprint_json)}`,
     ].join("\n"),
     "Relevant prior feedback:",
     formatFeedback(input.feedback),
@@ -297,7 +270,7 @@ export function buildRoadmapUserPrompt(input: {
   ].join("\n\n");
 }
 
-export function buildStepGuidanceSystemPrompt(projectTrack: ProjectTrack, stepIndex: number, totalSteps: number) {
+export function buildStepGuidanceSystemPrompt(stepIndex: number, totalSteps: number) {
   const positionGuidance =
     stepIndex === 0
       ? "This is the FIRST step. Focus the guidance on getting started with confidence. Emphasize clarity of setup, early decision-making about tools and scope, and the psychological momentum of producing the first small artifact."
@@ -306,7 +279,7 @@ export function buildStepGuidanceSystemPrompt(projectTrack: ProjectTrack, stepIn
         : "This is a MIDDLE step. Focus the guidance on maintaining momentum and quality. Emphasize connection to the previous deliverable, concrete progress markers, and scope discipline.";
 
   return [
-    `You generate rich per-step guidance for Sevri ${projectTrack} projects.`,
+    "You generate rich per-step guidance for Sevri projects in any field.",
     "Return only JSON that matches the schema.",
     "Be specific, actionable, and encouraging without filler.",
     "Assume the student needs a clear next move, a realistic checklist, and honest pitfalls.",
@@ -336,7 +309,7 @@ export function buildStepGuidanceUserPrompt(input: {
     `Overview: ${input.roadmap.short_overview}`,
     `Project brief: ${input.roadmap.project_brief}`,
     `Selected option summary: ${input.selectedOption.summary}`,
-    `Selected option seed: ${JSON.stringify(input.selectedOption.track_payload_json)}`,
+    `Selected option blueprint: ${JSON.stringify(input.selectedOption.project_blueprint_json)}`,
     `Success criteria: ${input.roadmap.success_criteria.join(" | ")}`,
     `Cut if behind: ${input.roadmap.cut_if_behind.join(" | ")}`,
   ];
@@ -384,9 +357,9 @@ export function buildStepGuidanceUserPrompt(input: {
   ].join("\n\n");
 }
 
-export function buildWorkEvaluationSystemPrompt(projectTrack: ProjectTrack) {
+export function buildWorkEvaluationSystemPrompt() {
   return [
-    `You evaluate student work submissions for Sevri ${projectTrack} projects.`,
+    "You evaluate student work submissions for Sevri projects in any field.",
     "Return only JSON that matches the schema.",
     "Evaluate honestly - mark 'not_yet' when something is genuinely missing, not to encourage where encouragement is not warranted.",
     "For new evaluations, use 'met' when a criterion is satisfied and 'not_yet' when it is not; 'pass' and 'partial' exist only so older stored evaluations remain compatible.",
@@ -402,6 +375,7 @@ export function buildWorkEvaluationSystemPrompt(projectTrack: ProjectTrack) {
     "next_best_action should give one concrete, actionable step the student can take next.",
     "ready_to_mark_complete should be true only when all criteria are genuinely met.",
     "If you are confident in your assessment, set confidence to 'high'. If parts of the submission are ambiguous, use 'medium' or 'low'.",
+    "List exactly what was inspectable in evidence_reviewed and every unsupported file or uninspected external link in evidence_limitations. Never imply evidence was inspected when it was not in the model input.",
     QUALITY_CLAUSE,
   ].join(" ");
 }

@@ -1,5 +1,3 @@
-import type { ProjectTrack } from "@/types/domain";
-
 export type ScheduleGenerationSource =
   | "roadmap_generation"
   | "manual_regenerate"
@@ -40,7 +38,7 @@ export interface GeneratedProjectSchedule {
 export interface ProjectScheduleState {
   projectId: string;
   projectTitle: string;
-  projectTrack: ProjectTrack;
+  projectKindLabel: string;
   projectStatus: string;
   scheduledStartDate: string | null;
   scheduledEndDate: string | null;
@@ -71,7 +69,7 @@ export interface CalendarDisplayItem {
   id: string;
   projectId: string;
   projectTitle: string;
-  projectTrack: ProjectTrack;
+  projectKindLabel: string;
   itemType: CalendarItemType;
   title: string;
   date: string;

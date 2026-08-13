@@ -34,7 +34,7 @@ export async function getArchivedProjectsForDashboard(userId: string) {
   const supabase = await createServerSupabaseClient();
   const { data, error } = await supabase
     .from("projects")
-    .select("id, title, project_track, selected_at")
+    .select("id, title, project_kind_label, selected_at")
     .eq("user_id", userId)
     .not("archived_at", "is", null)
     .order("selected_at", { ascending: false });
@@ -43,17 +43,14 @@ export async function getArchivedProjectsForDashboard(userId: string) {
     throw new Error(`Failed to fetch archived projects: ${error.message}`);
   }
 
-  return (data ?? []).map((project) => ({
-    ...project,
-    project_track: project.project_track === "research" ? "research" : "software",
-  }));
+  return data ?? [];
 }
 
 export async function getProjectsForDashboard(userId: string) {
   const supabase = await createServerSupabaseClient();
   const { data: projects, error: projectError } = await supabase
     .from("projects")
-    .select("id, title, status, project_track, selected_at")
+    .select("id, title, status, project_kind_label, selected_at")
     .eq("user_id", userId)
     .in("status", ["active", "paused", "completed"])
     .is("archived_at", null)
@@ -127,30 +124,24 @@ export async function getProjectsForDashboard(userId: string) {
 
     for (const link of githubLinks ?? []) {
       const project = projectById.get(link.project_id);
-      if (!project || project.project_track !== "software") continue;
+      if (!project) continue;
 
       const current = outputMetricsByProjectId.get(project.id) ?? emptyProjectOutputMetrics();
       current.commitCount = countProjectCommits(link.cached_commits, project.selected_at);
       outputMetricsByProjectId.set(project.id, current);
     }
 
-    const researchMilestoneIds = (milestones ?? [])
-      .filter((milestone) => {
-        const project = projectById.get(milestone.project_id);
-        return project?.project_track === "research";
-      })
-      .map((milestone) => milestone.id);
-
-    if (researchMilestoneIds.length > 0) {
-      const { data: submissions, error: submissionsError } = await supabase
+    const milestoneIds = (milestones ?? []).map((milestone) => milestone.id);
+    if (milestoneIds.length > 0) {
+      const { data: projectSubmissions, error: projectSubmissionsError } = await supabase
         .from("milestone_submissions")
-        .select("milestone_id, submission_text, created_at, id")
-        .in("milestone_id", researchMilestoneIds)
+        .select("id, milestone_id, submission_text, created_at")
+        .in("milestone_id", milestoneIds)
         .order("created_at", { ascending: false })
         .order("id", { ascending: false });
 
-      if (submissionsError) {
-        throw new Error(`Failed to fetch research writing summaries: ${submissionsError.message}`);
+      if (projectSubmissionsError) {
+        throw new Error(`Failed to fetch submission summaries: ${projectSubmissionsError.message}`);
       }
 
       const projectIdByMilestoneId = new Map(
@@ -158,7 +149,10 @@ export async function getProjectsForDashboard(userId: string) {
       );
       const latestSubmissionByMilestoneId = new Set<string>();
 
-      for (const submission of submissions ?? []) {
+      const submissionProjectIds = new Map<string, string>();
+      for (const submission of projectSubmissions ?? []) {
+        const submissionProjectId = projectIdByMilestoneId.get(submission.milestone_id);
+        if (submissionProjectId) submissionProjectIds.set(submission.id, submissionProjectId);
         if (latestSubmissionByMilestoneId.has(submission.milestone_id)) continue;
         latestSubmissionByMilestoneId.add(submission.milestone_id);
 
@@ -169,12 +163,41 @@ export async function getProjectsForDashboard(userId: string) {
         current.wordCount += countWords(submission.submission_text);
         outputMetricsByProjectId.set(projectId, current);
       }
+
+      const submissionIds = Array.from(submissionProjectIds.keys());
+      if (submissionIds.length > 0) {
+        const { data: projectArtifacts, error: projectArtifactsError } = await supabase
+          .from("milestone_submission_artifacts")
+          .select("id, submission_id")
+          .in("submission_id", submissionIds);
+        if (projectArtifactsError) throw new Error(`Failed to fetch evidence summaries: ${projectArtifactsError.message}`);
+        for (const artifact of projectArtifacts ?? []) {
+          const projectId = submissionProjectIds.get(artifact.submission_id);
+          if (!projectId) continue;
+          const current = outputMetricsByProjectId.get(projectId) ?? emptyProjectOutputMetrics();
+          current.evidenceCount += 1;
+          outputMetricsByProjectId.set(projectId, current);
+        }
+      }
+
+      const { data: projectReviews, error: projectReviewsError } = await supabase
+        .from("milestone_reviews")
+        .select("id, milestone_id, superseded_at")
+        .in("milestone_id", milestoneIds)
+        .is("superseded_at", null);
+      if (projectReviewsError) throw new Error(`Failed to fetch reviewer feedback summaries: ${projectReviewsError.message}`);
+      for (const review of projectReviews ?? []) {
+        const projectId = projectIdByMilestoneId.get(review.milestone_id);
+        if (!projectId) continue;
+        const current = outputMetricsByProjectId.get(projectId) ?? emptyProjectOutputMetrics();
+        current.reviewerFeedbackCount += 1;
+        outputMetricsByProjectId.set(projectId, current);
+      }
     }
   }
 
   return (projects ?? []).map((project) => ({
     ...project,
-    project_track: project.project_track === "research" ? "research" : "software",
     hasRoadmap: roadmapProjectIds.has(project.id),
     completedMilestones: milestoneCountsByProjectId.get(project.id)?.completed ?? 0,
     totalMilestones: milestoneCountsByProjectId.get(project.id)?.total ?? 0,

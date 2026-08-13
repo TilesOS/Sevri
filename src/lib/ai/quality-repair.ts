@@ -65,6 +65,9 @@ export function buildQualityFieldRepairSchema(
 
 const SAFE_LOCAL_REPAIR_KINDS = new Set<QualityIssue["kind"]>([
   "missing_terminal_punct",
+  "trailing_connector",
+  "dangling_colon_dash",
+  "mixed_script",
   "zero_width",
 ]);
 
@@ -84,6 +87,17 @@ export function shouldSkipCrossModelFallbackForQuality(input: {
     input.semanticIssueCount === 0 &&
     input.qualityIssueCount > 0 &&
     !input.repairFailureAllowsFallback;
+}
+
+export function exhaustedTargetedQualityRepairAllowsFallback(input: {
+  repairRound: number;
+  maxRepairRounds: number;
+  schemaIssueCount: number;
+  semanticIssueCount: number;
+  qualityIssueCount: number;
+}): boolean {
+  return input.repairRound >= input.maxRepairRounds &&
+    input.schemaIssueCount + input.semanticIssueCount + input.qualityIssueCount > 0;
 }
 
 function pathTokens(path: string): Array<{ kind: "key" | "index"; value: string }> {

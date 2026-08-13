@@ -7,12 +7,19 @@ import { trackPortfolioReflectionSavedDebounced } from "@/lib/portfolio/events";
 import { buildPublicSafetyInput } from "@/lib/portfolio/public-surface";
 import { runSafetyChecks } from "@/lib/portfolio/safety";
 import { getPortfolioEntryDetailView } from "@/lib/portfolio/portfolio-view";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 const patchSchema = z.object({
   student_reflection: z.string().max(6000).nullable().optional(),
   featured_submission_id: z.string().uuid().nullable().optional(),
   featured_evidence_note: z.string().max(1000).nullable().optional(),
   status_override: z.enum(["in_progress", "paused", "completed", "abandoned"]).nullable().optional(),
+  featured_artifact_ids: z.array(z.string().uuid()).max(6).optional(),
+  artifact_metadata: z.array(z.object({
+    id: z.string().uuid(),
+    caption: z.string().trim().min(1).max(500),
+    alt_text: z.string().trim().min(1).max(500),
+  })).max(6).optional(),
 });
 
 function isLivePublicPage(view: Awaited<ReturnType<typeof getPortfolioEntryDetailView>>) {
@@ -49,12 +56,22 @@ export async function PATCH(
   }
 
   const payload = patchSchema.parse(await request.json());
+  const artifactIds = new Set(currentView.artifacts.map((artifact) => artifact.id));
+  if (payload.artifact_metadata?.some((artifact) => !artifactIds.has(artifact.id))) {
+    return NextResponse.json({ error: "Evidence item not found in this project." }, { status: 400 });
+  }
+  const nextArtifacts = currentView.artifacts.map((artifact) => {
+    const update = payload.artifact_metadata?.find((item) => item.id === artifact.id);
+    return update ? { ...artifact, caption: update.caption, alt_text: update.alt_text } : artifact;
+  });
   const reflectionChanged =
     "student_reflection" in payload &&
     (payload.student_reflection ?? null) !== (currentView.entry.student_reflection ?? null);
   const publicSurfaceChanged =
     reflectionChanged ||
-    ("featured_submission_id" in payload && payload.featured_submission_id !== currentView.entry.featured_submission_id);
+    ("featured_submission_id" in payload && payload.featured_submission_id !== currentView.entry.featured_submission_id) ||
+    ("featured_artifact_ids" in payload && payload.featured_artifact_ids !== undefined) ||
+    Boolean(payload.artifact_metadata?.some((artifact) => currentView.featuredArtifactIds.includes(artifact.id)));
 
   if (isLivePublicPage(currentView) && publicSurfaceChanged) {
     const displayName = await getPortfolioDisplayName({
@@ -79,6 +96,8 @@ export async function PATCH(
       featuredSubmission: nextFeaturedSubmissionId
         ? currentView.latestSubmissions.find((submission) => submission.id === nextFeaturedSubmissionId) ?? null
         : null,
+      featuredArtifactIds: payload.featured_artifact_ids ?? currentView.featuredArtifactIds,
+      artifacts: nextArtifacts,
     };
     const safety = runSafetyChecks(buildPublicSafetyInput(candidateView, displayName));
     if (!safety.passed) {
@@ -86,6 +105,18 @@ export async function PATCH(
         { code: "safety_check_failed", findings: safety.findings },
         { status: 422 },
       );
+    }
+  }
+
+  if (payload.artifact_metadata?.length) {
+    const supabase = await createServerSupabaseClient();
+    for (const artifact of payload.artifact_metadata) {
+      const { error } = await supabase
+        .from("milestone_submission_artifacts")
+        .update({ caption: artifact.caption, alt_text: artifact.alt_text })
+        .eq("id", artifact.id)
+        .eq("owner_user_id", user.id);
+      if (error) return NextResponse.json({ error: "Could not save the evidence description." }, { status: 400 });
     }
   }
 
@@ -100,6 +131,15 @@ export async function PATCH(
 
   if (!entry) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (payload.featured_artifact_ids) {
+    const supabase = await createServerSupabaseClient();
+    const { error } = await supabase.rpc("set_portfolio_featured_artifacts", {
+      p_entry_id: currentView.entry.id,
+      p_artifact_ids: payload.featured_artifact_ids,
+    });
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
   if (reflectionChanged) {

@@ -15,8 +15,7 @@ export interface Database {
           user_id: string;
           full_name: string;
           student_stage: string;
-          target_outcome: string;
-          project_track: string;
+          project_goal: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -25,8 +24,7 @@ export interface Database {
           user_id: string;
           full_name: string;
           student_stage: string;
-          target_outcome: string;
-          project_track?: string;
+          project_goal?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -35,34 +33,42 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          project_track: string;
           interests: string[];
           favorite_subjects: string[];
-          coding_experience: string | null;
+          project_goal: string;
+          success_definition: string;
+          open_to_anything: boolean;
+          format_preferences: string[];
+          preference_notes: string | null;
+          experience_level: string;
+          existing_skills: string[];
+          available_resources: string | null;
           weekly_time_available: number;
-          preferred_project_style: string | null;
-          known_tools: string[];
-          target_schools_or_companies: string[];
-          preferred_difficulty: string | null;
-          constraints: string | null;
-          track_payload_json: Json;
+          completion_date: string | null;
+          budget_constraints: string | null;
+          preferred_challenge: string;
+          other_constraints: string | null;
           raw_answers_json: Json;
           created_at: string;
         };
         Insert: {
           id?: string;
           user_id: string;
-          project_track?: string;
           interests: string[];
           favorite_subjects: string[];
-          coding_experience?: string | null;
+          project_goal: string;
+          success_definition: string;
+          open_to_anything?: boolean;
+          format_preferences?: string[];
+          preference_notes?: string | null;
+          experience_level: string;
+          existing_skills?: string[];
+          available_resources?: string | null;
           weekly_time_available: number;
-          preferred_project_style?: string | null;
-          known_tools?: string[];
-          target_schools_or_companies?: string[];
-          preferred_difficulty?: string | null;
-          constraints?: string | null;
-          track_payload_json?: Json;
+          completion_date?: string | null;
+          budget_constraints?: string | null;
+          preferred_challenge?: string;
+          other_constraints?: string | null;
           raw_answers_json: Json;
           created_at?: string;
         };
@@ -72,12 +78,11 @@ export interface Database {
           id: string;
           user_id: string;
           intake_id: string;
-          project_track: string;
           summary: string;
           interpreted_interests: string[];
           skill_assessment: string;
           risk_flags: string[];
-          track_payload_json: Json;
+          project_context_json: Json;
           raw_model_output_json: Json;
           created_at: string;
         };
@@ -85,12 +90,11 @@ export interface Database {
           id?: string;
           user_id: string;
           intake_id: string;
-          project_track?: string;
           summary: string;
           interpreted_interests: string[];
           skill_assessment: string;
           risk_flags: string[];
-          track_payload_json?: Json;
+          project_context_json?: Json;
           raw_model_output_json: Json;
           created_at?: string;
         };
@@ -101,7 +105,8 @@ export interface Database {
           user_id: string;
           intake_id: string;
           normalized_profile_id: string;
-          project_track: string;
+          project_kind_label: string;
+          repository_relevance: string;
           title: string;
           summary: string;
           rationale: string;
@@ -113,7 +118,8 @@ export interface Database {
           impressiveness_score: number;
           finishability_score: number;
           authenticity_note: string;
-          track_payload_json: Json;
+          project_blueprint_json: Json;
+          grounding_sources_json: Json;
           raw_model_output_json: Json;
           created_at: string;
         };
@@ -122,7 +128,8 @@ export interface Database {
           user_id: string;
           intake_id: string;
           normalized_profile_id: string;
-          project_track?: string;
+          project_kind_label: string;
+          repository_relevance?: string;
           title: string;
           summary: string;
           rationale: string;
@@ -134,7 +141,8 @@ export interface Database {
           impressiveness_score: number;
           finishability_score: number;
           authenticity_note: string;
-          track_payload_json?: Json;
+          project_blueprint_json?: Json;
+          grounding_sources_json?: Json;
           raw_model_output_json: Json;
           created_at?: string;
         };
@@ -144,7 +152,8 @@ export interface Database {
           id: string;
           user_id: string;
           recommendation_id: string;
-          project_track: string;
+          project_kind_label: string;
+          repository_relevance: string;
           title: string;
           status: string;
           archived_at: string | null;
@@ -158,7 +167,8 @@ export interface Database {
           id?: string;
           user_id: string;
           recommendation_id: string;
-          project_track?: string;
+          project_kind_label: string;
+          repository_relevance?: string;
           title: string;
           status?: string;
           archived_at?: string | null;
@@ -172,7 +182,8 @@ export interface Database {
           id?: string;
           user_id?: string;
           recommendation_id?: string;
-          project_track?: string;
+          project_kind_label?: string;
+          repository_relevance?: string;
           title?: string;
           status?: string;
           archived_at?: string | null;
@@ -289,14 +300,13 @@ export interface Database {
         Row: {
           id: string;
           project_id: string;
-          project_track: string;
           overview: string;
-          mvp_scope: string;
-          repo_structure: Json;
-          readme_draft: string;
+          core_scope: string;
+          artifact_plan: Json;
+          project_overview_draft: string;
           stretch_goals: string[];
           explanation_guide: Json;
-          track_payload_json: Json;
+          roadmap_context_json: Json;
           scheduled_start_date: string | null;
           scheduled_end_date: string | null;
           schedule_timezone: string;
@@ -314,14 +324,13 @@ export interface Database {
         Insert: {
           id?: string;
           project_id: string;
-          project_track?: string;
           overview: string;
-          mvp_scope: string;
-          repo_structure: Json;
-          readme_draft: string;
+          core_scope: string;
+          artifact_plan: Json;
+          project_overview_draft: string;
           stretch_goals: string[];
           explanation_guide: Json;
-          track_payload_json?: Json;
+          roadmap_context_json?: Json;
           scheduled_start_date?: string | null;
           scheduled_end_date?: string | null;
           schedule_timezone?: string;
@@ -338,12 +347,17 @@ export interface Database {
         };
         Update: {
           id?: string;
-          user_id?: string;
-          recommendation_id?: string;
-          project_track?: string;
-          title?: string;
-          status?: string;
-          selected_at?: string;
+          project_id?: string;
+          overview?: string;
+          core_scope?: string;
+          artifact_plan?: Json;
+          project_overview_draft?: string;
+          stretch_goals?: string[];
+          explanation_guide?: Json;
+          roadmap_context_json?: Json;
+          scheduled_start_date?: string | null;
+          scheduled_end_date?: string | null;
+          schedule_timezone?: string;
           created_at?: string;
           updated_at?: string;
         };
@@ -425,7 +439,7 @@ export interface Database {
           id: string;
           milestone_id: string;
           user_id: string;
-          submission_kind: "pasted_text" | "file_upload";
+          submission_kind: "pasted_text" | "artifact_bundle";
           submission_text: string | null;
           submission_filename: string | null;
           storage_path: string | null;
@@ -436,7 +450,7 @@ export interface Database {
           id?: string;
           milestone_id: string;
           user_id: string;
-          submission_kind: "pasted_text" | "file_upload";
+          submission_kind: "pasted_text" | "artifact_bundle";
           submission_text?: string | null;
           submission_filename?: string | null;
           storage_path?: string | null;
@@ -447,13 +461,44 @@ export interface Database {
           id?: string;
           milestone_id?: string;
           user_id?: string;
-          submission_kind?: "pasted_text" | "file_upload";
+          submission_kind?: "pasted_text" | "artifact_bundle";
           submission_text?: string | null;
           submission_filename?: string | null;
           storage_path?: string | null;
           created_at?: string;
           updated_at?: string;
         };
+      };
+      milestone_submission_artifacts: {
+        Row: {
+          id: string;
+          submission_id: string;
+          owner_user_id: string;
+          upload_path: string | null;
+          external_url: string | null;
+          display_name: string;
+          mime_type: string | null;
+          size_bytes: number | null;
+          caption: string | null;
+          alt_text: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          submission_id: string;
+          owner_user_id: string;
+          upload_path?: string | null;
+          external_url?: string | null;
+          display_name: string;
+          mime_type?: string | null;
+          size_bytes?: number | null;
+          caption?: string | null;
+          alt_text?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["milestone_submission_artifacts"]["Insert"]>;
       };
       milestone_submission_evaluations: {
         Row: {
@@ -486,6 +531,33 @@ export interface Database {
           created_at?: string;
           updated_at?: string;
         };
+      };
+      milestone_reviews: {
+        Row: {
+          id: string;
+          milestone_id: string;
+          reviewer_user_id: string;
+          submission_id: string | null;
+          strength: string;
+          tighten: string;
+          next_action: string;
+          ready_to_mark_complete: boolean;
+          created_at: string;
+          superseded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          milestone_id: string;
+          reviewer_user_id: string;
+          submission_id?: string | null;
+          strength: string;
+          tighten: string;
+          next_action: string;
+          ready_to_mark_complete: boolean;
+          created_at?: string;
+          superseded_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["milestone_reviews"]["Insert"]>;
       };
       deadline_extension_events: {
         Row: {
@@ -710,7 +782,6 @@ export interface Database {
           roadmap_id: string | null;
           milestone_guidance_id: string | null;
           submission_evaluation_id: string | null;
-          project_track: string | null;
           project_id: string | null;
           milestone_id: string | null;
           created_at: string;
@@ -727,7 +798,6 @@ export interface Database {
           roadmap_id?: string | null;
           milestone_guidance_id?: string | null;
           submission_evaluation_id?: string | null;
-          project_track?: string | null;
           project_id?: string | null;
           milestone_id?: string | null;
           created_at?: string;
@@ -744,12 +814,32 @@ export interface Database {
           roadmap_id?: string | null;
           milestone_guidance_id?: string | null;
           submission_evaluation_id?: string | null;
-          project_track?: string | null;
           project_id?: string | null;
           milestone_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
+      };
+      portfolio_featured_artifacts: {
+        Row: {
+          portfolio_entry_id: string;
+          artifact_id: string;
+          owner_user_id: string;
+          display_order: number;
+          public_caption: string;
+          public_alt_text: string;
+          created_at: string;
+        };
+        Insert: {
+          portfolio_entry_id: string;
+          artifact_id: string;
+          owner_user_id: string;
+          display_order?: number;
+          public_caption: string;
+          public_alt_text: string;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["portfolio_featured_artifacts"]["Insert"]>;
       };
       subscriptions: {
         Row: {
@@ -822,20 +912,21 @@ export interface Database {
         Returns: {
           project_id: string;
           project_title: string;
-          project_track: string;
+          project_kind_label: string;
+          repository_relevance: string;
           selection_outcome: "created" | "replayed" | "duplicate";
         }[];
       };
       create_milestone_submission_with_pending_evaluation: {
         Args: {
           p_milestone_id: string;
-          p_submission_kind: "pasted_text" | "file_upload";
+          p_submission_kind: "pasted_text" | "artifact_bundle";
           p_submission_text: string;
           p_submission_filename?: string | null;
         };
         Returns: {
           submission_id: string;
-          submission_kind: "pasted_text" | "file_upload";
+          submission_kind: "pasted_text" | "artifact_bundle";
           submission_filename: string | null;
           submission_created_at: string;
           submission_updated_at: string;
@@ -845,6 +936,11 @@ export interface Database {
           evaluation_updated_at: string;
         }[];
       };
+      create_milestone_artifact_bundle_with_pending_evaluation: {
+        Args: { p_milestone_id: string; p_submission_text: string; p_artifacts: Json };
+        Returns: { submission_id: string; evaluation_id: string }[];
+      };
+      set_portfolio_featured_artifacts: { Args: { p_entry_id: string; p_artifact_ids: string[] }; Returns: undefined };
       complete_milestone_submission_evaluation: {
         Args: {
           p_evaluation_id: string;

@@ -1,6 +1,6 @@
 # Sevri MVP
 
-Sevri is a production-minded SaaS scaffold for helping students pick, scope, execute, and package one authentic software project.
+Sevri is a student project-to-portfolio coach for any field. It helps students compare three meaningful directions, choose one, finish it with a realistic roadmap, and package the result as evidence.
 
 ## Stack
 

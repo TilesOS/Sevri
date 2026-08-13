@@ -79,6 +79,11 @@ const NON_LATIN_SCRIPT_CLASS =
   "\\p{Script=Han}\\p{Script=Hiragana}\\p{Script=Katakana}\\p{Script=Cyrillic}\\p{Script=Arabic}\\p{Script=Devanagari}\\p{Script=Hebrew}\\p{Script=Hangul}\\p{Script=Thai}\\p{Script=Bengali}\\p{Script=Tamil}\\p{Script=Gujarati}\\p{Script=Telugu}\\p{Script=Kannada}\\p{Script=Malayalam}\\p{Script=Gurmukhi}";
 
 const NON_LATIN_SCRIPT_PATTERN = new RegExp(`[${NON_LATIN_SCRIPT_CLASS}]{2,}`, "u");
+const NON_LATIN_SCRIPT_GLOBAL_PATTERN = new RegExp(`[${NON_LATIN_SCRIPT_CLASS}]+`, "gu");
+const FUSED_NON_LATIN_SCRIPT_PATTERN = new RegExp(
+  `(?<=[\\p{Script=Latin}\\p{Number}])[${NON_LATIN_SCRIPT_CLASS}]+|[${NON_LATIN_SCRIPT_CLASS}]+(?=[\\p{Script=Latin}\\p{Number}])`,
+  "gu",
+);
 
 /**
  * A single non-Latin character fused to a Latin word — the "alias別" artifact.
@@ -172,6 +177,27 @@ function hasZeroWidth(text: string): boolean {
 
 function stripZeroWidth(text: string): string {
   return text.replace(ZERO_WIDTH_PATTERN, "");
+}
+
+function stripUnexpectedNonLatinScript(text: string, allowed: readonly string[]): string {
+  const protectedTerms: string[] = [];
+  let protectedText = text;
+
+  for (const term of allowed) {
+    NON_LATIN_SCRIPT_GLOBAL_PATTERN.lastIndex = 0;
+    if (!term || !NON_LATIN_SCRIPT_GLOBAL_PATTERN.test(term)) continue;
+    const placeholder = `__SEVRI_ALLOWED_TERM_${protectedTerms.length}__`;
+    const escaped = term.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    protectedText = protectedText.replace(new RegExp(escaped, "gu"), placeholder);
+    protectedTerms.push(term);
+  }
+
+  FUSED_NON_LATIN_SCRIPT_PATTERN.lastIndex = 0;
+  let cleaned = protectedText.replace(FUSED_NON_LATIN_SCRIPT_PATTERN, "");
+  protectedTerms.forEach((term, index) => {
+    cleaned = cleaned.replaceAll(`__SEVRI_ALLOWED_TERM_${index}__`, term);
+  });
+  return cleaned;
 }
 
 function hasMixedScript(text: string, allowed: readonly string[]): boolean {
@@ -572,13 +598,14 @@ function setAtPath(root: unknown, path: string, value: string): void {
 export function applyStructuredCleanup<T>(
   parsed: T,
   specs: FieldSpecMap,
+  options: CheckOptions = {},
 ): { cleaned: T; changedPaths: string[] } {
   const cleaned = cloneValue(parsed);
   const changedPaths: string[] = [];
   walkStrings(cleaned, "", (value, path) => {
     const spec = lookupSpec(specs, path);
     if (!spec) return;
-    const result = safeRenderText(value, spec);
+    const result = safeRenderText(value, spec, options);
     if (result.degraded && result.text !== value) {
       setAtPath(cleaned as unknown, path, result.text);
       changedPaths.push(path);
@@ -590,6 +617,7 @@ export function applyStructuredCleanup<T>(
 export function safeRenderText(
   rawValue: string,
   spec: FieldSpec,
+  options: CheckOptions = {},
 ): { text: string; degraded: boolean } {
   if (typeof rawValue !== "string") {
     return { text: "", degraded: true };
@@ -605,6 +633,15 @@ export function safeRenderText(
 
   if (hasMojibake(text)) {
     text = stripMojibake(text);
+    degraded = true;
+  }
+
+  const allowedTerms = options.allowedTerms ?? [];
+  if (
+    (spec.language ?? "en") === "en" &&
+    hasMixedScript(text, allowedTerms)
+  ) {
+    text = stripUnexpectedNonLatinScript(text, allowedTerms);
     degraded = true;
   }
 

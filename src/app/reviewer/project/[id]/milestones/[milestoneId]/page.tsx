@@ -127,11 +127,31 @@ export default async function ReviewerMilestonePage({
             <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-xl bg-canvas p-4 text-xs leading-5 text-ink">
               {submission.submission_text}
             </pre>
-          ) : (
+          ) : submission.artifacts.length === 0 ? (
             <p className="text-sm leading-6 text-ink-soft">
-              The student uploaded a file; open the project workspace to see the full contents.
+              This submission does not include written notes.
             </p>
-          )}
+          ) : null}
+          {submission.artifacts.length ? (
+            <div className="space-y-3 border-t border-line pt-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Private evidence</p>
+              {submission.artifacts.map((artifact) => (
+                <div key={artifact.id} className="rounded-xl border border-line bg-canvas p-4">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ink">{artifact.display_name}</p>
+                      {artifact.caption ? <p className="mt-1 text-xs leading-5 text-ink-muted">{artifact.caption}</p> : null}
+                    </div>
+                    {artifact.url ? (
+                      <a href={artifact.url} target="_blank" rel="noreferrer" className="text-xs font-semibold text-teal-deep hover:underline">
+                        Open evidence
+                      </a>
+                    ) : <span className="text-xs text-ink-muted">Link unavailable</span>}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </Card>
       ) : (
         <Card padding="lg">
@@ -174,6 +194,20 @@ async function getLatestSubmission(milestoneId: string) {
   if (error) {
     return null;
   }
+  if (!data) return null;
 
-  return data;
+  const { data: artifacts } = await supabase
+    .from("milestone_submission_artifacts")
+    .select("id, upload_path, external_url, display_name, mime_type, caption, alt_text")
+    .eq("submission_id", data.id)
+    .order("created_at", { ascending: true });
+
+  const resolvedArtifacts = await Promise.all((artifacts ?? []).map(async (artifact) => {
+    if (artifact.external_url) return { ...artifact, url: artifact.external_url };
+    if (!artifact.upload_path) return { ...artifact, url: null };
+    const { data: signed } = await supabase.storage.from("project-evidence").createSignedUrl(artifact.upload_path, 60 * 10);
+    return { ...artifact, url: signed?.signedUrl ?? null };
+  }));
+
+  return { ...data, artifacts: resolvedArtifacts };
 }

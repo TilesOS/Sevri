@@ -25,8 +25,8 @@ import { Input } from "@/components/ui/input";
 import { ReviewerFeedbackPanel } from "@/components/reviewer/reviewer-feedback-panel";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { createClient } from "@/lib/supabase/client";
 import { isRateLimited, toUserFacingError } from "@/lib/errors/user-messages";
-import { trackThemes } from "@/components/theme/theme-utils";
 import { hasStepGuidanceAccess } from "@/lib/usage/limits";
 import { safeRenderText } from "@/lib/ai/content-quality";
 import {
@@ -87,10 +87,22 @@ type SubmissionSlot =
       evaluation: WorkEvaluation;
     };
 
-const ACCEPTED_FILE_EXTENSIONS = ".py,.js,.ts,.jsx,.tsx,.html,.css,.md,.txt,.json,.csv,.sql";
+const ACCEPTED_FILE_EXTENSIONS = ".jpg,.jpeg,.png,.webp,.pdf,.md,.txt,.json,.csv";
 const MAX_SUBMISSION_CHARS = 20_000;
 const MAX_REBUTTAL_CHARS = 500;
-const NOTES_SEPARATOR = "\n\n--- Notes ---\n\n";
+type EvidenceDraft = { upload_path?: string; external_url?: string; display_name: string; mime_type?: string; size_bytes?: number; caption?: string; alt_text?: string };
+
+async function stripImageMetadata(file: File): Promise<File> {
+  if (!/^image\/(jpeg|png|webp)$/u.test(file.type)) return file;
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = bitmap.width;
+  canvas.height = bitmap.height;
+  canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+  bitmap.close();
+  const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error("Could not prepare image.")), file.type, 0.92));
+  return new File([blob], file.name, { type: file.type, lastModified: file.lastModified });
+}
 
 const CONFIDENCE_LABEL: Record<string, string> = {
   high: "High confidence",
@@ -181,8 +193,8 @@ function formatDate(dateString: string) {
 
 function formatSubmissionKind(kind: string, filename: string | null) {
   if (kind === "pasted_text") return "Pasted text";
-  if (filename) return `File: ${filename}`;
-  return "File upload";
+  if (filename) return `Evidence: ${filename}`;
+  return "Evidence bundle";
 }
 
 function normalizeGuidanceItem(item: string, variant: "bullet" | "ordered") {
@@ -225,7 +237,6 @@ export function ProjectStepWorkspace({
   const searchParams = useSearchParams();
   const returningFromFocus = searchParams.get("from") === "focus";
   const hasDetailAccess = hasStepGuidanceAccess(plan);
-  const trackTheme = trackThemes[workspace.projectTrack];
   const [guidanceSlot, setGuidanceSlot] = useState<GuidanceSlot | null>(null);
   const [guidanceError, setGuidanceError] = useState<string | null>(null);
   /** Non-blocking note (e.g. a throttled refresh) shown above content that stays visible. */
@@ -475,7 +486,7 @@ export function ProjectStepWorkspace({
   fetchGuidanceRef.current = fetchGuidance;
   loadSubmissionRef.current = loadSubmission;
 
-  async function submitWork(text: string, kind: "pasted_text" | "file_upload", filename?: string) {
+  async function submitWork(text: string, artifacts: EvidenceDraft[]) {
     setIsEvaluationPending(true);
     setEvaluationError(null);
 
@@ -485,8 +496,7 @@ export function ProjectStepWorkspace({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           submission_text: text,
-          submission_kind: kind,
-          submission_filename: filename,
+          artifacts,
         }),
       });
 
@@ -565,7 +575,7 @@ export function ProjectStepWorkspace({
         title={safeRenderText(milestone.title, STEP_TITLE_SPEC).text}
         metadata={
           <>
-            <Badge tone={trackTheme.badgeTone}>{trackTheme.label}</Badge>
+            <Badge tone="neutral">{workspace.projectKindLabel}</Badge>
             <Badge tone={milestone.completed ? "success" : milestone.status === "in_progress" ? "accent" : "neutral"}>
               {milestone.completed ? "Complete" : milestone.status === "in_progress" ? "In progress" : "Not started"}
             </Badge>
@@ -585,7 +595,7 @@ export function ProjectStepWorkspace({
 
       {toggleError ? <Alert tone="danger">{toggleError}</Alert> : null}
 
-      {workspace.projectTrack === "software" && workspace.githubLink?.status === "active" ? (
+      {workspace.githubLink?.status === "active" ? (
         <GithubStepCommits projectId={workspace.project.id} milestoneId={milestone.id} />
       ) : null}
 
@@ -821,8 +831,7 @@ export function ProjectStepWorkspace({
               onRebuttal={(submission, rebuttal) =>
                 void submitWork(
                   buildRebuttalSubmission(submission, rebuttal),
-                  submission.submission_kind,
-                  submission.submission_filename ?? undefined,
+                  [],
                 )
               }
             />
@@ -848,8 +857,7 @@ export function ProjectStepWorkspace({
                 onRebuttal={(submission, rebuttal) =>
                   void submitWork(
                     buildRebuttalSubmission(submission, rebuttal),
-                    submission.submission_kind,
-                    submission.submission_filename ?? undefined,
+                    [],
                   )
                 }
               />
@@ -876,18 +884,17 @@ export function ProjectStepWorkspace({
               setIsComposerOpen(false);
               setIsResubmitMode(false);
             }}
-            onSubmit={(text, kind, filename) => void submitWork(text, kind, filename)}
+            onSubmit={(text, artifacts) => void submitWork(text, artifacts)}
             evaluationError={evaluationError}
             actionsDisabled={isGuidanceLocked}
             lockedMessage={submissionLockMessage}
             projectId={workspace.project.id}
             milestoneId={milestone.id}
             githubImportEnabled={
-              workspace.projectTrack === "software" && workspace.githubLink?.status === "active"
+              workspace.githubLink?.status === "active"
             }
             autoImportFromGithub={
               returningFromFocus &&
-              workspace.projectTrack === "software" &&
               workspace.githubLink?.status === "active"
             }
           />
@@ -1033,7 +1040,7 @@ function SubmissionDock({
   onToggle: () => void;
   onResubmit: () => void;
   onCancel: () => void;
-  onSubmit: (text: string, kind: "pasted_text" | "file_upload", filename?: string) => void;
+  onSubmit: (text: string, artifacts: EvidenceDraft[]) => void;
   evaluationError: string | null;
   actionsDisabled: boolean;
   lockedMessage: string;
@@ -1182,7 +1189,7 @@ function MilestoneSubmissionForm({
   githubImportEnabled,
   autoImportFromGithub,
 }: {
-  onSubmit: (text: string, kind: "pasted_text" | "file_upload", filename?: string) => void;
+  onSubmit: (text: string, artifacts: EvidenceDraft[]) => void;
   disabled: boolean;
   projectId: string;
   milestoneId: string;
@@ -1190,10 +1197,12 @@ function MilestoneSubmissionForm({
   autoImportFromGithub: boolean;
 }) {
   const [pastedText, setPastedText] = useState("");
-  const [file, setFile] = useState<File | null>(null);
-  const [fileContent, setFileContent] = useState<string | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [captions, setCaptions] = useState<Record<string, string>>({});
+  const [externalUrl, setExternalUrl] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isImporting, setIsImporting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importInfo, setImportInfo] = useState<string | null>(null);
   const autoImportStartedRef = useRef(false);
@@ -1244,56 +1253,65 @@ function MilestoneSubmissionForm({
     void handleGithubImport();
   }, [autoImportFromGithub, githubImportEnabled, handleGithubImport]);
 
-  const combinedLength = fileContent
-    ? fileContent.length + (pastedText ? NOTES_SEPARATOR.length + pastedText.length : 0)
-    : pastedText.length;
-  const hasContent = combinedLength > 0;
+  const combinedLength = pastedText.length;
+  const hasContent = pastedText.trim().length > 0 || files.length > 0 || externalUrl.trim().length > 0;
   const isOverLimit = combinedLength > MAX_SUBMISSION_CHARS;
+  const totalBytes = files.reduce((sum, item) => sum + item.size, 0);
+  const hasInvalidBundle = files.length + (externalUrl.trim() ? 1 : 0) > 5 || totalBytes > 25 * 1024 * 1024;
+  const hasMissingCaptions = files.some(
+    (file) => !file.type.startsWith("text/") && !captions[file.name]?.trim(),
+  );
 
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const selected = event.target.files?.[0];
-    if (!selected) {
-      setFile(null);
-      setFileContent(null);
+    if (!event.target.files?.length) {
+      setFiles([]);
       return;
     }
-
-    setFile(selected);
-    const reader = new FileReader();
-    reader.onload = () => setFileContent(reader.result as string);
-    reader.readAsText(selected);
+    const selectedFiles = Array.from(event.target.files ?? []);
+    setFiles(selectedFiles.slice(0, 5));
   }
 
-  function clearFile() {
-    setFile(null);
-    setFileContent(null);
+  function clearFiles() {
+    setFiles([]);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }
 
-  function handleSubmit() {
-    if (!hasContent || isOverLimit || disabled) {
+  async function handleSubmit() {
+    if (!hasContent || isOverLimit || hasInvalidBundle || hasMissingCaptions || disabled || isUploading) {
       return;
     }
-
-    if (fileContent && pastedText) {
-      onSubmit(`${fileContent}${NOTES_SEPARATOR}${pastedText}`, "file_upload", file!.name);
-      return;
+    setIsUploading(true);
+    setImportError(null);
+    try {
+      const artifacts: EvidenceDraft[] = [];
+      for (const originalFile of files) {
+        const file = await stripImageMetadata(originalFile);
+        const ticketResponse = await fetch(`/api/milestones/${milestoneId}/artifacts/upload`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ filename: file.name, mime_type: file.type, size_bytes: file.size }) });
+        const ticket = await ticketResponse.json() as { path?: string; token?: string; error?: string };
+        if (!ticketResponse.ok || !ticket.path || !ticket.token) throw new Error(ticket.error ?? `Could not upload ${file.name}.`);
+        const { error } = await createClient().storage.from("project-evidence").uploadToSignedUrl(ticket.path, ticket.token, file, { contentType: file.type });
+        if (error) throw error;
+        const caption = captions[originalFile.name]?.trim();
+        artifacts.push({ upload_path: ticket.path, display_name: file.name, mime_type: file.type, size_bytes: file.size, caption, alt_text: file.type.startsWith("image/") ? caption : undefined });
+      }
+      if (externalUrl.trim()) {
+        const hostname = new URL(externalUrl.trim()).hostname;
+        artifacts.push({ external_url: externalUrl.trim(), display_name: hostname, caption: `Evidence link from ${hostname}`, alt_text: `External evidence hosted on ${hostname}` });
+      }
+      onSubmit(pastedText, artifacts);
+    } catch (error) {
+      setImportError(error instanceof Error ? error.message : "Could not upload the evidence bundle.");
+    } finally {
+      setIsUploading(false);
     }
-
-    if (fileContent) {
-      onSubmit(fileContent, "file_upload", file!.name);
-      return;
-    }
-
-    onSubmit(pastedText, "pasted_text");
   }
 
   return (
     <div className="space-y-3">
       <Textarea
-        placeholder="Paste your code, research, writing, or notes here..."
+        placeholder="Describe what you made, what changed, and what this evidence shows…"
         value={pastedText}
         onChange={(event) => setPastedText(event.target.value)}
         disabled={disabled}
@@ -1304,6 +1322,7 @@ function MilestoneSubmissionForm({
         <input
           ref={fileInputRef}
           type="file"
+          multiple
           className="hidden"
           accept={ACCEPTED_FILE_EXTENSIONS}
           onChange={handleFileChange}
@@ -1316,11 +1335,11 @@ function MilestoneSubmissionForm({
           onClick={() => fileInputRef.current?.click()}
           disabled={disabled}
         >
-          {file ? file.name : "Attach file"}
+          {files.length ? `${files.length} file${files.length === 1 ? "" : "s"} selected` : "Attach evidence"}
         </Button>
-        {file ? (
-          <button type="button" className="text-xs text-ink-muted hover:text-ink" onClick={clearFile} disabled={disabled}>
-            Remove
+        {files.length ? (
+          <button type="button" className="text-xs text-ink-muted hover:text-ink" onClick={clearFiles} disabled={disabled}>
+            Remove files
           </button>
         ) : null}
         {githubImportEnabled ? (
@@ -1336,19 +1355,22 @@ function MilestoneSubmissionForm({
         ) : null}
       </div>
 
+      {files.length ? <div className="space-y-2">{files.map((file) => <label key={`${file.name}-${file.size}`} className="block rounded-xl bg-surface p-3 text-xs text-ink-soft"><span className="font-medium text-ink">{file.name}</span><span className="ml-2 text-ink-muted">{Math.ceil(file.size / 1024).toLocaleString()} KB</span><Input className="mt-2" value={captions[file.name] ?? ""} onChange={(event) => setCaptions((current) => ({ ...current, [file.name]: event.target.value }))} placeholder={file.type.startsWith("image/") ? "Required caption and accessible description" : "What does this evidence show?"} /></label>)}</div> : null}
+
+      <Input type="url" value={externalUrl} onChange={(event) => setExternalUrl(event.target.value)} placeholder="Or add one HTTPS evidence link (Sevri will not fetch it)" disabled={disabled} />
+
       {importError ? <p className="text-xs text-red-600">{importError}</p> : null}
       {importInfo ? <p className="text-xs text-ink-muted">{importInfo}</p> : null}
+      {hasMissingCaptions ? <p className="text-xs text-red-600">Add a caption for each image or document before submitting.</p> : null}
 
-      {fileContent && pastedText ? (
-        <p className="text-xs text-ink-muted">File content and notes will be sent together.</p>
-      ) : null}
+      <p className="text-xs text-ink-muted">Up to 5 items, 10 MB each, 25 MB total. Images are re-encoded before upload to remove embedded metadata.</p>
 
       <div className="flex items-center justify-between gap-4">
-        <span className={cn("text-xs", isOverLimit ? "font-medium text-red-600" : "text-ink-muted")}>
-          {combinedLength.toLocaleString()} / {MAX_SUBMISSION_CHARS.toLocaleString()} characters
+        <span className={cn("text-xs", isOverLimit || hasInvalidBundle ? "font-medium text-red-600" : "text-ink-muted")}>
+          {combinedLength.toLocaleString()} / {MAX_SUBMISSION_CHARS.toLocaleString()} characters · {Math.ceil(totalBytes / 1024).toLocaleString()} KB
         </span>
-        <Button type="button" size="sm" onClick={handleSubmit} disabled={!hasContent || isOverLimit || disabled}>
-          {disabled ? "Evaluating..." : "Get evaluation"}
+        <Button type="button" size="sm" onClick={() => void handleSubmit()} disabled={!hasContent || isOverLimit || hasInvalidBundle || hasMissingCaptions || disabled || isUploading}>
+          {isUploading ? "Uploading…" : disabled ? "Evaluating..." : "Get evaluation"}
         </Button>
       </div>
     </div>
@@ -1511,6 +1533,23 @@ function EvaluationResult({
             </li>
           ))}
         </ul>
+      </div>
+
+      <div className="grid gap-4 border-t border-line pt-4 sm:grid-cols-2">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Evidence reviewed</p>
+          <ul className="mt-2 space-y-1.5 text-sm leading-6 text-ink-soft">
+            {evaluation.evidence_reviewed.map((item) => <li key={item}>• {item}</li>)}
+          </ul>
+        </div>
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-ink-soft">Evidence limitations</p>
+          {evaluation.evidence_limitations.length ? (
+            <ul className="mt-2 space-y-1.5 text-sm leading-6 text-ink-soft">
+              {evaluation.evidence_limitations.map((item) => <li key={item}>• {item}</li>)}
+            </ul>
+          ) : <p className="mt-2 text-sm leading-6 text-ink-muted">No material limitations were identified.</p>}
+        </div>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">

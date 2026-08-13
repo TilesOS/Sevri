@@ -88,7 +88,7 @@ export default async function BillingSettingsPage({
             <p className="text-sm leading-6 text-ink-soft">
               {isPro
                 ? "You have unlimited idea board generations, subject to fair-use and rate limits, plus detailed step coaching and evaluation while the project evolves."
-                : `The free tier is perfect for validating the workflow. You can explore up to ${PLAN_LIMITS.free.generation_limit} idea boards, test both software and research paths, build the roadmap, and upgrade when you want deeper coaching.`}
+                : `The free tier is perfect for validating the workflow. You can explore up to ${PLAN_LIMITS.free.generation_limit} idea boards in any field, build the roadmap, and upgrade when you want deeper coaching.`}
             </p>
           </div>
 

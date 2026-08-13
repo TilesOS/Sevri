@@ -30,7 +30,7 @@ export interface PortfolioProjectRow {
   status: "active" | "paused" | "completed" | string;
   archived_at: string | null;
   selection_operation_id: string;
-  project_track: "software" | "research" | string;
+  project_kind_label: string;
   selected_at: string;
   created_at: string;
   updated_at: string;
@@ -41,14 +41,13 @@ export interface PortfolioRoadmapRow {
   id: string;
   project_id: string;
   overview: string;
-  mvp_scope: string;
-  repo_structure: unknown;
-  readme_draft: string;
+  core_scope: string;
+  artifact_plan: unknown;
+  project_overview_draft: string;
   stretch_goals: string[];
   explanation_guide: unknown;
   raw_model_output_json: unknown;
-  project_track: "software" | "research" | string;
-  track_payload_json: Record<string, unknown>;
+  roadmap_context_json: Record<string, unknown>;
   scheduled_start_date: string | null;
   scheduled_end_date: string | null;
   schedule_timezone: string | null;
@@ -79,8 +78,9 @@ export interface PortfolioRecommendationRow {
   title: string;
   summary: string;
   rationale: string;
-  project_track: "software" | "research" | string;
-  track_payload_json: Record<string, unknown>;
+  project_kind_label: string;
+  repository_relevance: string;
+  project_blueprint_json: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -88,7 +88,7 @@ export interface PortfolioSubmissionRow {
   id: string;
   milestone_id: string;
   user_id: string;
-  submission_kind: "pasted_text" | "file_upload";
+  submission_kind: "pasted_text" | "artifact_bundle";
   submission_text: string | null;
   submission_filename: string | null;
   storage_path: string | null;
@@ -105,6 +105,11 @@ export interface PortfolioEvaluationRow {
   failure_message: string | null;
   created_at: string;
   updated_at: string;
+}
+export interface PortfolioArtifactRow {
+  id: string; submission_id: string; upload_path: string | null; external_url: string | null;
+  display_name: string; mime_type: string | null; size_bytes: number | null; caption: string | null; alt_text: string | null;
+  signed_url: string | null; created_at: string;
 }
 
 export interface PortfolioReviewRow {
@@ -166,6 +171,8 @@ export interface PortfolioEntryDetailData {
   milestones: PortfolioMilestoneRow[];
   latestSubmissions: PortfolioSubmissionRow[];
   latestEvaluations: PortfolioEvaluationRow[];
+  artifacts: PortfolioArtifactRow[];
+  featuredArtifactIds: string[];
   reviews: PortfolioReviewRow[];
   githubActivity: PortfolioGithubActivityRow | null;
   exports: PortfolioExportRow[];
@@ -194,14 +201,13 @@ const ROADMAP_COLUMNS = [
   "id",
   "project_id",
   "overview",
-  "mvp_scope",
-  "repo_structure",
-  "readme_draft",
+  "core_scope",
+  "artifact_plan",
+  "project_overview_draft",
   "stretch_goals",
   "explanation_guide",
   "raw_model_output_json",
-  "project_track",
-  "track_payload_json",
+  "roadmap_context_json",
   "scheduled_start_date",
   "scheduled_end_date",
   "schedule_timezone",
@@ -225,7 +231,7 @@ const MILESTONE_COLUMNS = [
   "is_user_scheduled_override",
 ].join(", ");
 
-const RECOMMENDATION_COLUMNS = "id, title, summary, rationale, project_track, track_payload_json";
+const RECOMMENDATION_COLUMNS = "id, title, summary, rationale, project_kind_label, repository_relevance, project_blueprint_json";
 const SUBMISSION_COLUMNS =
   "id, milestone_id, user_id, submission_kind, submission_text, submission_filename, storage_path, created_at, updated_at";
 const EVALUATION_COLUMNS =
@@ -433,6 +439,8 @@ export async function getPortfolioEntryDetailData(
     { data: evaluations, error: evaluationError },
     { data: exports, error: exportError },
     { data: publicPage, error: publicPageError },
+    { data: artifacts, error: artifactError },
+    { data: featuredArtifacts, error: featuredArtifactError },
   ] = await Promise.all([
     submissionIds.length > 0
       ? supabase
@@ -444,6 +452,10 @@ export async function getPortfolioEntryDetailData(
       : Promise.resolve({ data: [], error: null }),
     supabase.from("portfolio_exports").select(EXPORT_COLUMNS).eq("portfolio_entry_id", entryRow.id).eq("user_id", userId),
     supabase.from("portfolio_public_pages").select(PUBLIC_PAGE_COLUMNS).eq("portfolio_entry_id", entryRow.id).eq("user_id", userId).maybeSingle(),
+    submissionIds.length > 0
+      ? supabase.from("milestone_submission_artifacts").select("id, submission_id, upload_path, external_url, display_name, mime_type, size_bytes, caption, alt_text, created_at").in("submission_id", submissionIds).order("created_at", { ascending: false })
+      : Promise.resolve({ data: [], error: null }),
+    supabase.from("portfolio_featured_artifacts").select("artifact_id").eq("portfolio_entry_id", entryRow.id).order("display_order", { ascending: true }),
   ]);
 
   if (evaluationError) {
@@ -457,6 +469,13 @@ export async function getPortfolioEntryDetailData(
   if (publicPageError) {
     throw new Error(`Failed to load portfolio public page: ${publicPageError.message}`);
   }
+  if (artifactError) throw new Error(`Failed to load portfolio evidence: ${artifactError.message}`);
+  if (featuredArtifactError) throw new Error(`Failed to load featured evidence: ${featuredArtifactError.message}`);
+  const artifactRows = await Promise.all(((artifacts ?? []) as Omit<PortfolioArtifactRow, "signed_url">[]).map(async (artifact) => {
+    if (!artifact.upload_path) return { ...artifact, signed_url: null };
+    const { data } = await supabase.storage.from("project-evidence").createSignedUrl(artifact.upload_path, 60 * 10);
+    return { ...artifact, signed_url: data?.signedUrl ?? null };
+  }));
 
   return {
     project: projectRow,
@@ -466,6 +485,8 @@ export async function getPortfolioEntryDetailData(
     milestones: milestoneRows,
     latestSubmissions: submissionRows,
     latestEvaluations: (evaluations ?? []) as unknown as PortfolioEvaluationRow[],
+    artifacts: artifactRows,
+    featuredArtifactIds: (featuredArtifacts ?? []).map((row) => row.artifact_id),
     reviews: (reviews ?? []) as PortfolioReviewRow[],
     githubActivity: (githubActivity as PortfolioGithubActivityRow | null) ?? null,
     exports: (exports ?? []) as unknown as PortfolioExportRow[],

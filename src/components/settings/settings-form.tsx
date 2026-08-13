@@ -11,10 +11,9 @@ import { FormField } from "@/components/ui/form-field";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
 import {
-  projectTrackOptions,
+  projectGoalOptions,
   settingsProfileSchema,
   studentStageOptions,
-  targetOutcomeOptions,
   type SettingsProfileInput,
 } from "@/lib/validators/settings";
 
@@ -90,7 +89,7 @@ export function SettingsForm({ email, initialValues }: SettingsFormProps) {
           <FormField
             label="Student stage"
             error={errors.student_stage?.message}
-            hint="Used by every track. Changing it here changes it everywhere Sevri describes you."
+            hint="Changing it here changes it everywhere Sevri describes you."
           >
             <Select {...register("student_stage")} hasError={Boolean(errors.student_stage?.message)}>
               {studentStageOptions.map((option) => (
@@ -101,9 +100,9 @@ export function SettingsForm({ email, initialValues }: SettingsFormProps) {
             </Select>
           </FormField>
 
-          <FormField label="Target outcome" error={errors.target_outcome?.message}>
-            <Select {...register("target_outcome")} hasError={Boolean(errors.target_outcome?.message)}>
-              {targetOutcomeOptions.map((option) => (
+          <FormField label="Primary project goal" error={errors.project_goal?.message}>
+            <Select {...register("project_goal")} hasError={Boolean(errors.project_goal?.message)}>
+              {projectGoalOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
@@ -111,19 +110,6 @@ export function SettingsForm({ email, initialValues }: SettingsFormProps) {
             </Select>
           </FormField>
 
-          <FormField
-            label="Default track"
-            error={errors.project_track?.message}
-            hint="This sets which project path Sevri should treat as your default for future recommendation runs."
-          >
-            <Select {...register("project_track")} hasError={Boolean(errors.project_track?.message)}>
-              {projectTrackOptions.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </Select>
-          </FormField>
         </div>
 
         {info ? <Alert tone="success">{info}</Alert> : null}

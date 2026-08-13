@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm, type FieldErrors } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowRight, Check, Sparkles } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { FormField } from "@/components/ui/form-field";
@@ -18,74 +18,39 @@ import { Textarea } from "@/components/ui/textarea";
 import { trackClientEvent } from "@/lib/analytics/events";
 import { toUserFacingError } from "@/lib/errors/user-messages";
 import { cn, toList } from "@/lib/utils";
-import { onboardingInputSchema, type OnboardingInput } from "@/lib/validators/onboarding";
 import type { LatestOnboardingAnswers } from "@/lib/db/queries/onboarding";
-import { studentStageOptions, targetOutcomeOptions } from "@/lib/validators/settings";
+import { projectGoalOptions, studentStageOptions } from "@/lib/validators/settings";
+import type { ProjectFormatPreference } from "@/lib/validators/onboarding";
 
-function requiredTrackTextIssue(message: string) {
-  return {
-    code: z.ZodIssueCode.too_small,
-    minimum: 2,
-    type: "string",
-    inclusive: true,
-    message,
-  } as const;
-}
-
-/**
- * Every required free-text answer is measured after trimming, so a field
- * containing only spaces blocks Continue with a visible message instead of
- * passing the client check and failing on the server. The server schema in
- * src/lib/validators/onboarding.ts enforces the same rule independently.
- */
-const requiredText = (message: string) => z.string().trim().min(2, message);
+const DRAFT_KEY = "sevri:universal-onboarding:draft";
 
 const wizardSchema = z.object({
-  project_track: z.enum(["software", "research"]),
-  student_stage: requiredText("Choose your student stage."),
-  target_outcome: z.enum(["college_apps", "internship", "portfolio", "learning"]),
-  interests: requiredText("Add at least one interest — spaces alone won't work."),
-  favorite_subjects: requiredText("Add at least one subject — spaces alone won't work."),
-  weekly_time_available: z.coerce
-    .number({ invalid_type_error: "Enter how many hours a week you have." })
-    .int("Enter a whole number of hours.")
-    .min(1, "Enter at least 1 hour a week.")
-    .max(80, "Enter 80 hours a week or fewer."),
-  preferred_difficulty: z.enum(["beginner", "intermediate", "advanced"]),
-
-  coding_experience: z.enum(["beginner", "intermediate", "advanced"]),
-  preferred_project_style: z.string(),
-  known_tools: z.string().optional(),
-
-  preferred_research_domain: z.string(),
-  research_experience: z.enum(["beginner", "intermediate", "advanced"]),
-  methodology_preference: z.enum(["literature_review", "experiment", "data_analysis", "survey_based", "mixed"]),
-  target_research_deliverable: z.enum([
-    "paper",
-    "poster",
-    "presentation",
-    "competition_submission",
-    "portfolio_entry",
+  student_stage: z.string().trim().min(2, "Choose your student stage."),
+  interests: z.string().trim().min(2, "Add at least one interest."),
+  favorite_subjects: z.string().trim().min(2, "Add at least one favorite subject."),
+  project_goal: z.enum([
+    "learning", "portfolio", "college_applications", "internship_or_job", "class_or_capstone",
+    "competition", "community_impact", "personal", "other",
   ]),
-  data_or_resource_access: z.string().optional(),
-
-  constraints: z.string().optional(),
-  additional_context: z.string().optional(),
+  success_definition: z.string().trim().min(10, "Describe what success would look like for you.").max(500),
+  open_to_anything: z.boolean(),
+  format_preferences: z.array(z.enum(["physical", "digital", "investigative", "creative", "community", "venture"])),
+  preference_notes: z.string().max(500),
+  experience_level: z.enum(["beginner", "intermediate", "advanced"]),
+  existing_skills: z.string(),
+  available_resources: z.string().max(1000),
+  weekly_time_available: z.coerce.number().int().min(1).max(80),
+  completion_date: z.string(),
+  budget_constraints: z.string().max(500),
+  preferred_challenge: z.enum(["beginner", "intermediate", "advanced"]),
+  other_constraints: z.string().max(1000),
   lifecycle_emails_enabled: z.boolean(),
-}).superRefine((values, context) => {
-  // Track-specific fields are only required for the track actually chosen, so
-  // they are validated here rather than on the field itself.
-  if (values.project_track === "software" && values.preferred_project_style.trim().length < 2) {
+}).superRefine((value, context) => {
+  if (!value.open_to_anything && value.format_preferences.length === 0) {
     context.addIssue({
-      ...requiredTrackTextIssue("Describe the kind of software work you want to do."),
-      path: ["preferred_project_style"],
-    });
-  }
-
-  if (values.project_track === "research" && values.preferred_research_domain.trim().length < 2) {
-    context.addIssue({
-      ...requiredTrackTextIssue("Name the research domain you want to work in."),
-      path: ["preferred_research_domain"],
+      code: z.ZodIssueCode.custom,
+      path: ["format_preferences"],
+      message: "Choose at least one format, or stay open to anything.",
     });
   }
 });
@@ -93,835 +58,304 @@ const wizardSchema = z.object({
 type WizardValues = z.infer<typeof wizardSchema>;
 type WizardField = keyof WizardValues;
 
-const sharedDefaults: WizardValues = {
-  project_track: "software",
-  student_stage: "high_school_junior",
-  target_outcome: "portfolio",
-  interests: "",
-  favorite_subjects: "",
-  weekly_time_available: 6,
-  preferred_difficulty: "intermediate",
-  coding_experience: "beginner",
-  preferred_project_style: "",
-  known_tools: "",
-  preferred_research_domain: "",
-  research_experience: "beginner",
-  methodology_preference: "data_analysis",
-  target_research_deliverable: "portfolio_entry",
-  data_or_resource_access: "",
-  constraints: "",
-  additional_context: "",
-  lifecycle_emails_enabled: true,
-};
+const steps: Array<{ key: string; title: string; description: string; fields: WizardField[] }> = [
+  {
+    key: "interests",
+    title: "Interests",
+    description: "Start with what keeps pulling your attention.",
+    fields: ["student_stage", "interests", "favorite_subjects"],
+  },
+  {
+    key: "purpose",
+    title: "Purpose",
+    description: "Name why this project matters to you.",
+    fields: ["project_goal", "success_definition"],
+  },
+  {
+    key: "shape",
+    title: "Shape",
+    description: "Stay open, or point Sevri toward formats you want to explore.",
+    fields: ["open_to_anything", "format_preferences", "preference_notes"],
+  },
+  {
+    key: "reality",
+    title: "Reality check",
+    description: "Give the plan honest limits so it can be finishable.",
+    fields: [
+      "experience_level", "existing_skills", "available_resources", "weekly_time_available",
+      "completion_date", "budget_constraints", "preferred_challenge", "other_constraints",
+      "lifecycle_emails_enabled",
+    ],
+  },
+];
+
+const draftSchema = z.object({
+  step: z.number().int().min(0).max(steps.length - 1),
+  values: wizardSchema,
+});
+
+const formats: Array<{ value: ProjectFormatPreference; label: string; description: string }> = [
+  { value: "physical", label: "Physical", description: "Build, fabricate, assemble, or prototype." },
+  { value: "digital", label: "Digital", description: "Create software, media, data, or interactive work." },
+  { value: "investigative", label: "Investigative", description: "Study a question through evidence and analysis." },
+  { value: "creative", label: "Creative", description: "Make expressive work for an audience." },
+  { value: "community", label: "Community", description: "Organize people around a useful outcome." },
+  { value: "venture", label: "Venture", description: "Test an offer, service, or small enterprise." },
+];
 
 const experienceOptions = [
-  { value: "beginner", label: "Beginner — I am still learning the basics" },
-  { value: "intermediate", label: "Intermediate — I can build with some guidance" },
+  { value: "beginner", label: "Beginner — I am learning the basics" },
+  { value: "intermediate", label: "Intermediate — I can work with some guidance" },
   { value: "advanced", label: "Advanced — I can work independently" },
 ] as const;
 
-const researchExperienceOptions = [
-  { value: "beginner", label: "Beginner — I am new to structured research" },
-  { value: "intermediate", label: "Intermediate — I know the basic process" },
-  { value: "advanced", label: "Advanced — I can defend method choices" },
-] as const;
-
 const challengeOptions = [
-  { value: "beginner", label: "Focused — stay close to what I know" },
-  { value: "intermediate", label: "Stretch — teach me new techniques" },
-  { value: "advanced", label: "Ambitious — the hardest realistic challenge" },
+  { value: "beginner", label: "Focused — stay narrow and complete the proof loop" },
+  { value: "intermediate", label: "Stretch — learn one important new technique" },
+  { value: "advanced", label: "Ambitious — take on the hardest realistic version" },
 ] as const;
 
-const methodologyOptions = [
-  { value: "literature_review", label: "Literature review" },
-  { value: "experiment", label: "Experiment" },
-  { value: "data_analysis", label: "Data analysis" },
-  { value: "survey_based", label: "Survey-based" },
-  { value: "mixed", label: "Mixed methods" },
-] as const;
-
-const deliverableOptions = [
-  { value: "paper", label: "Paper" },
-  { value: "poster", label: "Poster" },
-  { value: "presentation", label: "Presentation" },
-  { value: "competition_submission", label: "Competition submission" },
-  { value: "portfolio_entry", label: "Portfolio entry" },
-] as const;
-
-const targetOutcomeLabels = Object.fromEntries(
-  targetOutcomeOptions.map((option) => [option.value, option.label]),
-) as Record<WizardValues["target_outcome"], string>;
-
-const emptyInitialAnswers: LatestOnboardingAnswers = {
-  answersByTrack: {},
-  initialProjectTrack: "software",
-  profileStudentStage: null,
-};
-
-function listToFieldValue(items: string[] | undefined) {
-  return items?.join(", ") ?? "";
-}
-
-/**
- * Stage is an identity fact, so the profile wins over whatever this track's
- * intake happened to store. Without this, switching tracks silently changed the
- * student's stage and the two tracks generated content about different people.
- */
-function getWizardValuesFromStoredAnswers(
-  answers: OnboardingInput,
-  profileStudentStage: string | null,
-): WizardValues {
-  const values: WizardValues = {
-    ...sharedDefaults,
-    project_track: answers.project_track,
-    student_stage: profileStudentStage ?? answers.student_stage,
-    target_outcome: answers.target_outcome,
-    interests: listToFieldValue(answers.interests),
-    favorite_subjects: listToFieldValue(answers.favorite_subjects),
-    weekly_time_available: answers.weekly_time_available,
-    preferred_difficulty: answers.preferred_difficulty,
-    constraints: answers.constraints ?? "",
-    additional_context: answers.additional_context ?? "",
-  };
-
-  if (answers.project_track === "software") {
-    return {
-      ...values,
-      coding_experience: answers.coding_experience,
-      preferred_project_style: answers.preferred_project_style,
-      known_tools: listToFieldValue(answers.known_tools),
-    };
-  }
-
+function defaultsFromAnswers(initial: LatestOnboardingAnswers, emailEnabled: boolean): WizardValues {
+  const answer = initial.answers;
   return {
-    ...values,
-    preferred_research_domain: answers.preferred_research_domain,
-    research_experience: answers.research_experience,
-    methodology_preference: answers.methodology_preference,
-    target_research_deliverable: answers.target_research_deliverable,
-    data_or_resource_access: answers.data_or_resource_access ?? "",
+    student_stage: initial.profileStudentStage ?? answer?.student_stage ?? "high_school_junior",
+    interests: answer?.interests.join(", ") ?? "",
+    favorite_subjects: answer?.favorite_subjects.join(", ") ?? "",
+    project_goal: answer?.project_goal ?? "portfolio",
+    success_definition: answer?.success_definition ?? "",
+    open_to_anything: answer?.open_to_anything ?? true,
+    format_preferences: answer?.format_preferences ?? [],
+    preference_notes: answer?.preference_notes ?? "",
+    experience_level: answer?.experience_level ?? "beginner",
+    existing_skills: answer?.existing_skills.join(", ") ?? "",
+    available_resources: answer?.available_resources ?? "",
+    weekly_time_available: answer?.weekly_time_available ?? 6,
+    completion_date: answer?.completion_date ?? "",
+    budget_constraints: answer?.budget_constraints ?? "",
+    preferred_challenge: answer?.preferred_challenge ?? "intermediate",
+    other_constraints: answer?.other_constraints ?? "",
+    lifecycle_emails_enabled: emailEnabled,
   };
 }
-
-function getInitialWizardValues(initialAnswers: LatestOnboardingAnswers): WizardValues {
-  const preferredTrack = initialAnswers.initialProjectTrack;
-  const storedAnswers =
-    initialAnswers.answersByTrack[preferredTrack] ??
-    initialAnswers.answersByTrack.software ??
-    initialAnswers.answersByTrack.research;
-
-  if (storedAnswers) {
-    return getWizardValuesFromStoredAnswers(storedAnswers, initialAnswers.profileStudentStage);
-  }
-
-  return {
-    ...sharedDefaults,
-    project_track: preferredTrack,
-    student_stage: initialAnswers.profileStudentStage ?? sharedDefaults.student_stage,
-  };
-}
-
-const stepConfig = {
-  software: [
-    {
-      key: "direction",
-      title: "Direction",
-      description: "Choose the type of proof you want to create and what you want it to help with.",
-      fields: ["project_track", "target_outcome"] as WizardField[],
-    },
-    {
-      key: "profile",
-      title: "Profile",
-      description: "Give Sevri the context it needs about your interests, stage, and available time.",
-      fields: ["student_stage", "interests", "favorite_subjects", "weekly_time_available"] as WizardField[],
-    },
-    {
-      key: "build_setup",
-      title: "Build Setup",
-      description: "Ground the project in your current tools, skill level, and appetite for difficulty.",
-      fields: [
-        "coding_experience",
-        "preferred_difficulty",
-        "preferred_project_style",
-        "known_tools",
-      ] as WizardField[],
-    },
-    {
-      key: "constraints",
-      title: "Constraints",
-      description: "Name the tradeoffs, limits, and critical extra context that will keep your plan honest.",
-      fields: ["constraints", "additional_context", "lifecycle_emails_enabled"] as WizardField[],
-    },
-  ],
-  research: [
-    {
-      key: "direction",
-      title: "Direction",
-      description: "Choose the type of proof you want to create and what you want it to help with.",
-      fields: ["project_track", "target_outcome"] as WizardField[],
-    },
-    {
-      key: "profile",
-      title: "Profile",
-      description: "Give Sevri the context it needs about your interests, stage, and available time.",
-      fields: ["student_stage", "interests", "favorite_subjects", "weekly_time_available"] as WizardField[],
-    },
-    {
-      key: "research_setup",
-      title: "Research Setup",
-      description: "Clarify your research domain, methodology preferences, and what resources are actually available.",
-      fields: [
-        "preferred_research_domain",
-        "research_experience",
-        "preferred_difficulty",
-        "methodology_preference",
-        "target_research_deliverable",
-        "data_or_resource_access",
-      ] as WizardField[],
-    },
-    {
-      key: "constraints",
-      title: "Constraints",
-      description: "Name the tradeoffs, limits, and critical extra context that will keep your plan honest.",
-      fields: ["constraints", "additional_context", "lifecycle_emails_enabled"] as WizardField[],
-    },
-  ],
-} as const;
 
 export function OnboardingWizard({
-  initialAnswers = emptyInitialAnswers,
+  initialAnswers,
   initialLifecycleEmailEnabled = true,
 }: {
-  initialAnswers?: LatestOnboardingAnswers;
+  initialAnswers: LatestOnboardingAnswers;
   initialLifecycleEmailEnabled?: boolean;
 }) {
   const router = useRouter();
   const [step, setStep] = useState(0);
+  const [draftLoaded, setDraftLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const initialDefaultValues = useMemo(
-    () => ({ ...getInitialWizardValues(initialAnswers), lifecycle_emails_enabled: initialLifecycleEmailEnabled }),
+  const serverDefaults = useMemo(
+    () => defaultsFromAnswers(initialAnswers, initialLifecycleEmailEnabled),
     [initialAnswers, initialLifecycleEmailEnabled],
   );
-  const savedAnswerValues = useMemo(
-    () => ({
-      software: initialAnswers.answersByTrack.software
-        ? getWizardValuesFromStoredAnswers(
-            initialAnswers.answersByTrack.software,
-            initialAnswers.profileStudentStage,
-          )
-        : null,
-      research: initialAnswers.answersByTrack.research
-        ? getWizardValuesFromStoredAnswers(
-            initialAnswers.answersByTrack.research,
-            initialAnswers.profileStudentStage,
-          )
-        : null,
-    }),
-    [initialAnswers],
-  );
-
-  const form = useForm<WizardValues>({
-    resolver: zodResolver(wizardSchema),
-    defaultValues: initialDefaultValues,
-  });
-
-  const projectTrack = form.watch("project_track");
-  const targetOutcome = form.watch("target_outcome");
-  const weeklyTimeAvailable = form.watch("weekly_time_available");
-  const preferredDifficulty = form.watch("preferred_difficulty");
-  const currentExperience = form.watch(projectTrack === "software" ? "coding_experience" : "research_experience");
-  const interests = form.watch("interests");
-  const favoriteSubjects = form.watch("favorite_subjects");
-
-  const steps = useMemo(() => stepConfig[projectTrack], [projectTrack]);
-  const currentStep = steps[step];
+  const form = useForm<WizardValues>({ resolver: zodResolver(wizardSchema), defaultValues: serverDefaults });
+  const openToAnything = form.watch("open_to_anything");
+  const selectedFormats = form.watch("format_preferences");
 
   useEffect(() => {
-    trackClientEvent("onboarding_started", {
-      project_track: form.getValues("project_track"),
-    }).catch(() => undefined);
+    const draft = window.localStorage.getItem(DRAFT_KEY);
+    if (draft) {
+      try {
+        const parsed = draftSchema.safeParse(JSON.parse(draft));
+        if (parsed.success) {
+          form.reset(parsed.data.values);
+          setStep(parsed.data.step);
+        } else {
+          window.localStorage.removeItem(DRAFT_KEY);
+        }
+      } catch {
+        window.localStorage.removeItem(DRAFT_KEY);
+      }
+    }
+    setDraftLoaded(true);
+    trackClientEvent("onboarding_started", { flow: "universal" }).catch(() => undefined);
   }, [form]);
 
+  useEffect(() => {
+    if (!draftLoaded) return;
+    const subscription = form.watch((values) => {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, values }));
+    });
+    return () => subscription.unsubscribe();
+  }, [draftLoaded, form, step]);
+
+  useEffect(() => {
+    if (draftLoaded) {
+      window.localStorage.setItem(DRAFT_KEY, JSON.stringify({ step, values: form.getValues() }));
+    }
+  }, [draftLoaded, form, step]);
+
   async function nextStep() {
-    const isValid = await form.trigger(currentStep.fields);
-    if (isValid) {
+    if (await form.trigger(steps[step].fields)) {
       setError(null);
       setStep((current) => Math.min(current + 1, steps.length - 1));
     }
   }
 
-  function selectProjectTrack(nextProjectTrack: WizardValues["project_track"]) {
-    const currentValues = form.getValues();
-    if (currentValues.project_track === nextProjectTrack) {
-      return;
-    }
-
-    const nextValues = savedAnswerValues[nextProjectTrack] ?? {
-      ...sharedDefaults,
-      ...currentValues,
-      project_track: nextProjectTrack,
-    };
-
-    form.reset({
-      ...nextValues,
-      // Track-specific answers are swapped; the student's stage is not one of
-      // them. Carrying it across keeps the answer on screen consistent with the
-      // profile that both tracks read from.
-      student_stage: currentValues.student_stage,
-      lifecycle_emails_enabled: currentValues.lifecycle_emails_enabled,
-    });
-    setError(null);
-    setStep(0);
+  function toggleFormat(format: ProjectFormatPreference) {
+    const next = selectedFormats.includes(format)
+      ? selectedFormats.filter((item) => item !== format)
+      : [...selectedFormats, format];
+    form.setValue("format_preferences", next, { shouldValidate: true, shouldDirty: true });
   }
 
-  async function onSubmit(values: WizardValues) {
-    setError(null);
+  async function submit(values: WizardValues) {
     setIsSubmitting(true);
-
+    setError(null);
     try {
-      const sharedPayload = {
-        project_track: values.project_track,
-        student_stage: values.student_stage,
-        target_outcome: values.target_outcome,
-        interests: toList(values.interests),
-        favorite_subjects: toList(values.favorite_subjects),
-        weekly_time_available: values.weekly_time_available,
-        preferred_difficulty: values.preferred_difficulty,
-        constraints: values.constraints,
-        additional_context: values.additional_context,
-      };
-
-      const payload =
-        values.project_track === "software"
-          ? onboardingInputSchema.parse({
-              ...sharedPayload,
-              project_track: "software",
-              coding_experience: values.coding_experience,
-              preferred_project_style: values.preferred_project_style,
-              known_tools: toList(values.known_tools ?? ""),
-            })
-          : onboardingInputSchema.parse({
-              ...sharedPayload,
-              project_track: "research",
-              preferred_research_domain: values.preferred_research_domain,
-              research_experience: values.research_experience,
-              methodology_preference: values.methodology_preference,
-              target_research_deliverable: values.target_research_deliverable,
-              data_or_resource_access: values.data_or_resource_access,
-            });
-
       const response = await fetch("/api/onboarding/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...payload, lifecycle_emails_enabled: values.lifecycle_emails_enabled }),
+        body: JSON.stringify({
+          ...values,
+          interests: toList(values.interests),
+          favorite_subjects: toList(values.favorite_subjects),
+          existing_skills: toList(values.existing_skills),
+          format_preferences: values.open_to_anything ? [] : values.format_preferences,
+        }),
       });
-
-      if (!response.ok) {
-        const body = (await response.json().catch(() => null)) as { error?: string; details?: string } | null;
-        setError(toUserFacingError(body?.error, "We couldn't save your answers. Try again in a moment."));
-        setIsSubmitting(false);
-        return;
-      }
-
-      router.push(`/recommendations?track=${values.project_track}`);
+      const payload = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || "Could not save onboarding.");
+      window.localStorage.removeItem(DRAFT_KEY);
+      await trackClientEvent("onboarding_completed", { flow: "universal" }).catch(() => undefined);
+      router.push("/recommendations");
       router.refresh();
-    } catch (submitError) {
-      setError(
-        toUserFacingError(submitError, "We couldn't check your answers. Review the form and try again."),
-      );
+    } catch (submissionError) {
+      setError(toUserFacingError(submissionError, "We couldn't save your answers. Try again."));
+    } finally {
       setIsSubmitting(false);
     }
   }
 
-  /**
-   * A required answer can only fail on a step the user has already left (they
-   * cleared it, or arrived with stored answers). Send them back to the step that
-   * owns the first offending field so the inline message is actually on screen.
-   */
-  function onInvalid(errors: FieldErrors<WizardValues>) {
-    const firstInvalidStep = steps.findIndex((stepItem) =>
-      stepItem.fields.some((field) => errors[field]),
-    );
-
-    if (firstInvalidStep >= 0 && firstInvalidStep !== step) {
-      setStep(firstInvalidStep);
-    }
-
-    setError("Some answers still need attention. Check the highlighted fields above.");
-  }
-
-  const submitFinalStep = form.handleSubmit(onSubmit, onInvalid);
-  const progressValue = step + 1;
-  const interestPreview = interests ? toList(interests).slice(0, 3).join(", ") : "Not set yet";
-  const subjectPreview = favoriteSubjects ? toList(favoriteSubjects).slice(0, 3).join(", ") : "Not set yet";
-
+  const current = steps[step];
   return (
-    <div className="mx-auto max-w-3xl space-y-6">
-      <Card className="space-y-6">
-        <div aria-live="polite" className="sr-only">
-          {error ?? (isSubmitting ? "Saving onboarding." : "")}
-        </div>
-
-        <div className="space-y-5">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge tone="accent">Onboarding wizard</Badge>
-            <Badge tone={projectTrack === "software" ? "software" : "research"}>
-              {projectTrack === "software" ? "Software track" : "Research track"}
-            </Badge>
+    <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 lg:py-12">
+      <div className="grid gap-8 lg:grid-cols-[14rem_minmax(0,1fr)] lg:gap-12">
+        <aside className="space-y-5 lg:sticky lg:top-8 lg:self-start">
+          <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            Find your project
           </div>
+          <ProgressBar value={step + 1} max={steps.length} label={`Step ${step + 1} of ${steps.length}`} />
+          <ol className="grid grid-cols-4 gap-2 lg:grid-cols-1" aria-label="Onboarding steps">
+            {steps.map((item, index) => (
+              <li key={item.key} className={cn("text-xs lg:text-sm", index === step ? "font-semibold text-ink" : "text-ink-muted")}>
+                <span className="mr-2 hidden text-primary lg:inline">{index < step ? "✓" : `${index + 1}.`}</span>
+                {item.title}
+              </li>
+            ))}
+          </ol>
+          <p className="hidden text-sm leading-6 text-ink-muted lg:block">
+            Your answers guide the comparison. They never lock you into a project type.
+          </p>
+        </aside>
 
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold leading-tight tracking-tight text-ink">
-              Choose the direction you can actually carry.
-            </h1>
-            <p className="max-w-3xl text-sm leading-7 text-ink-soft">
-              Sevri will use these answers to build a sharper comparison board. The goal is not to collect everything about you, only the context that changes what a finishable project looks like.
-            </p>
-          </div>
+        <Card padding="lg" elevation="soft" className="min-h-[34rem]">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={current.key}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18 }}
+              className="space-y-7"
+            >
+              <header className="max-w-2xl space-y-2">
+                <p className="editorial-kicker">{current.title}</p>
+                <h1 className="text-2xl font-semibold tracking-[-0.02em] text-ink sm:text-3xl">{current.description}</h1>
+              </header>
 
-          <ProgressBar
-            value={progressValue}
-            max={steps.length}
-            label={`Step ${progressValue} of ${steps.length}`}
-            helperText={currentStep.description}
-          />
-
-          <div className="grid gap-3 sm:grid-cols-4">
-            {steps.map((stepItem, index) => {
-              const isActive = index === step;
-              const isComplete = index < step;
-
-              return (
-                <div
-                  key={stepItem.key}
-                  className={cn(
-                    "rounded-lg border px-3 py-2.5 transition-colors",
-                    isActive && "border-primary-line bg-primary-soft",
-                    isComplete && "border-line-strong bg-paper",
-                    !isActive && !isComplete && "border-line bg-surface text-ink-muted",
-                  )}
-                >
-                  <p className="text-xs text-ink-muted">{isComplete ? "Complete" : `Step ${index + 1}`}</p>
-                  <p className="mt-2 text-sm font-semibold text-ink">{stepItem.title}</p>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <AnimatePresence mode="wait" initial={false}>
-          <motion.div
-            key={currentStep.key}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.16, ease: "easeOut" }}
-            className="space-y-6"
-          >
-            <div className="space-y-2">
-              <p className="editorial-kicker">{currentStep.title}</p>
-              <h2 className="text-2xl font-semibold text-ink">{currentStep.description}</h2>
-            </div>
-
-            <form className="space-y-5" onSubmit={(event) => event.preventDefault()}>
-              {currentStep.key === "direction" ? (
-                <>
-                  <div className="space-y-3">
-                    <p className="text-sm font-semibold text-ink">
-                      Choose your primary track
-                      <span className="ml-1 text-coral">
-                        *
-                      </span>
-                    </p>
-                    <div role="radiogroup" aria-label="Choose your primary track" className="grid gap-3 md:grid-cols-2">
-                      <TrackRadioCard
-                        label="Software Project"
-                        description="Build and ship a product experience with a believable scope."
-                        checked={projectTrack === "software"}
-                        checkedColor="navy"
-                        onClick={() => selectProjectTrack("software")}
-                      />
-                      <TrackRadioCard
-                        label="Research Project"
-                        description="Develop a credible question, method, and evidence plan."
-                        checked={projectTrack === "research"}
-                        checkedColor="teal"
-                        onClick={() => selectProjectTrack("research")}
-                      />
-                    </div>
-                  </div>
-
-                  <FormField
-                    label="What do you want this project to help with?"
-                    hint="This lets Sevri weight the kind of proof the project should create."
-                    required
-                  >
-                    <Select {...form.register("target_outcome")}>
-                      {targetOutcomeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-                </>
-              ) : null}
-
-              {currentStep.key === "profile" ? (
-                <>
-                  <FormField
-                    label="Student stage"
-                    hint="This one lives on your profile, so it stays the same on both tracks. You can change it any time in Settings."
-                    required
-                  >
+              <form className="space-y-6" onSubmit={form.handleSubmit(submit)}>
+                {current.key === "interests" ? <>
+                  <FormField label="Student stage" required error={form.formState.errors.student_stage?.message}>
                     <Select {...form.register("student_stage")}>
-                      {studentStageOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                      {studentStageOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </Select>
                   </FormField>
-
-                  <p className="max-w-2xl text-xs leading-5 text-ink-muted">
-                    The following two answers shape idea generation the most, so specific interests and subjects work best.
-                  </p>
-
                   <div className="grid gap-5 md:grid-cols-2">
-                    <FormField
-                      label="Interests"
-                      hint="Comma-separated themes, domains, or problems you keep returning to."
-                      error={form.formState.errors.interests?.message}
-                      required
-                    >
-                      <Input
-                        {...form.register("interests")}
-                        placeholder={projectTrack === "software" ? "AI, climate, education" : "health, behavior, policy"}
-                      />
+                    <FormField label="Interests" required hint="Themes, problems, communities, or materials you keep returning to." error={form.formState.errors.interests?.message}>
+                      <Input {...form.register("interests")} placeholder="Robotics, documentary film, local history" />
                     </FormField>
-
-                    <FormField
-                      label="Favorite subjects"
-                      hint="Comma-separated classes or fields that feel energizing."
-                      error={form.formState.errors.favorite_subjects?.message}
-                      required
-                    >
-                      <Input {...form.register("favorite_subjects")} placeholder="Math, economics, biology" />
+                    <FormField label="Favorite subjects" required hint="Classes or fields that make you want to go deeper." error={form.formState.errors.favorite_subjects?.message}>
+                      <Input {...form.register("favorite_subjects")} placeholder="Physics, studio art, literature" />
                     </FormField>
                   </div>
+                </> : null}
 
-                  <FormField
-                    label="Weekly time available"
-                    hint="Be honest. The best recommendation is the one you can actually follow through with."
-                    error={form.formState.errors.weekly_time_available?.message}
-                    required
-                  >
-                    <Input
-                      type="number"
-                      min={1}
-                      max={80}
-                      {...form.register("weekly_time_available", { valueAsNumber: true })}
-                    />
-                  </FormField>
-                </>
-              ) : null}
-
-              {currentStep.key === "build_setup" ? (
-                <>
-                  <FormField
-                    label="Current coding experience"
-                    hint="Choose what you can do today. This controls how much setup and explanation your roadmap includes."
-                    required
-                  >
-                    <Select {...form.register("coding_experience")}>
-                      {experienceOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
+                {current.key === "purpose" ? <>
+                  <FormField label="Primary goal" required>
+                    <Select {...form.register("project_goal")}>
+                      {projectGoalOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                     </Select>
                   </FormField>
+                  <FormField label="What would make this project a success for you?" required hint="Use your own definition—not what sounds impressive." error={form.formState.errors.success_definition?.message}>
+                    <Textarea {...form.register("success_definition")} placeholder="I can show a finished artifact, explain the choices I made, and get useful feedback from…" />
+                  </FormField>
+                </> : null}
 
-                  <FormField
-                    label="Preferred challenge"
-                    hint="Choose how far you want the project to stretch beyond your current experience."
-                    required
+                {current.key === "shape" ? <>
+                  <button
+                    type="button"
+                    aria-pressed={openToAnything}
+                    onClick={() => form.setValue("open_to_anything", true, { shouldValidate: true })}
+                    className={cn(
+                      "flex w-full items-start gap-3 rounded-2xl p-5 text-left transition-colors",
+                      openToAnything ? "bg-primary-soft text-ink" : "bg-surface/70 text-ink hover:bg-surface",
+                    )}
                   >
-                    <Select {...form.register("preferred_difficulty")}>
-                      {challengeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-
-                  <FormField
-                    label="Preferred project style"
-                    hint="Describe the kind of software work you want to accomplish."
-                    error={form.formState.errors.preferred_project_style?.message}
-                    required
-                  >
-                    <Input
-                      {...form.register("preferred_project_style")}
-                      className="placeholder:text-ink-muted/70"
-                      placeholder="web app, workflow tool, embedded project"
-                    />
-                  </FormField>
-
-                  <FormField
-                    label="Known tools"
-                    hint="Optional. Include anything you would love to work with."
-                  >
-                    <Input {...form.register("known_tools")} placeholder="React, Python, SQL" />
-                  </FormField>
-                </>
-              ) : null}
-
-              {currentStep.key === "research_setup" ? (
-                <>
-                  <FormField
-                    label="Preferred research domain"
-                    hint="Keep it concrete and specific so that Sevri can develop directions that excite you."
-                    error={form.formState.errors.preferred_research_domain?.message}
-                    required
-                  >
-                    <Input
-                      {...form.register("preferred_research_domain")}
-                      className="placeholder:text-ink-muted/70"
-                      placeholder="electrical engineering, neurochemistry, computational biology"
-                    />
-                  </FormField>
-
-                  <div className="grid gap-5 md:grid-cols-2">
-                    <FormField label="Research experience" required>
-                      <Select {...form.register("research_experience")}>
-                        {researchExperienceOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
-
-                    <FormField label="Methodology preference" required>
-                      <Select {...form.register("methodology_preference")}>
-                        {methodologyOptions.map((option) => (
-                          <option key={option.value} value={option.value}>
-                            {option.label}
-                          </option>
-                        ))}
-                      </Select>
-                    </FormField>
-                  </div>
-
-                  <FormField
-                    label="Preferred challenge"
-                    hint="Choose how far you want the method and analysis to stretch beyond your current experience."
-                    required
-                  >
-                    <Select {...form.register("preferred_difficulty")}>
-                      {challengeOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-
-                  <FormField label="Target final deliverable" required>
-                    <Select {...form.register("target_research_deliverable")}>
-                      {deliverableOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </Select>
-                  </FormField>
-
-                  <FormField
-                    label="Data or resource access details"
-                    hint="Optional. Mention dataset access, survey permissions, advisor support, or any hard limits."
-                  >
-                    <Textarea
-                      {...form.register("data_or_resource_access")}
-                      placeholder="Public datasets only, school survey access, advisor willing to review drafts..."
-                    />
-                  </FormField>
-                </>
-              ) : null}
-
-              {currentStep.key === "constraints" ? (
-                <>
-                  <FormField
-                    label="Constraints"
-                    hint="Optional. Anything that should keep the plan grounded in reality: schedule, access, budget, obligations."
-                  >
-                    <Textarea
-                      {...form.register("constraints")}
-                      placeholder="Class load is heavy on weekdays, $200 budget, limited personal compute, no meaningful lab access..."
-                    />
-                  </FormField>
-
-                  <FormField
-                    label="Additional context"
-                    hint="Optional. Add any nuance that should shape the final project comparison board."
-                  >
-                    <Textarea
-                      {...form.register("additional_context")}
-                      placeholder="I want something that feels polished and tangible enough for college applications, but I need it to fit around a summer job."
-                    />
-                  </FormField>
-
-                  <label className="flex items-start gap-3 rounded-xl border border-line bg-surface/50 p-4 text-sm leading-6 text-ink-soft">
-                    <input
-                      type="checkbox"
-                      className="mt-1 h-4 w-4 rounded border-line-strong accent-primary"
-                      {...form.register("lifecycle_emails_enabled")}
-                    />
-                    <span>
-                      <strong className="block text-ink">Send me useful project reminders</strong>
-                      Get a couple of onboarding nudges and, after you start a project, a coach email if no progress is recorded for 7–14 days. You can turn these off anytime.
+                    <span className={cn("mt-0.5 grid h-5 w-5 place-items-center rounded-full border", openToAnything ? "border-primary bg-primary text-white" : "border-line-strong")}>
+                      {openToAnything ? <Check className="h-3 w-3" aria-hidden="true" /> : null}
                     </span>
+                    <span><span className="block font-semibold">Open to anything</span><span className="mt-1 block text-sm text-ink-muted">Give me three genuinely different ways to turn my interests into finished work.</span></span>
+                  </button>
+                  <div className="flex items-center gap-3"><span className="h-px flex-1 bg-line" /><span className="text-xs font-medium text-ink-muted">or guide the mix</span><span className="h-px flex-1 bg-line" /></div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {formats.map((format) => {
+                      const selected = !openToAnything && selectedFormats.includes(format.value);
+                      return <button key={format.value} type="button" aria-pressed={selected} onClick={() => { form.setValue("open_to_anything", false, { shouldValidate: true }); toggleFormat(format.value); }} className={cn("rounded-xl p-4 text-left transition-colors", selected ? "bg-primary text-primary-foreground" : "bg-surface/70 text-ink hover:bg-surface") }>
+                        <span className="font-semibold">{format.label}</span><span className={cn("mt-1 block text-sm", selected ? "text-primary-foreground/80" : "text-ink-muted")}>{format.description}</span>
+                      </button>;
+                    })}
+                  </div>
+                  {form.formState.errors.format_preferences?.message ? <p className="text-sm text-red-600">{form.formState.errors.format_preferences.message}</p> : null}
+                  <FormField label="Preference notes" hint="Optional. Hybrid ideas are welcome."><Textarea {...form.register("preference_notes")} placeholder="I would love something physical that also has a digital storytelling layer…" /></FormField>
+                </> : null}
+
+                {current.key === "reality" ? <>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <FormField label="General experience" required><Select {...form.register("experience_level")}>{experienceOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></FormField>
+                    <FormField label="Preferred challenge" required><Select {...form.register("preferred_challenge")}>{challengeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</Select></FormField>
+                  </div>
+                  <FormField label="Skills you already have" hint="Optional, comma separated."><Input {...form.register("existing_skills")} placeholder="Soldering, interviewing, illustration, Python" /></FormField>
+                  <FormField label="Tools, materials, facilities, or people you can access" hint="Optional. Never assume access you do not have."><Textarea {...form.register("available_resources")} placeholder="School makerspace with supervision, phone camera, public library archives…" /></FormField>
+                  <div className="grid gap-5 md:grid-cols-2">
+                    <FormField label="Hours per week" required error={form.formState.errors.weekly_time_available?.message}><Input type="number" min={1} max={80} {...form.register("weekly_time_available", { valueAsNumber: true })} /></FormField>
+                    <FormField label="Ideal completion date" hint="Optional."><Input type="date" {...form.register("completion_date")} /></FormField>
+                  </div>
+                  <FormField label="Budget or access constraints" hint="Optional."><Input {...form.register("budget_constraints")} placeholder="$75 maximum, public transit only, no paid software…" /></FormField>
+                  <FormField label="Anything else the plan must respect?" hint="Optional. Include safety, schedule, privacy, class, or competition requirements."><Textarea {...form.register("other_constraints")} /></FormField>
+                  <label className="flex items-start gap-3 rounded-xl bg-surface/70 p-4 text-sm text-ink">
+                    <input type="checkbox" className="mt-0.5 h-4 w-4 accent-[var(--color-primary)]" {...form.register("lifecycle_emails_enabled")} />
+                    <span><span className="font-semibold">Email me useful project nudges</span><span className="mt-1 block text-ink-muted">Progress reminders and coaching notes. You can change this in Settings.</span></span>
                   </label>
-                </>
-              ) : null}
+                </> : null}
 
-              {error ? <Alert tone="danger">{error}</Alert> : null}
-
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setStep((current) => Math.max(current - 1, 0))}
-                  disabled={step === 0 || isSubmitting}
-                >
-                  Back
-                </Button>
-
-                {step < steps.length - 1 ? (
-                  <Button type="button" onClick={nextStep} disabled={isSubmitting}>
-                    Continue
-                  </Button>
-                ) : (
-                  <Button type="button" onClick={submitFinalStep} disabled={isSubmitting}>
-                    {isSubmitting ? "Saving..." : "Finish onboarding"}
-                  </Button>
-                )}
-              </div>
-            </form>
-          </motion.div>
-        </AnimatePresence>
-      </Card>
-
-      <div className="space-y-4">
-        <Card>
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <Badge tone={projectTrack === "software" ? "accent" : "research"}>
-                {projectTrack === "software" ? "Software track" : "Research track"}
-              </Badge>
-              <Badge tone="neutral">{targetOutcomeLabels[targetOutcome]}</Badge>
-            </div>
-            <div className="space-y-2">
-              <p className="text-xs font-medium text-ink-muted">Live summary</p>
-              <h2 className="text-lg font-semibold text-ink">
-                {projectTrack === "software" ? "Build setup snapshot" : "Research setup snapshot"}
-              </h2>
-              <p className="text-sm leading-6 text-ink-soft">
-                Sevri will use this summary to bias recommendations toward projects that feel ambitious
-                enough to matter and scoped enough to finish.
-              </p>
-            </div>
-
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-              <SummaryItem label="Track" value={projectTrack === "software" ? "Software Project" : "Research Project"} />
-              <SummaryItem label="Outcome" value={targetOutcomeLabels[targetOutcome]} />
-              <SummaryItem label="Time available" value={`${weeklyTimeAvailable || 0} hours / week`} />
-              <SummaryItem
-                label="Current experience"
-                value={
-                  projectTrack === "software"
-                    ? experienceOptions.find((option) => option.value === currentExperience)?.label ?? currentExperience
-                    : researchExperienceOptions.find((option) => option.value === currentExperience)?.label ?? currentExperience
-                }
-              />
-              <SummaryItem
-                label="Preferred challenge"
-                value={challengeOptions.find((option) => option.value === preferredDifficulty)?.label ?? preferredDifficulty}
-              />
-              <SummaryItem label="Interests" value={interestPreview} />
-              <SummaryItem label="Subjects" value={subjectPreview} />
-            </div>
-          </div>
-        </Card>
-
-        <Card tone={projectTrack === "research" ? "subtle" : "butter"} className={projectTrack === "research" ? "bg-surface-mint" : undefined} elevation="soft">
-          <p className="editorial-kicker">What Sevri will optimize for</p>
-          <p className="mt-3 text-lg font-semibold text-ink">
-            {projectTrack === "software"
-              ? "A project with a believable user, problem, and workflow."
-              : "A research direction with a believable question, method, and evidence plan."}
-          </p>
-          <p className="mt-3 text-sm leading-6 text-ink-soft">
-            The strongest recommendation is not the most theatrical one. It is the one that can still
-            look thoughtful when you are busy, tired, and halfway through the semester.
-          </p>
+                {error ? <Alert tone="danger">{error}</Alert> : null}
+                <div className="flex items-center justify-between gap-3 border-t border-line pt-6">
+                  <Button variant="ghost" onClick={() => setStep((currentStep) => Math.max(0, currentStep - 1))} disabled={step === 0 || isSubmitting} leadingIcon={<ArrowLeft className="h-4 w-4" />}>Back</Button>
+                  {step < steps.length - 1 ? <Button onClick={nextStep} trailingIcon={<ArrowRight className="h-4 w-4" />}>Continue</Button> : <Button type="submit" disabled={isSubmitting} trailingIcon={<ArrowRight className="h-4 w-4" />}>{isSubmitting ? "Building your context…" : "Compare project directions"}</Button>}
+                </div>
+              </form>
+            </motion.div>
+          </AnimatePresence>
         </Card>
       </div>
-    </div>
-  );
-}
-
-function TrackRadioCard({
-  label,
-  description,
-  checked,
-  checkedColor = "navy",
-  onClick,
-}: {
-  label: string;
-  description: string;
-  checked: boolean;
-  checkedColor?: "navy" | "teal";
-  onClick: () => void;
-}) {
-  const accentVar = checkedColor === "teal" ? "var(--teal-deep)" : "var(--navy)";
-  const accentBg = checkedColor === "teal" ? "rgba(68, 194, 199, 0.12)" : "rgba(11, 30, 77, 0.07)";
-
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={checked}
-      onClick={onClick}
-      className={cn(
-        "rounded-2xl border p-5 text-left transition-all duration-200",
-        checked ? "border-primary/25 shadow-soft" : "border-line bg-surface/35 hover:-translate-y-0.5 hover:border-line-strong hover:bg-paper hover:shadow-soft",
-      )}
-      style={checked ? { backgroundColor: accentBg } : undefined}
-    >
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-base font-semibold text-ink">{label}</p>
-          <p className="mt-2 text-sm leading-6 text-ink-soft">{description}</p>
-        </div>
-        <span
-          className="mt-1 h-5 w-5 rounded-full border border-line-strong ring-4 ring-paper"
-          style={checked ? { backgroundColor: accentVar } : { backgroundColor: 'var(--paper)' }}
-          aria-hidden="true"
-        />
-      </div>
-    </button>
-  );
-}
-
-function SummaryItem({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-lg bg-surface p-3">
-      <p className="text-xs font-medium text-ink-muted">{label}</p>
-      <p className="mt-1 text-sm leading-6 text-ink">{value}</p>
-    </div>
+    </main>
   );
 }

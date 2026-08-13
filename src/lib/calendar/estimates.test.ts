@@ -11,24 +11,34 @@ test("parseRoughTimeEstimateDays handles ranges and fuzzy phrasing", () => {
   assert.equal(parseRoughTimeEstimateDays("unknown"), null);
 });
 
-test("buildFallbackDurationDays stays conservative and respects track minima", () => {
+test("buildFallbackDurationDays stays conservative and enforces the minimum step duration", () => {
+  // Low availability stretches the schedule: 4 weeks * 7 * 1.25 = 35 days over 4 steps.
   assert.equal(
     buildFallbackDurationDays({
       estimatedWeeks: 4,
       stepCount: 4,
       weeklyHours: 3,
-      projectTrack: "software",
     }),
     9,
   );
 
+  // Missing weekly hours falls back to 6h/week, and the 3-day floor wins
+  // over the 1-day-per-step the raw arithmetic would produce.
   assert.equal(
     buildFallbackDurationDays({
       estimatedWeeks: 1,
       stepCount: 8,
       weeklyHours: null,
-      projectTrack: "research",
     }),
-    4,
+    3,
   );
+});
+
+test("buildFallbackDurationDays scales with weekly availability", () => {
+  const base = { estimatedWeeks: 2, stepCount: 2 };
+
+  // <= 4h/week -> 1.25x, <= 6h/week -> 1.1x, above -> no padding.
+  assert.equal(buildFallbackDurationDays({ ...base, weeklyHours: 4 }), 9);
+  assert.equal(buildFallbackDurationDays({ ...base, weeklyHours: 6 }), 8);
+  assert.equal(buildFallbackDurationDays({ ...base, weeklyHours: 12 }), 7);
 });

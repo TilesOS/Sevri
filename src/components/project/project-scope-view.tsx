@@ -9,8 +9,8 @@ export function ProjectScopeView({ workspace }: { workspace: ProjectWorkspaceVie
 
       <Card className="space-y-4 bg-surface" elevation="soft">
         <p className="text-xs font-medium text-ink-muted">Core scope</p>
-        <h2 className="text-lg font-semibold text-ink">Protect the MVP before you chase the stretch version.</h2>
-        <p className="text-sm leading-6 text-ink-soft">{workspace.mvpScope}</p>
+        <h2 className="text-lg font-semibold text-ink">Protect the core before you chase the stretch version.</h2>
+        <p className="text-sm leading-6 text-ink-soft">{workspace.coreScope}</p>
       </Card>
 
       <Card className="space-y-4">

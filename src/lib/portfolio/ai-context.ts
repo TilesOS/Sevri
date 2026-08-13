@@ -2,11 +2,6 @@ import { buildRoadmapOverviewFromStorage } from "@/lib/ai/storage";
 import type { PortfolioPipelineInput } from "@/lib/ai/pipelines";
 import type { PortfolioEntryDetailData } from "@/lib/db/queries/portfolio";
 import type { PortfolioEntryDetailView } from "@/lib/portfolio/portfolio-view";
-import type { ProjectTrack } from "@/types/domain";
-
-function asProjectTrack(value: unknown): ProjectTrack {
-  return value === "research" ? "research" : "software";
-}
 
 function getString(value: unknown): string | null {
   return typeof value === "string" && value.trim().length > 0 ? value : null;
@@ -69,7 +64,10 @@ export function buildPortfolioPipelineInputFromDetailData(data: PortfolioEntryDe
     ? buildRoadmapOverviewFromStorage({
         projectTitle: data.project.title,
         roadmapOverview: data.roadmap.overview,
-        trackPayloadJson: data.roadmap.track_payload_json,
+        roadmapContextJson: data.roadmap.roadmap_context_json,
+        coreScope: data.roadmap.core_scope,
+        artifactPlan: data.roadmap.artifact_plan,
+        projectOverviewDraft: data.roadmap.project_overview_draft,
         milestones: data.milestones.map((milestone) => ({
           order_index: milestone.order_index,
           title: milestone.title,
@@ -85,7 +83,7 @@ export function buildPortfolioPipelineInputFromDetailData(data: PortfolioEntryDe
     project: {
       title: data.project.title,
       status: effectiveStatus(data.project.status, data.entry.status_override),
-      project_track: asProjectTrack(data.project.project_track),
+      project_kind_label: data.project.project_kind_label,
     },
     roadmap,
     milestones: data.milestones.map((milestone) => ({
@@ -126,7 +124,10 @@ export function buildPortfolioPipelineInput(view: PortfolioEntryDetailView): Por
     ? buildRoadmapOverviewFromStorage({
         projectTitle: view.project.title,
         roadmapOverview: view.roadmap.overview,
-        trackPayloadJson: view.roadmap.track_payload_json,
+        roadmapContextJson: view.roadmap.roadmap_context_json,
+        coreScope: view.roadmap.core_scope,
+        artifactPlan: view.roadmap.artifact_plan,
+        projectOverviewDraft: view.roadmap.project_overview_draft,
         milestones: view.milestones.map((milestone) => ({
           order_index: milestone.order_index,
           title: milestone.title,
@@ -142,7 +143,7 @@ export function buildPortfolioPipelineInput(view: PortfolioEntryDetailView): Por
     project: {
       title: view.project.title,
       status: view.effectiveStatus,
-      project_track: asProjectTrack(view.project.project_track),
+      project_kind_label: view.project.project_kind_label,
     },
     roadmap,
     milestones: view.milestones.map((milestone) => ({

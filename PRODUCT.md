@@ -8,7 +8,7 @@ web
 
 ## Users
 
-Sevri primarily serves students ages 13 and older, especially high-school and early-college students who want to complete a meaningful software or research project. They may be working toward learning, a portfolio, an internship, or a college application.
+Sevri primarily serves students ages 13 and older, especially high-school and early-college students who want to complete a meaningful project in any field. Their goal may be learning, a portfolio, an internship, college applications, a class, a competition, community impact, or personal growth.
 
 Reviewers and mentors are secondary users. They participate in invited project-review workflows while the student remains the owner of the work and its voice.
 
@@ -22,17 +22,17 @@ Sevri is project-to-portfolio coaching, not an idea generator. It uses a student
 
 ## Operating Context
 
-- Students complete a short intake for either a software or research track.
+- Students complete one four-step intake covering interests, purpose, preferred shape, and real-world constraints.
 - Sevri generates three directions for comparison before the student commits.
 - A selected direction becomes a project workspace with scope, a roadmap, steps, guidance, scheduling, and portfolio preparation.
-- Software projects can use GitHub integration; project schedules can use Google Calendar integration.
+- Any project may use GitHub when a repository helps document the work; project schedules can use Google Calendar integration.
 - Students can invite reviewers or mentors and can publish a shareable project portfolio page.
 - The product supports free and paid access through a web SaaS subscription model.
 
 ## Capabilities and Constraints
 
-- The two supported project tracks are software and research.
-- Target outcomes are learning, portfolio development, internships, and college applications.
+- Physical, digital, investigative, creative, community, venture, and hybrid projects share one product model.
+- Format preferences guide ideas but never gate features.
 - Recommendations and roadmaps must reflect the student's actual experience, resources, time, and other constraints.
 - Students under 13 cannot create an account through the standard signup flow; a parent or guardian must contact support.
 - Student data and integration credentials require privacy-conscious handling.
@@ -68,4 +68,4 @@ Sevri is project-to-portfolio coaching, not an idea generator. It uses a student
 
 ## Accessibility & Inclusion
 
-Sevri must support accessible web use. Guidance and interface language should remain understandable to students with different levels of software, research, and project-planning experience.
+Sevri must support accessible web use. Guidance and interface language should remain understandable to students with different fields, resources, experience levels, and project-planning backgrounds.

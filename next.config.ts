@@ -22,13 +22,6 @@ const nextConfig: NextConfig = {
         destination: "/project/:id/:path*",
         permanent: true,
       },
-      // The lens section is "Project Lens" on both tracks, so the URL no longer
-      // claims the software one is research.
-      {
-        source: "/project/:id/research-lens",
-        destination: "/project/:id/lens",
-        permanent: true,
-      },
     ];
   },
 };

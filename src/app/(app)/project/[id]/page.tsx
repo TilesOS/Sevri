@@ -43,7 +43,7 @@ export default async function ProjectOverviewPage({
         <ProjectRoadmapEmptyState
           projectId={workspace.project.id}
           projectTitle={workspace.project.title}
-          projectTrack={workspace.projectTrack}
+          projectKindLabel={workspace.projectKindLabel}
           plan={plan}
         />
       );

@@ -13,15 +13,11 @@ import { buildGenerationContext } from "@/lib/ai/generation-context";
 import { withProfileIdentity } from "@/lib/ai/intake-identity";
 import { captureServerError } from "@/lib/sentry/server";
 import { getProfileIdentity } from "@/lib/db/queries/profile";
-import { getLatestProjectTrack } from "@/lib/db/queries/recommendations";
 import { getGenerationVersion } from "@/lib/ai/client";
-import type { ProjectTrack } from "@/lib/validators/onboarding";
 
 export const runtime = "nodejs";
 
-const bodySchema = z.object({
-  project_track: z.enum(["software", "research"]).optional(),
-});
+const bodySchema = z.object({});
 
 function getErrorDetails(error: unknown) {
   if (error instanceof Error) {
@@ -33,10 +29,6 @@ function getErrorDetails(error: unknown) {
   } catch {
     return "Unknown error";
   }
-}
-
-function asProjectTrack(value: unknown): ProjectTrack {
-  return value === "research" ? "research" : "software";
 }
 
 export async function POST(request: Request) {
@@ -74,33 +66,27 @@ export async function POST(request: Request) {
     stage = "create-supabase-client";
     const supabase = await createServerSupabaseClient();
 
-    stage = "resolve-project-track";
-    const requestedTrack = body.project_track ?? (await getLatestProjectTrack(user.id));
+    void body;
 
     stage = "fetch-intake";
     const { data: intake, error: intakeError } = await supabase
       .from("intakes")
-      .select("id, raw_answers_json, project_track")
+      .select("id, raw_answers_json")
       .eq("user_id", user.id)
-      .eq("project_track", requestedTrack)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
 
     if (intakeError || !intake) {
-      return NextResponse.json({ error: `Complete ${requestedTrack} onboarding first` }, { status: 400 });
+      return NextResponse.json({ error: "Complete onboarding first" }, { status: 400 });
     }
 
-    const projectTrack = asProjectTrack(intake.project_track);
-
     stage = "resolve-profile-identity";
-    // Stage comes from the profile, not from this track's saved intake, so both
-    // tracks describe the same student.
+    // Stage comes from the profile rather than stale intake history.
     const identity = await getProfileIdentity(user.id).catch(() => ({ studentStage: null }));
 
     stage = "build-context";
     const normalized = buildGenerationContext({
-      projectTrack,
       rawIntake: withProfileIdentity((intake.raw_answers_json as Record<string, unknown>) ?? {}, identity),
     });
 
@@ -110,12 +96,11 @@ export async function POST(request: Request) {
       .insert({
         user_id: user.id,
         intake_id: intake.id,
-        project_track: normalized.project_track,
         summary: normalized.summary,
         interpreted_interests: normalized.interpreted_interests,
         skill_assessment: normalized.skill_assessment,
         risk_flags: normalized.risk_flags,
-        track_payload_json: normalized.track_payload_json,
+        project_context_json: normalized.project_context_json,
         raw_model_output_json: {
           source: "deterministic-context",
           generation_version: getGenerationVersion(),

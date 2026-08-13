@@ -25,7 +25,7 @@ export function Parallax({
   const y = useSpring(yRaw, { stiffness: 90, damping: 24, restDelta: 0.001 });
 
   return (
-    <motion.div ref={ref} style={reduce ? undefined : { y }} className={className}>
+    <motion.div ref={ref} style={{ y: reduce ? 0 : y }} className={className}>
       {children}
     </motion.div>
   );
@@ -42,7 +42,7 @@ export function HeroScrollFade({ children, className }: { children: ReactNode; c
   const opacity = useTransform(scrollY, [0, 480], [1, 0]);
 
   return (
-    <motion.div className={className} style={reduce ? undefined : { y, opacity }}>
+    <motion.div className={className} style={{ y: reduce ? 0 : y, opacity: reduce ? 1 : opacity }}>
       {children}
     </motion.div>
   );

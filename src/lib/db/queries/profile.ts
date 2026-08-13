@@ -3,9 +3,8 @@ import { studentStageSchema } from "@/lib/validators/settings";
 import type { StudentStage } from "@/types/domain";
 
 /**
- * Facts about the student that are true regardless of which track they are
- * working in. These live on the profile; intakes carry only track-specific
- * context. Anything that reads a stage should read it from here.
+ * Stable student identity belongs on the profile; each intake carries the
+ * project-specific context. Anything that reads a stage should read it here.
  */
 export interface ProfileIdentity {
   studentStage: StudentStage | null;

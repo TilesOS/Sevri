@@ -39,5 +39,8 @@ jobs:
       - name: Unit tests
         run: npm run test:unit
 
+      - name: Universal project model assertion
+        run: npm run test:universal-model
+
       - name: Check patch whitespace
         run: git diff --check "${{ github.event.pull_request.base.sha }}...HEAD"

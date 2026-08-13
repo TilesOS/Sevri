@@ -8,8 +8,8 @@ export function ProjectLensView({ workspace }: { workspace: ProjectWorkspaceView
     <div className="space-y-8">
       <PageHeader
         eyebrow={PROJECT_SECTION_LABELS.lens}
-        title={workspace.projectTrack === "research" ? "Keep the question visible" : "Keep the user visible"}
-        description="Stay anchored in the problem, audience, and context while you work."
+        title="Keep the purpose visible"
+        description="Stay anchored in the challenge, approach, evidence, and scope while you work."
       />
 
       {workspace.projectBrief ? (
@@ -19,7 +19,7 @@ export function ProjectLensView({ workspace }: { workspace: ProjectWorkspaceView
         </Card>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         {workspace.projectLens.map((item) => (
           <Card key={item.label} className="space-y-3" elevation="soft">
             <p className="text-xs font-medium text-ink-muted">{item.label}</p>

@@ -20,7 +20,6 @@ import { getStepGuidanceGate } from "@/lib/projects/step-guidance-lock";
 import { LearningResourceSchema, type LearningResource } from "@/lib/ai/schemas";
 import { asSentence } from "@/lib/text/prose";
 import { toStudentVoice } from "@/lib/text/student-voice";
-import type { ProjectTrack } from "@/types/domain";
 
 export interface ProjectGithubLinkView {
   id: string;
@@ -106,7 +105,7 @@ export interface NextStepActionPreview {
 export interface ProjectWorkspaceView {
   project: RawProjectWorkspace["project"];
   roadmap: RawProjectWorkspace["roadmap"];
-  projectTrack: ProjectTrack;
+  projectKindLabel: string;
   hasRoadmap: boolean;
   scheduledStartDate: string | null;
   scheduledEndDate: string | null;
@@ -122,7 +121,7 @@ export interface ProjectWorkspaceView {
   projectLens: ProjectLensItem[];
   keyDeliverables: string[];
   /** The Scope & Guardrails statement, recomposed when the stored one is stitched. */
-  mvpScope: string;
+  coreScope: string;
   pitchKit: ProjectPitchKitView;
   learningResources: LearningResource[];
   elevatorPitch: string;
@@ -160,7 +159,6 @@ const EMPTY_PITCH_KIT: ProjectPitchKitView = {
  */
 function resolvePitchKitView(input: {
   explanationGuide: Record<string, unknown>;
-  projectTrack: ProjectTrack;
   projectTitle: string;
   optionSeed: Record<string, unknown>;
   firstDeliverable: string | null;
@@ -195,7 +193,6 @@ function resolvePitchKitView(input: {
   }
 
   const draft = composePitchKitDraft({
-    projectTrack: input.projectTrack,
     projectTitle: input.projectTitle,
     seed: input.optionSeed,
     firstDeliverable: input.firstDeliverable,
@@ -288,14 +285,14 @@ function summarizeGithubLink(row: ProjectGithubLinkRow | null): ProjectGithubLin
 export const getProjectWorkspaceView = cache(async (projectId: string, userId: string): Promise<ProjectWorkspaceView> => {
   const workspace = await getProjectWorkspace(projectId, userId);
   const githubLinkRow = await getProjectGithubLink(projectId).catch(() => null);
-  const projectTrack = workspace.project.project_track === "research" ? "research" : "software";
+  const projectKindLabel = workspace.project.project_kind_label || "Project";
   const scheduleTimezone =
     typeof workspace.roadmap?.schedule_timezone === "string" && workspace.roadmap.schedule_timezone.trim().length > 0
       ? workspace.roadmap.schedule_timezone
       : "UTC";
   const roadmapPayload =
-    workspace.roadmap?.track_payload_json && typeof workspace.roadmap.track_payload_json === "object"
-      ? (workspace.roadmap.track_payload_json as Record<string, unknown>)
+    workspace.roadmap?.roadmap_context_json && typeof workspace.roadmap.roadmap_context_json === "object"
+      ? (workspace.roadmap.roadmap_context_json as Record<string, unknown>)
       : {};
   const milestones = normalizeMilestones(workspace.milestones ?? [], scheduleTimezone, roadmapPayload);
   const completedCount = milestones.filter((milestone) => milestone.completed).length;
@@ -319,8 +316,8 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     getPayloadStringList(workspace.roadmap?.stretch_goals),
   );
   const optionSeed =
-    roadmapPayload.selected_option_seed && typeof roadmapPayload.selected_option_seed === "object"
-      ? (roadmapPayload.selected_option_seed as Record<string, unknown>)
+    roadmapPayload.selected_project_blueprint && typeof roadmapPayload.selected_project_blueprint === "object"
+      ? (roadmapPayload.selected_project_blueprint as Record<string, unknown>)
       : {};
   const projectBrief = toStudentVoice(getPayloadString(roadmapPayload.project_brief));
   const learningResources = Array.isArray(roadmapPayload.learning_resources)
@@ -329,53 +326,27 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
         return parsed.success ? [parsed.data] : [];
       })
     : [];
-  const projectLens = (
-    projectTrack === "research"
-      ? [
-          {
-            label: "Your research question",
-            value: getPayloadString(optionSeed.research_question, "Clarify your final question once the roadmap begins."),
-          },
-          {
-            label: "Your method",
-            value: getPayloadString(optionSeed.methodology, "Choose the cleanest method that matches what you can access."),
-          },
-          {
-            label: "Your evidence plan",
-            value: getPayloadString(optionSeed.evidence_plan, "Protect the evidence you can realistically gather."),
-          },
-        ]
-      : [
-          {
-            label: "Who it is for",
-            value: getPayloadString(optionSeed.target_user, "Clarify who this project is genuinely for."),
-          },
-          {
-            label: "The problem you are solving",
-            value: getPayloadString(optionSeed.problem_statement, "Keep the core problem concrete and narrow."),
-          },
-          {
-            label: "Your core workflow",
-            value: getPayloadString(optionSeed.core_workflow, "Protect the first workflow that makes the project feel real."),
-          },
-        ]
-  ).map((item) => ({ label: item.label, value: asSentence(toStudentVoice(item.value)) }));
+  const projectLens = [
+    { label: "Purpose", value: getPayloadString(optionSeed.central_challenge, "Keep the central challenge concrete and meaningful.") },
+    { label: "Approach", value: getPayloadString(optionSeed.approach, "Use the simplest credible approach that fits your resources.") },
+    { label: "Evidence", value: getPayloadString(getPayloadStringList(optionSeed.proof_of_success)[0], "Choose observable proof that the project worked.") },
+    { label: "Core scope", value: getPayloadString(optionSeed.scope_boundary, "Protect the smallest complete version of the project.") },
+  ].map((item) => ({ label: item.label, value: asSentence(toStudentVoice(item.value)) }));
   const explanationGuide =
     workspace.roadmap?.explanation_guide && typeof workspace.roadmap.explanation_guide === "object"
       ? (workspace.roadmap.explanation_guide as Record<string, unknown>)
       : {};
   const pitchKit = resolvePitchKitView({
     explanationGuide,
-    projectTrack,
     projectTitle: workspace.project.title ?? "",
     optionSeed,
     firstDeliverable: milestones[0]?.deliverable ?? null,
     stepCount: milestones.length,
   });
-  const storedMvpScope = getPayloadString(workspace.roadmap?.mvp_scope);
-  const mvpScope = isUsableStoredCopy(storedMvpScope)
-    ? storedMvpScope
-    : composeScopeStatement({ projectTrack, seed: optionSeed });
+  const storedCoreScope = getPayloadString(workspace.roadmap?.core_scope);
+  const coreScope = isUsableStoredCopy(storedCoreScope)
+    ? storedCoreScope
+    : composeScopeStatement({ seed: optionSeed });
   const firstIncompleteStepNumber = milestones.find((milestone) => !milestone.completed)?.stepNumber ?? null;
   const nextMilestone = milestones.find((milestone) => !milestone.completed) ?? milestones[milestones.length - 1] ?? null;
 
@@ -420,7 +391,7 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
   return {
     project: workspace.project,
     roadmap: workspace.roadmap,
-    projectTrack,
+    projectKindLabel,
     hasRoadmap: Boolean(workspace.roadmap),
     scheduledStartDate,
     scheduledEndDate,
@@ -434,7 +405,7 @@ export const getProjectWorkspaceView = cache(async (projectId: string, userId: s
     projectBrief,
     projectLens,
     keyDeliverables: milestones.slice(0, 3).map((milestone) => milestone.deliverable),
-    mvpScope,
+    coreScope,
     pitchKit,
     learningResources,
     elevatorPitch: pitchKit.elevatorPitch,

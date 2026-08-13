@@ -11,17 +11,14 @@ import { resolveDisplayName } from "@/lib/auth/names";
 /** Wizard-facing names for the fields a submission can fail on. */
 const FIELD_LABELS: Record<string, string> = {
   student_stage: "Student stage",
-  target_outcome: "Project outcome",
+  project_goal: "Project goal",
+  success_definition: "Definition of success",
   interests: "Interests",
   favorite_subjects: "Favorite subjects",
   weekly_time_available: "Weekly time available",
-  preferred_difficulty: "Preferred challenge",
-  coding_experience: "Coding experience",
-  preferred_project_style: "Preferred project style",
-  preferred_research_domain: "Preferred research domain",
-  research_experience: "Research experience",
-  methodology_preference: "Methodology preference",
-  target_research_deliverable: "Target final deliverable",
+  format_preferences: "Project formats",
+  experience_level: "Experience level",
+  preferred_challenge: "Preferred challenge",
 };
 
 export async function POST(request: Request) {
@@ -40,7 +37,11 @@ export async function POST(request: Request) {
     const intake = await upsertOnboardingData(user, payload);
 
     const postSaveTasks: Promise<unknown>[] = [
-      trackEvent(user.id, "onboarding_completed", { intake_id: intake.id, project_track: payload.project_track }),
+      trackEvent(user.id, "onboarding_completed", {
+        intake_id: intake.id,
+        project_goal: payload.project_goal,
+        open_to_anything: payload.open_to_anything,
+      }),
       setLifecycleEmailPreference(user.id, lifecycleEmailsEnabled),
     ];
 
@@ -69,7 +70,7 @@ export async function POST(request: Request) {
       }
     });
 
-    return NextResponse.json({ intake_id: intake.id, project_track: payload.project_track }, { status: 200 });
+    return NextResponse.json({ intake_id: intake.id }, { status: 200 });
   } catch (error) {
     captureServerError(error, { route: "onboarding/submit" });
     const details = error instanceof Error ? error.message : "Unknown error";

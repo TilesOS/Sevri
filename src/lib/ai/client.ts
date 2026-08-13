@@ -17,6 +17,7 @@ import {
   buildQualityRepairPrompts,
   buildQualityRepairTargets,
   canUseDeterministicQualityCleanup,
+  exhaustedTargetedQualityRepairAllowsFallback,
   shouldSkipCrossModelFallbackForQuality,
   type QualityRepairTarget,
 } from "@/lib/ai/quality-repair";
@@ -112,12 +113,17 @@ interface StructuredGenerationInput<TSchema extends z.ZodTypeAny> {
   webSearch?: WebSearchPolicy;
   qualitySpec?: FieldSpecMap;
   qualityAllowedTerms?: readonly string[];
+  evidenceParts?: Array<
+    | { type: "input_image"; image_url: string; detail?: "low" | "high" | "auto" }
+    | { type: "input_file"; file_url: string; filename: string }
+  >;
 }
 
 const GENERATION_VERSION = "responses-v7-content-aware-source-validation";
 const ACCESS_DENIED_PATTERN = /does not have access to model/i;
 const RATE_LIMIT_PATTERN = /\b429\b|rate limit/i;
 const AUTH_PATTERN = /\b401\b|invalid api key|incorrect api key|authentication/i;
+const MAX_TARGETED_QUALITY_REPAIR_ROUNDS = 2;
 
 function supportsReasoningEffort(model: string) {
   return model.toLowerCase().startsWith("gpt-5");
@@ -559,9 +565,9 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
       lastPromptChars =
         input.systemPrompt.length + input.userPrompt.length + (repairFeedback ? repairFeedback.length : 0);
 
-      const messages: Array<{ role: "system" | "user"; content: string }> = [
+      const messages: Array<{ role: "system" | "user"; content: unknown }> = [
         { role: "system", content: input.systemPrompt },
-        { role: "user", content: input.userPrompt },
+        { role: "user", content: input.evidenceParts?.length ? [{ type: "input_text", text: input.userPrompt }, ...input.evidenceParts] : input.userPrompt },
       ];
 
       if (repairFeedback) {
@@ -840,7 +846,11 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
             const repairRaws: unknown[] = [];
             const repairedPathSet = new Set<string>();
 
-            for (let repairRound = 1; repairRound <= 2 && repairTargets.length > 0; repairRound += 1) {
+            for (
+              let repairRound = 1;
+              repairRound <= MAX_TARGETED_QUALITY_REPAIR_ROUNDS && repairTargets.length > 0;
+              repairRound += 1
+            ) {
               attemptCount += 1;
               const targetedAttempt = attemptCount;
               const targetedStartedAt = performance.now();
@@ -997,6 +1007,19 @@ export async function generateStructuredOutput<TSchema extends z.ZodTypeAny>(
                     (issue) => `${issue.path}:${issue.kind}`,
                   ),
                 });
+
+                if (exhaustedTargetedQualityRepairAllowsFallback({
+                  repairRound,
+                  maxRepairRounds: MAX_TARGETED_QUALITY_REPAIR_ROUNDS,
+                  schemaIssueCount: repaired.schemaIssues.length,
+                  semanticIssueCount: repaired.semanticIssues.length,
+                  qualityIssueCount: repaired.qualityReport.issues.length,
+                })) {
+                  // The targeted editor has had both chances to repair the
+                  // response. Let the configured fallback regenerate it rather
+                  // than reverting to the original invalid candidate.
+                  qualityRepairAllowsModelFallback = true;
+                }
 
                 if (repaired.semanticIssues.length > 0) {
                   qualityRepairAllowsModelFallback = true;

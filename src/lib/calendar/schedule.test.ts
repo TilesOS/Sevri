@@ -45,7 +45,7 @@ function buildProjectState(): ProjectScheduleState {
   return {
     projectId: "project-1",
     projectTitle: "Portfolio Builder",
-    projectTrack: "software",
+    projectKindLabel: "Web app",
     projectStatus: "active",
     scheduledStartDate: "2026-04-20",
     scheduledEndDate: "2026-05-18",
@@ -66,7 +66,6 @@ test("generateProjectSchedule uses AI estimates first and falls back conservativ
     })),
     estimatedWeeks: 6,
     weeklyHours: 4,
-    projectTrack: "software",
     timeZone: "America/New_York",
     startDate: "2026-04-20",
   });

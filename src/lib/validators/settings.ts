@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { projectTrackSchema, targetOutcomeSchema } from "@/lib/validators/onboarding";
+import { projectGoalSchema } from "@/lib/validators/onboarding";
 
 export const studentStageSchema = z.enum([
   "high_school_freshman",
@@ -20,8 +20,7 @@ export const settingsProfileSchema = z.object({
     .min(2, "Please enter your name.")
     .max(80, "Name must be 80 characters or fewer."),
   student_stage: studentStageSchema,
-  target_outcome: targetOutcomeSchema,
-  project_track: projectTrackSchema,
+  project_goal: projectGoalSchema,
 });
 
 export type SettingsProfileInput = z.infer<typeof settingsProfileSchema>;
@@ -41,20 +40,19 @@ export const studentStageOptions: Array<{
   { value: "other", label: "Other" },
 ];
 
-export const targetOutcomeOptions: Array<{
-  value: z.infer<typeof targetOutcomeSchema>;
+export const projectGoalOptions: Array<{
+  value: z.infer<typeof projectGoalSchema>;
   label: string;
 }> = [
-  { value: "college_apps", label: "College applications" },
-  { value: "internship", label: "Internship" },
-  { value: "portfolio", label: "Portfolio" },
   { value: "learning", label: "Learning" },
+  { value: "portfolio", label: "Portfolio" },
+  { value: "college_applications", label: "College applications" },
+  { value: "internship_or_job", label: "Internship or job" },
+  { value: "class_or_capstone", label: "Class or capstone" },
+  { value: "competition", label: "Competition" },
+  { value: "community_impact", label: "Community impact" },
+  { value: "personal", label: "Personal goal" },
+  { value: "other", label: "Other" },
 ];
 
-export const projectTrackOptions: Array<{
-  value: z.infer<typeof projectTrackSchema>;
-  label: string;
-}> = [
-  { value: "software", label: "Software" },
-  { value: "research", label: "Research" },
-];
+/** Kept as a temporary import alias while settings consumers move together. */

@@ -1,5 +1,3 @@
-import type { ProjectTrack } from "@/types/domain";
-
 const RANGE_PATTERN = /(\d+)\s*(?:-|to)\s*(\d+)\s*(day|days|week|weeks)\b/i;
 const SINGLE_PATTERN = /(?:about|around|roughly|approximately)?\s*(\d+)\s*(day|days|week|weeks)\b/i;
 
@@ -44,7 +42,6 @@ export function buildFallbackDurationDays(input: {
   estimatedWeeks: number;
   stepCount: number;
   weeklyHours?: number | null;
-  projectTrack: ProjectTrack;
 }) {
   const safeStepCount = Math.max(input.stepCount, 1);
   const safeWeeklyHours =
@@ -54,6 +51,5 @@ export function buildFallbackDurationDays(input: {
   const availabilityMultiplier = safeWeeklyHours <= 4 ? 1.25 : safeWeeklyHours <= 6 ? 1.1 : 1;
   const totalDays = Math.ceil(input.estimatedWeeks * 7 * availabilityMultiplier);
   const basePerStep = Math.ceil(totalDays / safeStepCount);
-  const minimumDays = input.projectTrack === "research" ? 4 : 3;
-  return Math.max(minimumDays, basePerStep);
+  return Math.max(3, basePerStep);
 }

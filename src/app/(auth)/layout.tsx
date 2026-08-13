@@ -21,7 +21,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
                   A project story that feels earned.
                 </h2>
                 <p className="max-w-md text-lg leading-8 text-cream/70">
-                  From first idea to finished software or research — scoped to something you can actually finish.
+                  From first idea to finished evidence — in any field, scoped to something you can actually finish.
                 </p>
               </div>
             </div>

@@ -14,7 +14,7 @@ import { Section } from "@/components/ui/section";
 const freeGenerationLimit = PLAN_LIMITS.free.generation_limit;
 
 const proof = [
-  { label: "2 tracks", color: "var(--teal)" },
+  { label: "Any field", color: "var(--teal)" },
   { label: "3 directions compared", color: "var(--coral)" },
   { label: "1 finishable roadmap", color: "var(--pale-blue)" },
 ];
@@ -142,36 +142,36 @@ export default async function HomePage() {
         </div>
       </Section>
 
-      {/* ── Two tracks (tinted feature cards — distinct from the step cards) ── */}
+      {/* ── Universal project system ── */}
       <Section>
         <div className="max-w-3xl">
           <Reveal>
-            <p className="editorial-kicker mb-3">Two tracks</p>
+            <p className="editorial-kicker mb-3">Build anything</p>
           </Reveal>
           <WordReveal
-            text="Build something, or study something."
+            text="One system. Any kind of project."
             className="font-display text-4xl leading-[1.1] tracking-tight text-ink sm:text-5xl"
           />
         </div>
-        <div className="grid gap-5 lg:grid-cols-2">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(18rem,0.75fr)]">
           <Reveal>
             <div className="group flex h-full flex-col justify-between rounded-3xl bg-surface-mint p-8 shadow-soft transition-all duration-300 hover:-translate-y-1.5 hover:shadow-lifted sm:p-10">
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-teal-deep/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-teal-deep">
                   <span className="h-1.5 w-1.5 rounded-full bg-teal-deep" />
-                  Software
+                  Any field
                 </span>
                 <h3 className="mt-6 font-display text-3xl leading-tight tracking-tight text-ink sm:text-4xl">
-                  Something another person can actually use.
+                  Design a circuit. Produce a short film. Launch a community initiative.
                 </h3>
                 <ul className="mt-6 space-y-2.5 text-base leading-7 text-ink-soft">
-                  <li>Starts with who it&apos;s for — before any code.</li>
-                  <li>Scoped for a first version, not a startup pitch.</li>
-                  <li>Easy to explain, worth showing.</li>
+                  <li>Build a tool. Investigate a question. Mix them together.</li>
+                  <li>Choose the format that fits the purpose—not a product category.</li>
+                  <li>Finish with concrete artifacts and observable evidence.</li>
                 </ul>
               </div>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-teal-deep">
-                Explore the software track
+                Explore project directions
                 <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
               </span>
             </div>
@@ -181,19 +181,19 @@ export default async function HomePage() {
               <div>
                 <span className="inline-flex items-center gap-2 rounded-full bg-coral/15 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-coral">
                   <span className="h-1.5 w-1.5 rounded-full bg-coral" />
-                  Research
+                  Hybrid by design
                 </span>
                 <h3 className="mt-6 font-display text-3xl leading-tight tracking-tight text-ink sm:text-4xl">
-                  A question with a believable method.
+                  Let the project take the shape the idea needs.
                 </h3>
                 <ul className="mt-6 space-y-2.5 text-base leading-7 text-ink-soft">
-                  <li>Sized around data you can actually collect.</li>
-                  <li>A method and timeline that fit your real situation.</li>
-                  <li>Worth submitting — and worth talking about.</li>
+                  <li>Physical, digital, investigative, creative, community, or venture.</li>
+                  <li>Combine formats when that makes the result stronger.</li>
+                  <li>Keep the scope grounded in your actual time and resources.</li>
                 </ul>
               </div>
               <span className="mt-8 inline-flex items-center gap-2 text-sm font-semibold text-coral">
-                Explore the research track
+                Start with your interests
                 <span className="transition-transform duration-200 group-hover:translate-x-1">→</span>
               </span>
             </div>
@@ -227,7 +227,7 @@ export default async function HomePage() {
             <div className="relative z-10 mx-auto max-w-2xl">
               <h2 className="font-display text-4xl leading-tight sm:text-5xl">Start here. See what fits.</h2>
               <p className="mx-auto mt-4 max-w-lg text-lg leading-8 text-cream/75">
-                Free covers onboarding and up to {freeGenerationLimit} idea boards across both tracks.
+                Free covers onboarding and up to {freeGenerationLimit} idea boards across any field.
               </p>
               <div className="mt-8 flex flex-wrap justify-center gap-3">
                 <Button href={closingCta.href} size="lg" className="px-7">

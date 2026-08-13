@@ -22,7 +22,7 @@ export default async function SettingsPage() {
   const [{ data: profile }, emailPreference] = await Promise.all([
     supabase
       .from("profiles")
-      .select("full_name, student_stage, target_outcome, project_track")
+      .select("full_name, student_stage, project_goal")
       .eq("user_id", user.id)
       .maybeSingle(),
     getEmailPreference(user.id),
@@ -35,8 +35,7 @@ export default async function SettingsPage() {
       email: user.email,
     }),
     student_stage: profile?.student_stage ?? "high_school_junior",
-    target_outcome: profile?.target_outcome ?? "portfolio",
-    project_track: profile?.project_track ?? "software",
+    project_goal: profile?.project_goal ?? "portfolio",
   });
 
   const fallbackSettings: SettingsProfileInput = {
@@ -46,8 +45,7 @@ export default async function SettingsPage() {
       email: user.email,
     }),
     student_stage: "high_school_junior",
-    target_outcome: "portfolio",
-    project_track: "software",
+    project_goal: "portfolio",
   };
 
   const settingsValues = initialSettings.success ? initialSettings.data : fallbackSettings;
@@ -63,9 +61,9 @@ export default async function SettingsPage() {
           <p className="text-xs font-medium text-ink-muted">What these defaults affect</p>
           <h2 className="text-lg font-semibold text-ink">A better starting point every time you return.</h2>
           <ul className="space-y-3 text-sm leading-6 text-ink-soft">
-            <li>Recommended track selection when you return to the ideas board.</li>
-            <li>Profile context that helps Sevri keep outputs aligned with your current goals.</li>
-            <li>More consistent software and research guidance across the workspace.</li>
+            <li>Your primary project goal when you return to explore new directions.</li>
+            <li>Profile context that keeps suggestions aligned with your current stage.</li>
+            <li>Consistent guidance across projects in any field or format.</li>
           </ul>
         </Card>
       </div>

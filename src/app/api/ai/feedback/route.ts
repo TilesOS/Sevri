@@ -46,7 +46,7 @@ export async function POST(request: Request) {
 
       const { data: normalizedProfile, error: normalizedProfileError } = await supabase
         .from("normalized_profiles")
-        .select("id, project_track")
+        .select("id")
         .eq("id", payload.normalized_profile_id)
         .eq("user_id", user.id)
         .single();
@@ -75,7 +75,6 @@ export async function POST(request: Request) {
         ...insertPayload,
         normalized_profile_id: normalizedProfile.id,
         closest_recommendation_id: closestRecommendationId,
-        project_track: normalizedProfile.project_track === "research" ? "research" : "software",
       };
     }
 
@@ -86,7 +85,7 @@ export async function POST(request: Request) {
 
       const { data: roadmap, error: roadmapError } = await supabase
         .from("project_roadmaps")
-        .select("id, project_id, project_track")
+        .select("id, project_id")
         .eq("id", payload.roadmap_id)
         .single();
 
@@ -109,7 +108,6 @@ export async function POST(request: Request) {
         ...insertPayload,
         roadmap_id: roadmap.id,
         project_id: roadmap.project_id,
-        project_track: roadmap.project_track === "research" ? "research" : "software",
       };
     }
 
@@ -140,7 +138,7 @@ export async function POST(request: Request) {
 
       const { data: project, error: projectError } = await supabase
         .from("projects")
-        .select("id, project_track")
+        .select("id")
         .eq("id", milestone.project_id)
         .eq("user_id", user.id)
         .single();
@@ -154,7 +152,6 @@ export async function POST(request: Request) {
         milestone_guidance_id: guidance.id,
         milestone_id: milestone.id,
         project_id: project.id,
-        project_track: project.project_track === "research" ? "research" : "software",
       };
     }
 
@@ -195,7 +192,7 @@ export async function POST(request: Request) {
 
       const { data: project, error: projectError } = await supabase
         .from("projects")
-        .select("id, project_track")
+        .select("id")
         .eq("id", milestone.project_id)
         .eq("user_id", user.id)
         .single();
@@ -209,7 +206,6 @@ export async function POST(request: Request) {
         submission_evaluation_id: evaluation.id,
         milestone_id: milestone.id,
         project_id: project.id,
-        project_track: project.project_track === "research" ? "research" : "software",
       };
     }
 
@@ -227,7 +223,6 @@ export async function POST(request: Request) {
       stage: payload.stage,
       signal: payload.signal,
       ...("project_id" in insertPayload ? { project_id: insertPayload.project_id } : {}),
-      ...("project_track" in insertPayload ? { project_track: insertPayload.project_track } : {}),
     }).catch((trackError) => {
       captureServerError(trackError, {
         route: "ai/feedback",
