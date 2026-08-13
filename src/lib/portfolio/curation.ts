@@ -51,6 +51,7 @@ export async function generateAndSavePortfolioCuration(input: {
         data.latestSubmissions[0]?.submission_text,
         300,
       ),
+      featuredArtifactDisplayNames: "",
       featuredEvidenceText: "",
     });
     if (!safety.passed) {

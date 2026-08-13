@@ -437,6 +437,7 @@ export interface Database {
       milestone_submissions: {
         Row: {
           id: string;
+          evidence_submission_id: string | null;
           milestone_id: string;
           user_id: string;
           submission_kind: "pasted_text" | "artifact_bundle";
@@ -448,6 +449,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          evidence_submission_id?: string | null;
           milestone_id: string;
           user_id: string;
           submission_kind: "pasted_text" | "artifact_bundle";
@@ -459,6 +461,7 @@ export interface Database {
         };
         Update: {
           id?: string;
+          evidence_submission_id?: string | null;
           milestone_id?: string;
           user_id?: string;
           submission_kind?: "pasted_text" | "artifact_bundle";
@@ -937,7 +940,7 @@ export interface Database {
         }[];
       };
       create_milestone_artifact_bundle_with_pending_evaluation: {
-        Args: { p_milestone_id: string; p_submission_text: string; p_artifacts: Json };
+        Args: { p_milestone_id: string; p_submission_text: string; p_artifacts: Json; p_evidence_submission_id?: string | null };
         Returns: { submission_id: string; evaluation_id: string }[];
       };
       set_portfolio_featured_artifacts: { Args: { p_entry_id: string; p_artifact_ids: string[] }; Returns: undefined };

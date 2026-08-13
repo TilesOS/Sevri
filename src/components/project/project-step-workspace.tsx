@@ -37,6 +37,11 @@ import {
 } from "@/lib/ai/content-quality-specs";
 import type { ProjectMilestoneView, ProjectWorkspaceView } from "@/lib/projects/workspace";
 import { getPinnedFocusStorageKey } from "@/lib/projects/focus-storage";
+import {
+  MAX_REBUTTAL_CHARS,
+  MAX_SUBMISSION_CHARS,
+  buildRebuttalSubmissionPayload,
+} from "@/lib/projects/rebuttal";
 import type { MilestoneReviewRow } from "@/lib/db/queries/reviewers";
 import type {
   LatestCompletedMilestoneEvaluation,
@@ -88,8 +93,6 @@ type SubmissionSlot =
     };
 
 const ACCEPTED_FILE_EXTENSIONS = ".jpg,.jpeg,.png,.webp,.pdf,.md,.txt,.json,.csv";
-const MAX_SUBMISSION_CHARS = 20_000;
-const MAX_REBUTTAL_CHARS = 500;
 type EvidenceDraft = { upload_path?: string; external_url?: string; display_name: string; mime_type?: string; size_bytes?: number; caption?: string; alt_text?: string };
 
 async function stripImageMetadata(file: File): Promise<File> {
@@ -130,14 +133,6 @@ function getEvaluationFocus(evaluation: WorkEvaluation) {
   }
 
   return evaluation.next_best_action;
-}
-
-function buildRebuttalSubmission(submission: StoredMilestoneSubmission, rebuttal: string) {
-  return [
-    `Student rebuttal to the prior evaluation: ${rebuttal.trim()}`,
-    "Original submission:",
-    submission.submission_text,
-  ].join("\n\n");
 }
 
 function buildSubmissionSlot(body: MilestoneEvaluationResponse | null | undefined): SubmissionSlot {
@@ -486,7 +481,11 @@ export function ProjectStepWorkspace({
   fetchGuidanceRef.current = fetchGuidance;
   loadSubmissionRef.current = loadSubmission;
 
-  async function submitWork(text: string, artifacts: EvidenceDraft[]) {
+  async function submitWork(
+    text: string,
+    artifacts: EvidenceDraft[],
+    evidenceSubmissionId: string | null = null,
+  ) {
     setIsEvaluationPending(true);
     setEvaluationError(null);
 
@@ -497,6 +496,7 @@ export function ProjectStepWorkspace({
         body: JSON.stringify({
           submission_text: text,
           artifacts,
+          evidence_submission_id: evidenceSubmissionId,
         }),
       });
 
@@ -828,12 +828,10 @@ export function ProjectStepWorkspace({
                   void toggleMilestone();
                 }
               }}
-              onRebuttal={(submission, rebuttal) =>
-                void submitWork(
-                  buildRebuttalSubmission(submission, rebuttal),
-                  [],
-                )
-              }
+              onRebuttal={(submission, rebuttal) => {
+                const payload = buildRebuttalSubmissionPayload(submission, rebuttal);
+                void submitWork(payload.submissionText, [], payload.evidenceSubmissionId);
+              }}
             />
 
             {fallbackEvaluation ? (
@@ -854,12 +852,10 @@ export function ProjectStepWorkspace({
                     void toggleMilestone();
                   }
                 }}
-                onRebuttal={(submission, rebuttal) =>
-                  void submitWork(
-                    buildRebuttalSubmission(submission, rebuttal),
-                    [],
-                  )
-                }
+                onRebuttal={(submission, rebuttal) => {
+                  const payload = buildRebuttalSubmissionPayload(submission, rebuttal);
+                  void submitWork(payload.submissionText, [], payload.evidenceSubmissionId);
+                }}
               />
             ) : null}
 

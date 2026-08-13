@@ -8,6 +8,7 @@ const cleanInput: PublicPortfolioSafetyInput = {
   summary: "Built a small tool for comparing transit notes and reflecting on route design choices.",
   reflection: "I learned how to narrow a project into a usable artifact.",
   featuredSubmissionExcerpt: "The prototype compares route notes and highlights recurring issues.",
+  featuredArtifactDisplayNames: "prototype.pdf",
   featuredEvidenceText: "Prototype after the third test — A small model on a table.",
 };
 
