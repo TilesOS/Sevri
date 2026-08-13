@@ -37,6 +37,7 @@ import {
 } from "@/lib/ai/content-quality-specs";
 import type { ProjectMilestoneView, ProjectWorkspaceView } from "@/lib/projects/workspace";
 import { getPinnedFocusStorageKey } from "@/lib/projects/focus-storage";
+import { buildRebuttalSubmissionPayload } from "@/lib/projects/rebuttal";
 import type { MilestoneReviewRow } from "@/lib/db/queries/reviewers";
 import type {
   LatestCompletedMilestoneEvaluation,
@@ -130,14 +131,6 @@ function getEvaluationFocus(evaluation: WorkEvaluation) {
   }
 
   return evaluation.next_best_action;
-}
-
-function buildRebuttalSubmission(submission: StoredMilestoneSubmission, rebuttal: string) {
-  return [
-    `Student rebuttal to the prior evaluation: ${rebuttal.trim()}`,
-    "Original submission:",
-    submission.submission_text,
-  ].join("\n\n");
 }
 
 function buildSubmissionSlot(body: MilestoneEvaluationResponse | null | undefined): SubmissionSlot {
@@ -486,7 +479,11 @@ export function ProjectStepWorkspace({
   fetchGuidanceRef.current = fetchGuidance;
   loadSubmissionRef.current = loadSubmission;
 
-  async function submitWork(text: string, artifacts: EvidenceDraft[]) {
+  async function submitWork(
+    text: string,
+    artifacts: EvidenceDraft[],
+    evidenceSubmissionId: string | null = null,
+  ) {
     setIsEvaluationPending(true);
     setEvaluationError(null);
 
@@ -497,6 +494,7 @@ export function ProjectStepWorkspace({
         body: JSON.stringify({
           submission_text: text,
           artifacts,
+          evidence_submission_id: evidenceSubmissionId,
         }),
       });
 
@@ -828,12 +826,10 @@ export function ProjectStepWorkspace({
                   void toggleMilestone();
                 }
               }}
-              onRebuttal={(submission, rebuttal) =>
-                void submitWork(
-                  buildRebuttalSubmission(submission, rebuttal),
-                  [],
-                )
-              }
+              onRebuttal={(submission, rebuttal) => {
+                const payload = buildRebuttalSubmissionPayload(submission, rebuttal);
+                void submitWork(payload.submissionText, [], payload.evidenceSubmissionId);
+              }}
             />
 
             {fallbackEvaluation ? (
@@ -854,12 +850,10 @@ export function ProjectStepWorkspace({
                     void toggleMilestone();
                   }
                 }}
-                onRebuttal={(submission, rebuttal) =>
-                  void submitWork(
-                    buildRebuttalSubmission(submission, rebuttal),
-                    [],
-                  )
-                }
+                onRebuttal={(submission, rebuttal) => {
+                  const payload = buildRebuttalSubmissionPayload(submission, rebuttal);
+                  void submitWork(payload.submissionText, [], payload.evidenceSubmissionId);
+                }}
               />
             ) : null}
 

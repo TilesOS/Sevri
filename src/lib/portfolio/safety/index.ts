@@ -15,6 +15,7 @@ export interface PublicPortfolioSafetyInput {
   summary: string;
   reflection: string;
   featuredSubmissionExcerpt: string;
+  featuredArtifactDisplayNames: string;
   featuredEvidenceText: string;
 }
 
@@ -36,6 +37,7 @@ const FIELD_LIMITS: Record<keyof PublicPortfolioSafetyInput, { min?: number; max
   summary: { min: 20, max: 1600 },
   reflection: { max: 6000 },
   featuredSubmissionExcerpt: { max: 300 },
+  featuredArtifactDisplayNames: { max: 1200 },
   featuredEvidenceText: { max: 6000 },
 };
 

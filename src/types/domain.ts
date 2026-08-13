@@ -124,6 +124,7 @@ export type EvaluationLifecycleStatus = "pending" | "completed" | "failed";
 
 export interface StoredMilestoneSubmission {
   id: string;
+  evidence_submission_id: string | null;
   submission_kind: "pasted_text" | "artifact_bundle";
   submission_text: string | null;
   submission_filename: string | null;

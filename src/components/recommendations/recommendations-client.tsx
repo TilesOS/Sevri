@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { toUserFacingError } from "@/lib/errors/user-messages";
+import { canGenerateRecommendations, getGenerationLimit } from "@/lib/usage/limits";
 import type { Plan, RepositoryRelevance } from "@/types/domain";
 
 interface RecommendationItem {
@@ -84,8 +85,8 @@ export function RecommendationsClient({
   const [feedbackSignal, setFeedbackSignal] = useState<"good" | "mixed" | "bad" | null>(null);
   const [feedbackNotes, setFeedbackNotes] = useState("");
   const [feedbackSaved, setFeedbackSaved] = useState(false);
-  const freeLimit = plan === "free" ? 2 : null;
-  const canGenerate = availability.hasIntake && (freeLimit === null || generationsUsed < freeLimit);
+  const generationLimit = getGenerationLimit(plan);
+  const canGenerate = availability.hasIntake && canGenerateRecommendations(plan, generationsUsed);
 
   const contextId = useMemo(() => items[0]?.normalized_profile_id ?? null, [items]);
   const orderedItems = useMemo(
@@ -170,7 +171,7 @@ export function RecommendationsClient({
       </header>
 
       {!availability.hasIntake ? <Alert tone="warning" heading="Complete onboarding first.">Your interests, purpose, preferred shapes, and real constraints are what make these directions useful.</Alert> : null}
-      {freeLimit !== null && generationsUsed >= freeLimit ? <Alert tone="info" heading="You used your free idea boards.">Your existing directions remain available. Upgrade when you want another comparison.</Alert> : null}
+      {generationLimit !== null && generationsUsed >= generationLimit ? <Alert tone="info" heading="You used your free idea boards.">Your existing directions remain available. Upgrade when you want another comparison.</Alert> : null}
       {error ? <Alert tone="danger">{error}</Alert> : null}
 
       {items.length > 0 ? (

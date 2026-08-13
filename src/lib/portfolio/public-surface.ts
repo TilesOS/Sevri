@@ -1,5 +1,9 @@
 import type { PublicPortfolioSafetyInput } from "@/lib/portfolio/safety";
 import type { PortfolioEntryDetailView } from "@/lib/portfolio/portfolio-view";
+import {
+  getPublicFeaturedArtifactDisplayNames,
+  getPublicFeaturedEvidenceText,
+} from "@/lib/portfolio/featured-evidence";
 import { truncateProse } from "@/lib/text/prose";
 
 export function trimPublicText(value: string | null | undefined, maxLength: number) {
@@ -21,9 +25,7 @@ export function buildPublicSafetyInput(
     summary: view.summary,
     reflection: view.entry.student_reflection ?? "",
     featuredSubmissionExcerpt: getPublicFeaturedSubmissionExcerpt(view),
-    featuredEvidenceText: view.artifacts
-      .filter((artifact) => view.featuredArtifactIds.includes(artifact.id))
-      .map((artifact) => [artifact.caption, artifact.alt_text].filter(Boolean).join(" — "))
-      .join("\n"),
+    featuredArtifactDisplayNames: getPublicFeaturedArtifactDisplayNames(view.artifacts, view.featuredArtifactIds),
+    featuredEvidenceText: getPublicFeaturedEvidenceText(view.artifacts, view.featuredArtifactIds),
   };
 }
