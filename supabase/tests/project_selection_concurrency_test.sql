@@ -119,7 +119,7 @@ values (
   8,
   'Test',
   '{}'::jsonb,
-  'software',
+  'Web app',
   '{}'::jsonb
 );
 
