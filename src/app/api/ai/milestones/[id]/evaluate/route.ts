@@ -18,6 +18,7 @@ import { buildRoadmapOverviewFromStorage } from "@/lib/ai/storage";
 import { StepGuidanceSchema } from "@/lib/ai/schemas";
 import { trackEvent } from "@/lib/analytics/track";
 import { countWords } from "@/lib/projects/output-metrics";
+import { MAX_REBUTTAL_SUBMISSION_CHARS } from "@/lib/projects/rebuttal";
 import { captureServerError } from "@/lib/sentry/server";
 import type {
   EvaluationLifecycleStatus,
@@ -54,7 +55,7 @@ const artifactSchema = z.object({
   }
 });
 const bodySchema = z.object({
-  submission_text: z.string().max(20_600).default(""),
+  submission_text: z.string().max(MAX_REBUTTAL_SUBMISSION_CHARS).default(""),
   artifacts: z.array(artifactSchema).max(5).default([]),
   evidence_submission_id: z.string().uuid().nullable().default(null),
 }).superRefine((data, ctx) => {

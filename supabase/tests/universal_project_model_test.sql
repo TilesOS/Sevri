@@ -1,5 +1,5 @@
 begin;
-select plan(38);
+select plan(43);
 
 select has_column('public', 'intakes', 'project_goal', 'intakes have a universal project goal');
 select has_column('public', 'intakes', 'format_preferences', 'intakes support multiple format preferences');
@@ -42,8 +42,29 @@ select ok(
   'artifact rows are written inside the same RPC transaction'
 );
 select ok(
-  position('evidence_submission_id = p_evidence_submission_id' in pg_get_functiondef('public.create_milestone_artifact_bundle_with_pending_evaluation(uuid,text,jsonb,uuid)'::regprocedure)) > 0,
-  'rebuttal evidence references are written inside the same RPC transaction'
+  (select prosecdef from pg_proc where oid = 'private.create_milestone_submission_with_pending_evaluation(uuid,text,text,text,uuid)'::regprocedure),
+  'the evidence-lineage writer is privileged to bypass append-only submission RLS'
+);
+select ok(
+  has_function_privilege('authenticated', 'private.create_milestone_submission_with_pending_evaluation(uuid,text,text,text,uuid)', 'execute'),
+  'the authenticated public wrapper can invoke the private evidence-lineage writer'
+);
+select ok(
+  not has_function_privilege('anon', 'private.create_milestone_submission_with_pending_evaluation(uuid,text,text,text,uuid)', 'execute'),
+  'anonymous callers cannot invoke the private evidence-lineage writer'
+);
+select ok(
+  position('set evidence_submission_id = p_evidence_submission_id' in lower(pg_get_functiondef('private.create_milestone_submission_with_pending_evaluation(uuid,text,text,text,uuid)'::regprocedure))) > 0,
+  'rebuttal evidence references are persisted by the privileged writer'
+);
+select ok(
+  position('update public.milestone_submissions' in lower(pg_get_functiondef('public.create_milestone_artifact_bundle_with_pending_evaluation(uuid,text,jsonb,uuid)'::regprocedure))) = 0,
+  'the security-invoker artifact wrapper does not attempt a blocked submission update'
+);
+select ok(
+  position('s.milestone_id = p_milestone_id' in pg_get_functiondef('private.create_milestone_submission_with_pending_evaluation(uuid,text,text,text,uuid)'::regprocedure)) > 0
+  and position('s.user_id = v_user_id' in pg_get_functiondef('private.create_milestone_submission_with_pending_evaluation(uuid,text,text,text,uuid)'::regprocedure)) > 0,
+  'the privileged lineage writer restricts evidence to the same owner and milestone'
 );
 
 select ok((select relrowsecurity from pg_class where oid = 'public.milestone_submission_artifacts'::regclass), 'artifact metadata has RLS enabled');

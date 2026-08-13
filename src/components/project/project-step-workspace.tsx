@@ -37,7 +37,11 @@ import {
 } from "@/lib/ai/content-quality-specs";
 import type { ProjectMilestoneView, ProjectWorkspaceView } from "@/lib/projects/workspace";
 import { getPinnedFocusStorageKey } from "@/lib/projects/focus-storage";
-import { buildRebuttalSubmissionPayload } from "@/lib/projects/rebuttal";
+import {
+  MAX_REBUTTAL_CHARS,
+  MAX_SUBMISSION_CHARS,
+  buildRebuttalSubmissionPayload,
+} from "@/lib/projects/rebuttal";
 import type { MilestoneReviewRow } from "@/lib/db/queries/reviewers";
 import type {
   LatestCompletedMilestoneEvaluation,
@@ -89,8 +93,6 @@ type SubmissionSlot =
     };
 
 const ACCEPTED_FILE_EXTENSIONS = ".jpg,.jpeg,.png,.webp,.pdf,.md,.txt,.json,.csv";
-const MAX_SUBMISSION_CHARS = 20_000;
-const MAX_REBUTTAL_CHARS = 500;
 type EvidenceDraft = { upload_path?: string; external_url?: string; display_name: string; mime_type?: string; size_bytes?: number; caption?: string; alt_text?: string };
 
 async function stripImageMetadata(file: File): Promise<File> {
