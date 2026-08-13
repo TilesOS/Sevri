@@ -20,6 +20,13 @@ to-do.txt
 /supabase/.temp/
 /supabase/.branches/
 
+# Database dumps — never commit production data.
+# Anchored to the repo root so supabase/migrations and supabase/tests
+# keep tracking their .sql files normally.
+/*.sql
+*.dump
+*.sql.gz
+
 # impeccable-ignore-start
 # Ephemeral output, runtime state, and per-dev overrides.
 # Unanchored: .impeccable may sit at the repo root or under a nested
